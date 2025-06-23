@@ -39,6 +39,7 @@ const char * read_file( const char * path )
 
 struct sConfig_ver
 {
+	const char * pVersion;
 	int Major; //Indicates significant changes , potentially including incompatible API changes.
 	int Minor; //Denotes new functionality added in a backwards - compatible manner.
 	int Build; //Represents the specific build number of the software.
@@ -122,6 +123,7 @@ int main()
 
 		result( json_element ) ver = json_object_find( el_config_ver.value.as_object , "ver" );
 		if ( catch_error( &ver , "ver" ) ) return -1;
+		cfg_ver.pVersion = newstr( ( char * )ver.inner.value.value.as_string );
 		char * perr = NULL;
 		char * pver = ( char * )ver.inner.value.value.as_string;
 		cfg_ver.Major = ( int )strtol( strtok( pver , "." ) , &perr , 10 ); if ( !perr ) return -1;
