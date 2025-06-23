@@ -197,9 +197,9 @@ int main()
 			for ( int i = 0 ; i < el_tunnels.value.as_object->count ; i++ )
 			{
 				char tunnel_name[50] = "tunnel";
-				char tunnel_number[ 10 ] = "";
-				
-				result( json_element ) re_tunnel = json_object_find( el_tunnels.value.as_object , strcat( tunnel_name , itoa( i + 1 , tunnel_number , 10 ) ) );
+				sprintf( tunnel_name , "tunnel%d" , i + 1 );
+
+				result( json_element ) re_tunnel = json_object_find( el_tunnels.value.as_object , tunnel_name );
 				if ( catch_error( &re_tunnel , tunnel_name ) ) return -1;
 				typed( json_element ) el_tunnel = result_unwrap( json_element )( &re_tunnel );
 

@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <pthread.h> // Required for Pthreads functions
 #include <stdio.h>   // Required for printf
 #include <stdlib.h>
@@ -8,8 +7,14 @@
 #include <unistd.h> // For close()
 #include <errno.h> // For errno
 #include <stdarg.h>
+#include <stddef.h>
+#include <sys/time.h>
+#include <sys/select.h>
+#include <sys/types.h>          /* See NOTES */
 
-#pragma GCC diagnostic ignored "-Wconversion"
+
+
+//#pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
 #define BUFFER_SIZE 9000
@@ -25,13 +30,13 @@
 #define TCP_PORT_2 4322
 #define TCP_SERVER_IP_2 "192.168.1.60"
 
-const char * __msg( char * msg_holder , ssize_t size_of_msg_holder , const char * msg , int line_number)
+const char * __msg( char * msg_holder , size_t size_of_msg_holder , const char * msg , int line_number)
 {
     snprintf(msg_holder, size_of_msg_holder, "%s: ln(%d)\n", msg , line_number);
     return msg_holder;
 }
 
-const char * __snprintf( char * msg_holder , ssize_t size_of_msg_holder , const char * format , ... )
+const char * __snprintf( char * msg_holder , size_t size_of_msg_holder , const char * format , ... )
 {
     va_list args;
 
@@ -65,30 +70,30 @@ struct tcp_connection_data
 
 struct tunnel_data
 {
-    udp_connection_data * p_udp_data;
-    tcp_connection_data * p_tcp_data;
+    struct udp_connection_data * p_udp_data;
+    struct tcp_connection_data * p_tcp_data;
     int counterpart_connection_establishment_count; // 2 means both side socket connected
 };
 
 struct tunnels_data
 {
-    tunnel_data tunnels_data[ TUNNEL_COUNT ];
+    struct tunnel_data tunnels_data[ TUNNEL_COUNT ];
     int udp_connection_count;
     int tcp_connection_count;
     int tunnel_connection_establishment_count; // each tunnel established
 };
 
-void _close_socket( int & socket_id )
+void _close_socket( int * socket_id )
 {
-    close(socket_id);
-    socket_id = -1;
+    close(*socket_id);
+    *socket_id = -1;
 }
 
 void* thread_udp_connection_proc(void* arg)
 {
     char custom_message[256];
 
-    tunnels_data * pTunnels_data = ( tunnels_data * )arg;
+    struct tunnels_data * pTunnels_data = ( struct tunnels_data * )arg;
 
     printf(_MSG("try to connect inbound udp connection"));
 
@@ -102,10 +107,11 @@ void* thread_udp_connection_proc(void* arg)
         }
 
         struct sockaddr_in server_addr;
+
         memset( &server_addr , 0 , sizeof( server_addr ) ); // Clear the structure
 
         server_addr.sin_family = AF_INET; // IPv4
-        server_addr.sin_port = htons( pTunnels_data->tunnels_data[pTunnels_data->udp_connection_count].p_udp_data->udp_port_number ); // Convert port to network byte order
+        server_addr.sin_port = htons( (uint16_t)pTunnels_data->tunnels_data[pTunnels_data->udp_connection_count].p_udp_data->udp_port_number ); // Convert port to network byte order
         //server_addr.sin_addr.s_addr = inet_addr("YOUR_IP_ADDRESS"); // Specify the IP address to bind to
         // Or use INADDR_ANY to bind to all available interfaces:
         server_addr.sin_addr.s_addr = INADDR_ANY;
@@ -113,7 +119,7 @@ void* thread_udp_connection_proc(void* arg)
         if ( bind( pTunnels_data->tunnels_data[pTunnels_data->udp_connection_count].p_udp_data->udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) < 0 )
         {
             _DETAIL_ERROR( "bind failed" );
-            _close_socket(pTunnels_data->tunnels_data[pTunnels_data->udp_connection_count].p_udp_data->udp_sockfd);
+            _close_socket(&pTunnels_data->tunnels_data[pTunnels_data->udp_connection_count].p_udp_data->udp_sockfd);
 
             //close( pTunnels_data->tunnels_data[pTunnels_data->udp_connection_count].p_udp_data->udp_sockfd );
             //pTunnels_data->tunnels_data[pTunnels_data->udp_connection_count].p_udp_data->udp_sockfd = -1;
@@ -131,7 +137,7 @@ void* thread_udp_connection_proc(void* arg)
     return NULL; // Threads can return a value, but this example returns NULL
 }
 
-int _connect_tcp( tcp_connection_data * pTCP )
+int _connect_tcp( struct tcp_connection_data * pTCP )
 {
     char custom_message[256];
     while ( 1 )
@@ -149,10 +155,10 @@ int _connect_tcp( tcp_connection_data * pTCP )
 
         // Connect to TCP server
         tcp_addr.sin_family = AF_INET;
-        tcp_addr.sin_port = htons(pTCP->tcp_port_number);
+        tcp_addr.sin_port = htons( (uint16_t)pTCP->tcp_port_number );
         if (inet_pton(AF_INET, pTCP->tcp_ip, &tcp_addr.sin_addr) <= 0) {
             _DETAIL_ERROR("Invalid TCP address");
-            _close_socket(pTCP->tcp_sockfd);
+            _close_socket(&pTCP->tcp_sockfd);
             //pthread_exit((void *)BAD_RETURN);
             //return NULL;
             return -1;
@@ -162,13 +168,13 @@ int _connect_tcp( tcp_connection_data * pTCP )
         {
             if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
             {
-                _close_socket(pTCP->tcp_sockfd);
+                _close_socket(&pTCP->tcp_sockfd);
                 sleep( 2 ); // sec
                 continue;
             }
 
             _DETAIL_ERROR( "Error connecting to TCP server" );
-            _close_socket(pTCP->tcp_sockfd);
+            _close_socket(&pTCP->tcp_sockfd);
             //pthread_exit( ( void * )BAD_RETURN );
             //return NULL;
             return -1;
@@ -187,7 +193,7 @@ void * thread_tcp_connection_proc( void * arg )
 {
     char custom_message[ 256 ];
 
-    tunnels_data * pTunnels_data = ( tunnels_data * )arg;
+    struct tunnels_data * pTunnels_data = ( struct tunnels_data * )arg;
 
     printf(_MSG("try to connect outbound tcp connection"));
 
@@ -213,54 +219,6 @@ void * thread_tcp_connection_proc( void * arg )
         //return NULL;
     }
 
-    //while ( 1 )
-    //{
-
-    //    // try to create TCP socket
-    //    ptcp_connection->sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    //    if (ptcp_connection->sockfd == -1) {
-    //        _DETAIL_ERROR("Error creating TCP socket");
-    //        pthread_exit((void *)BAD_RETURN);
-    //        return NULL;
-    //    }
-
-    //    struct sockaddr_in tcp_addr;
-
-    //    // Connect to TCP server
-    //    tcp_addr.sin_family = AF_INET;
-    //    tcp_addr.sin_port = htons(TCP1_PORT);
-    //    if (inet_pton(AF_INET, TCP1_SERVER_IP, &tcp_addr.sin_addr) <= 0) {
-    //        _DETAIL_ERROR("Invalid TCP address");
-    //        close(ptcp_connection->sockfd);
-    //        ptcp_connection->sockfd = -1;
-    //        pthread_exit((void *)BAD_RETURN);
-    //        return NULL;
-    //    }
-
-    //    if ( connect( ptcp_connection->sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
-    //    {
-    //        if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
-    //        {
-    //            close( ptcp_connection->sockfd );
-    //            ptcp_connection->sockfd = -1;
-    //            sleep( 2 ); // sec
-    //            continue;
-    //        }
-
-    //        _DETAIL_ERROR( "Error connecting to TCP server" );
-    //        close( ptcp_connection->sockfd );
-    //        ptcp_connection->sockfd = -1;
-    //        pthread_exit( ( void * )BAD_RETURN );
-    //        return NULL;
-    //    }
-    //    else
-    //    {
-    //        ptcp_connection->connection_stablished = 1;
-    //        printf(_MSG("outbound tcp connected"));
-    //        break;
-    //    }
-    //}
-
     return NULL; // Threads can return a value, but this example returns NULL
 }
 
@@ -268,7 +226,7 @@ void * thread_tunnel_proc( void * arg )
 {
     char custom_message[ 256 ];
 
-    tunnels_data * pTunnels_data = ( tunnels_data * )arg;
+    struct tunnels_data * pTunnels_data = ( struct tunnels_data * )arg;
 
     while ( !pTunnels_data->tunnel_connection_establishment_count )
     {
@@ -309,8 +267,7 @@ void * thread_tunnel_proc( void * arg )
             continue;
         }
 
-        struct timeval timeout;
-        // Set timeout (e.g., 5 seconds)
+        struct timeval timeout; // Set timeout (e.g., 5 seconds)
         timeout.tv_sec = 5;
         timeout.tv_usec = 0;
 
@@ -344,7 +301,7 @@ void * thread_tunnel_proc( void * arg )
                     buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
                     // Send data over TCP
-                    if (send(pTunnels_data->tunnels_data[ i ].p_tcp_data->tcp_sockfd, buffer, bytes_received, 0) == -1) {
+                    if (send(pTunnels_data->tunnels_data[ i ].p_tcp_data->tcp_sockfd, buffer, (size_t)bytes_received, 0) == -1) {
                         _DETAIL_ERROR("Error sending data over TCP");
                         continue;
                     }
@@ -367,19 +324,19 @@ int main()
     pthread_t thread_udp_connection , thread_tcp_connection;
     pthread_t thread_tunnel;
 
-    udp_connection_data udp_connection_datas[TUNNEL_COUNT];
+    struct udp_connection_data udp_connection_datas[TUNNEL_COUNT];
     memset( udp_connection_datas , 0 , sizeof(udp_connection_datas) );
     udp_connection_datas[ 0 ].udp_port_number = UDP_PORT_1;
     udp_connection_datas[ 1 ].udp_port_number = UDP_PORT_2;
 
-    tcp_connection_data tcp_connection_datas[TUNNEL_COUNT];
+    struct tcp_connection_data tcp_connection_datas[TUNNEL_COUNT];
     memset( tcp_connection_datas , 0 , sizeof(tcp_connection_datas) );
     tcp_connection_datas[ 0 ].tcp_ip = TCP_SERVER_IP_1;
     tcp_connection_datas[ 0 ].tcp_port_number = TCP_PORT_1;
     tcp_connection_datas[ 1 ].tcp_ip = TCP_SERVER_IP_2;
     tcp_connection_datas[ 1 ].tcp_port_number = TCP_PORT_2;
 
-    tunnels_data tunnels;
+    struct tunnels_data tunnels;
     memset( &tunnels , 0 , sizeof(tunnels) );
     tunnels.tunnels_data[0].p_udp_data = &udp_connection_datas[0];
     tunnels.tunnels_data[0].p_tcp_data = &tcp_connection_datas[0];
