@@ -48,21 +48,21 @@ struct sConfig_ver
 
 struct sU2T_config_0
 {
-	const char * d_create_date; // "2025-06-21 20:43:00"
-	const char * d_modify_date;
-	const char * d_config_name;
-	const char * d_config_tags;
-	const char * d_description;
-	const char * d_log_level; // no , error , warn , verbose,
-	const char * d_log_file;
+	const char * create_date; // "2025-06-21 20:43:00"
+	const char * modify_date;
+	const char * config_name;
+	const char * config_tags;
+	const char * description;
+	const char * log_level; // no , error , warn , verbose,
+	const char * log_file;
 	
-	int d_enable;
-	int d_shutdown;
-	int d_watchdog_enabled;
-	int d_load_prev_config;
-	int d_dump_current_config;
-	int d_dump_prev_config;
-	int d_time_out_sec;
+	int enable;
+	int shutdown;
+	int watchdog_enabled;
+	int load_prev_config;
+	int dump_current_config;
+	int dump_prev_config;
+	int time_out_sec;
 };
 
 struct sU2T_config_n
@@ -73,6 +73,27 @@ struct sU2T_config_n
 struct sU2T_config // finalizer
 {
 	struct sU2T_config_n U2T_config; // first member
+	// ...
+};
+
+struct sU2T_Tunnel_0
+{
+	const char * UDP_origin_ip;
+	int UDP_origin_port;
+	const char * TCP_termination_ip;
+	int TCP_termination_port;
+	int enable;
+	int reset_connections;
+};
+
+struct sU2T_Tunnel_n
+{
+	struct sU2T_Tunnel_0 U2T_tunnel_0; // first member , n - 1
+};
+
+struct sU2T_Tunnel // finalizer
+{
+	struct sU2T_Tunnel_n U2T_tunnel; // first member
 	// ...
 };
 
@@ -87,7 +108,6 @@ int main()
 {
 	struct sConfig_ver cfg_ver = { 0 };
 	struct sU2T_config U2T_config = { 0 };
-	struct sU2T_config_0 * pGeneralConfiguration = ( struct sU2T_config_0 * )&U2T_config;
 
 	{
 		const char * config_ver_file_content = read_file( "/home/mohsen/workplace/config/U2T/config_ver.txt" );
@@ -113,6 +133,8 @@ int main()
 	}
 	cfg_ver.Revision_Patch++; // just to ignore warning unused
 
+	struct sU2T_config_0 * pGeneralConfiguration = ( struct sU2T_config_0 * )&U2T_config;
+	struct sU2T_Tunnel * pTunnel = NULL;
 	{
 		const char * U2T_config_file_content = read_file( "/home/mohsen/workplace/config/U2T/U2T_config.txt" );
 		if ( U2T_config_file_content == NULL )
@@ -124,21 +146,22 @@ int main()
 		if ( catch_error( &rs_U2T_config , "U2T_config" ) ) return -1;
 		typed( json_element ) el_U2T_config = result_unwrap( json_element )( &rs_U2T_config );
 
+		if ( cfg_ver.Major >= 1 )
 		{
 			result( json_element ) re_configurations = json_object_find( el_U2T_config.value.as_object , "configurations" );
 			if ( catch_error( &re_configurations , "configurations" ) ) return -1;
 			typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 
 			#define CFG_ELEM_STR( name ) \
-				result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , "d_##name" );\
-				if ( catch_error( &re_##name , "d_##name" ) ) return -1;\
+				result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , "name" );\
+				if ( catch_error( &re_##name , "name" ) ) return -1;\
 				typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-				pGeneralConfiguration->d_##name = newstr(el_##name.value.as_string);
+				pGeneralConfiguration->name = newstr(el_##name.value.as_string);
 			#define CFG_ELEM_I( name ) \
-				result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , "d_##name" );\
-				if ( catch_error( &re_##name , "d_##name" ) ) return -1;\
+				result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , "name" );\
+				if ( catch_error( &re_##name , "name" ) ) return -1;\
 				typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-				pGeneralConfiguration->d_##name = (int)el_##name.value.as_number.value.as_long;
+				pGeneralConfiguration->name = (int)el_##name.value.as_number.value.as_long;
 
 			CFG_ELEM_STR( create_date );
 			CFG_ELEM_STR( modify_date );
@@ -164,16 +187,46 @@ int main()
 			if ( catch_error( &re_tunnels , "tunnels_obj" ) ) return -1;
 			typed( json_element ) el_tunnels = result_unwrap( json_element )( &re_tunnels );
 
-			//printf( "%d\n" , tunnels.value.as_object->count );
+			if ( el_tunnels.value.as_object->count < 1 ) return -1;
 
-			result( json_element ) re_tunnel1 = json_object_find( el_tunnels.value.as_object , "tunnel1" );
-			if ( catch_error( &re_tunnel1 , "tunnel1" ) ) return -1;
-			typed( json_element ) el_tunnel1 = result_unwrap( json_element )( &re_tunnel1 );
+			if ( !( pTunnel = ( struct sU2T_Tunnel * )malloc( sizeof( struct sU2T_Tunnel ) * el_tunnels.value.as_object->count ) ) )
+			{
+				return -1; // insufficient memory
+			}
 
-			result( json_element ) re_UDP_origin_ip = json_object_find( el_tunnel1.value.as_object , "UDP_origin_ip" );
-			if ( catch_error( &re_UDP_origin_ip , "UDP_origin_ip" ) ) return -1;
-			//typed( json_element ) el_UDP_origin_ip = result_unwrap( json_element )( &re_UDP_origin_ip );
-			//pGeneralConfiguration->d_UDP_origin_ip = el_UDP_origin_ip.value.as_number.value.as_long;
+			for ( int i = 0 ; i < el_tunnels.value.as_object->count ; i++ )
+			{
+				char tunnel_name[50] = "tunnel";
+				char tunnel_number[ 10 ] = "";
+				
+				result( json_element ) re_tunnel = json_object_find( el_tunnels.value.as_object , strcat( tunnel_name , itoa( i + 1 , tunnel_number , 10 ) ) );
+				if ( catch_error( &re_tunnel , tunnel_name ) ) return -1;
+				typed( json_element ) el_tunnel = result_unwrap( json_element )( &re_tunnel );
+
+				#define CFG_ELEM_STR( name ) \
+					result( json_element ) re_##name = json_object_find( el_tunnel.value.as_object , "name" );\
+					if ( catch_error( &re_##name , "name" ) ) return -1;\
+					typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
+					((struct sU2T_Tunnel_0 *)(pTunnel + i))->name = newstr(el_##name.value.as_string);
+				
+				#define CFG_ELEM_I( name ) \
+					result( json_element ) re_##name = json_object_find( el_tunnel.value.as_object , "name" );\
+					if ( catch_error( &re_##name , "name" ) ) return -1;\
+					typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
+					((struct sU2T_Tunnel_0 *)(pTunnel + i))->name = (int)el_##name.value.as_number.value.as_long;
+
+				CFG_ELEM_STR( UDP_origin_ip );
+				CFG_ELEM_I( UDP_origin_port );
+				CFG_ELEM_STR( TCP_termination_ip );
+				CFG_ELEM_I( TCP_termination_port );
+				CFG_ELEM_I( enable );
+				CFG_ELEM_I( reset_connections );
+
+				#undef CFG_ELEM_I
+				#undef CFG_ELEM_STR
+			}
+
+			
 		}
 
 		//json_print( &U2T_config , 1 );
