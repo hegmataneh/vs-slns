@@ -2,6 +2,10 @@
 
 #include <stddef.h>
 
+/*
+* mohsen . 14040402 . very important .key value must be not empty
+*/
+
 #ifndef __cplusplus
 typedef unsigned int bool;
 #define true (1)

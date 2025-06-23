@@ -14,6 +14,10 @@
  */
 #define is_whitespace(ch) (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t')
 
+/*
+* mohsen . 14040402 . very important .key value must be not empty
+*/
+
 #define JSON_SKIP_WHITESPACE /*very important*/
 
 #ifdef JSON_SKIP_WHITESPACE

@@ -124,10 +124,10 @@ int main()
 		if ( catch_error( &ver , "ver" ) ) return -1;
 		char * perr = NULL;
 		char * pver = ( char * )ver.inner.value.value.as_string;
-		cfg_ver.Major = ( int )strtol( strtok( pver , "." ) , &perr , 10 ); if ( perr != NULL ) return -1;
-		cfg_ver.Minor = ( int )strtol( strtok( NULL , "." ) , &perr, 10 ); if ( perr != NULL ) return -1;
-		cfg_ver.Build = ( int )strtol( strtok( NULL , "." ) , &perr, 10 ); if ( perr != NULL ) return -1;
-		cfg_ver.Revision_Patch = ( int )strtol( strtok( NULL , "." ) , &perr , 10 ); if ( perr != NULL ) return -1;
+		cfg_ver.Major = ( int )strtol( strtok( pver , "." ) , &perr , 10 ); if ( !perr ) return -1;
+		cfg_ver.Minor = ( int )strtol( strtok( NULL , "." ) , &perr, 10 ); if ( !perr ) return -1;
+		cfg_ver.Build = ( int )strtol( strtok( NULL , "." ) , &perr, 10 ); if ( !perr ) return -1;
+		cfg_ver.Revision_Patch = ( int )strtol( strtok( NULL , "." ) , &perr , 10 ); if ( !perr ) return -1;
 
 		json_free( &el_config_ver );
 	}
@@ -152,14 +152,26 @@ int main()
 			if ( catch_error( &re_configurations , "configurations" ) ) return -1;
 			typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 
+
+			//result( json_element ) re_create_date = json_object_find( el_configurations.value.as_object , "create_date" );
+			//if ( catch_error( &re_create_date , "create_date" ) ) return -1;
+			//typed( json_element ) el_create_date = result_unwrap( json_element )( &re_create_date );
+			//pGeneralConfiguration->create_date = newstr(el_create_date.value.as_string);
+
+			//result( json_element ) re_config_tags = json_object_find( el_configurations.value.as_object , "config_tags" );
+			//if ( catch_error( &re_config_tags , "config_tags" ) ) return -1;
+			//typed( json_element ) el_config_tags = result_unwrap( json_element )( &re_config_tags );
+			//pGeneralConfiguration->config_tags = newstr(el_config_tags.value.as_string);
+
+
 			#define CFG_ELEM_STR( name ) \
-				result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , "name" );\
-				if ( catch_error( &re_##name , "name" ) ) return -1;\
+				result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );\
+				if ( catch_error( &re_##name , #name ) ) return -1;\
 				typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 				pGeneralConfiguration->name = newstr(el_##name.value.as_string);
 			#define CFG_ELEM_I( name ) \
-				result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , "name" );\
-				if ( catch_error( &re_##name , "name" ) ) return -1;\
+				result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );\
+				if ( catch_error( &re_##name , #name ) ) return -1;\
 				typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 				pGeneralConfiguration->name = (int)el_##name.value.as_number.value.as_long;
 
@@ -204,14 +216,14 @@ int main()
 				typed( json_element ) el_tunnel = result_unwrap( json_element )( &re_tunnel );
 
 				#define CFG_ELEM_STR( name ) \
-					result( json_element ) re_##name = json_object_find( el_tunnel.value.as_object , "name" );\
-					if ( catch_error( &re_##name , "name" ) ) return -1;\
+					result( json_element ) re_##name = json_object_find( el_tunnel.value.as_object , #name );\
+					if ( catch_error( &re_##name , #name ) ) return -1;\
 					typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 					((struct sU2T_Tunnel_0 *)(pTunnel + i))->name = newstr(el_##name.value.as_string);
 				
 				#define CFG_ELEM_I( name ) \
-					result( json_element ) re_##name = json_object_find( el_tunnel.value.as_object , "name" );\
-					if ( catch_error( &re_##name , "name" ) ) return -1;\
+					result( json_element ) re_##name = json_object_find( el_tunnel.value.as_object , #name );\
+					if ( catch_error( &re_##name , #name ) ) return -1;\
 					typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 					((struct sU2T_Tunnel_0 *)(pTunnel + i))->name = (int)el_##name.value.as_number.value.as_long;
 
