@@ -7,10 +7,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#pragma GCC diagnostic ignored "-Wsign-conversion"
+
 /**
  * @brief Determines whether a character `ch` is whitespace
  */
 #define is_whitespace(ch) (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t')
+
+#define JSON_SKIP_WHITESPACE /*very important*/
 
 #ifdef JSON_SKIP_WHITESPACE
 void json_skip_whitespace(typed(json_string) * str_ptr) {
@@ -1093,6 +1097,17 @@ result(json_string)
 
   output[offset] = '\0';
   return result_ok(json_string)((typed(json_string))output);
+}
+
+int catch_error(result( json_element ) * element, const char * what)
+{
+    if ( result_is_err( json_element )( element ) )
+	{
+		typed( json_error ) error = result_unwrap_err( json_element )( element );
+		fprintf( stderr , "Error getting element \"%s\": %s\n" , what , json_error_to_string( error ) );
+		return -1;
+	}
+    return 0;
 }
 
 define_result_type(json_element_type)

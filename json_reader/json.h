@@ -161,3 +161,4 @@ void json_free(typed(json_element) * element);
  */
 typed(json_string) json_error_to_string(typed(json_error) error);
 
+int catch_error( result( json_element ) * element , const char * what );
