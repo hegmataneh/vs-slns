@@ -460,7 +460,9 @@ int gettimeofday(struct timeval *tv, struct timezone *tz);
 int settimeofday(const struct timeval *tv, const struct timezone *tz);
 
 /* sys/select.h */
+
 #define FD_SETSIZE 1024
+typedef unsigned long fd_mask;
 typedef struct {
     unsigned long fds_bits[FD_SETSIZE / (8 * sizeof(long))];
 } fd_set;

@@ -45,9 +45,11 @@ const char * __snprintf( char * msg_holder , size_t size_of_msg_holder , const c
 	return msg_holder;
 }
 
-#define _MSG(s) __msg(custom_message,sizeof(custom_message),s,__LINE__)
+#define FUNCTION_SCOPE_INIT() char __custom_message[ 256 ] = "";
+static char __custom_message[ 256 ] = ""; // if forgot to define __custom_message then global is choosed
+#define _MSG(s) __msg(__custom_message,sizeof(__custom_message),s,__LINE__)
 
-#define _DETAIL_ERROR( user_friendly_msg ) do { perror(_MSG(user_friendly_msg)); perror( __snprintf( custom_message , sizeof(custom_message) , "more details: %s(#%d)@ln(%d)\n" , strerror(errno), errno , __LINE__ ) ); } while(0);
+#define _DETAIL_ERROR( user_friendly_msg ) do { perror(_MSG(user_friendly_msg)); perror( __snprintf( __custom_message , sizeof(__custom_message) , "more details: %s(#%d)@ln(%d)\n" , strerror(errno), errno , __LINE__ ) ); } while(0);
 
 #define VOID_RET ((void*)NULL)
 #define MAIN_BAD_RET (1/*Indicate an error*/)
@@ -200,7 +202,8 @@ struct Protocol_Bridge_CFG // finalizer
 
 struct App_Config // global config
 {
-	struct Config_ver * _ver;
+	struct Config_ver ___temp_ver; // not usable just to prevent reallocation
+	struct Config_ver * _ver; // app version
 	int _version_changed;
 
 	struct Global_Config * _prev_general_config;
@@ -225,7 +228,7 @@ struct App_Data
 
 void * thread_udp_connection_proc( void * app_data )
 {
-	char custom_message[ 256 ] = "";
+	FUNCTION_SCOPE_INIT();
 	struct App_Data * _g = ( struct App_Data * )app_data;
 
 	printf( _MSG( "try to connect inbound udp connection" ) );
@@ -274,7 +277,7 @@ void * thread_udp_connection_proc( void * app_data )
 				printf( _MSG( "inbound udp connected" ) );
 			}
 		}
-		sleep( 1000 );
+		sleep( 1 );
 	}
 
 	return NULL; // Threads can return a value, but this example returns NULL
@@ -282,7 +285,7 @@ void * thread_udp_connection_proc( void * app_data )
 
 int _connect_tcp( struct TCP_connection_data * pTCP )
 {
-	char custom_message[ 256 ] = "";
+	FUNCTION_SCOPE_INIT();
 	while ( 1 )
 	{
 		// try to create TCP socket
@@ -329,7 +332,7 @@ int _connect_tcp( struct TCP_connection_data * pTCP )
 
 void * thread_tcp_connection_proc( void * app_data )
 {
-	char custom_message[ 256 ] = "";
+	FUNCTION_SCOPE_INIT();
 	struct App_Data * _g = ( struct App_Data * )app_data;
 
 	printf( _MSG( "try to connect outbound tcp connection" ) );
@@ -375,7 +378,7 @@ void * thread_tcp_connection_proc( void * app_data )
 
 void * thread_protocol_bridge_proc( void * app_data )
 {
-	char custom_message[ 256 ] = "";
+	FUNCTION_SCOPE_INIT();
 	struct App_Data * _g = ( struct App_Data * )app_data;
 
 	while ( !_g->bridges.pb_connection_establishment_count )
@@ -476,7 +479,7 @@ void * thread_protocol_bridge_proc( void * app_data )
 // TODO . think about race condition
 void * version_checker( void * app_data )
 {
-	char custom_message[ 256 ] = "";
+	FUNCTION_SCOPE_INIT();
 	struct App_Data * _g = ( struct App_Data * )app_data;
 	char buf[ 50 ] = { 0 };
 	time_t prev_time = {0} , cur_time = { 0 };
@@ -514,7 +517,7 @@ void * version_checker( void * app_data )
 
 			if ( _g->cfg._ver == NULL || strcmp( temp_ver.version , _g->cfg._ver->version ) )
 			{
-				memcpy( _g->cfg._ver , &temp_ver , sizeof( temp_ver ) );
+				_g->cfg._ver = ( struct Config_ver * )memcpy( &_g->cfg.___temp_ver , &temp_ver , sizeof( temp_ver ) );
 				_g->cfg._version_changed = 1;
 			}
 		}
@@ -527,9 +530,9 @@ void * version_checker( void * app_data )
 // TODO . echo acceptible config one time to inform user
 void * config_loader( void * app_data )
 {
-	char custom_message[ 256 ] = "";
+	FUNCTION_SCOPE_INIT();
 	struct App_Data * _g = ( struct App_Data * )app_data;
-	time_t prev_time = { 0 } , cur_time = { 0 };
+	time_t prev_time , cur_time;
 
 	while ( !_g->cfg._version_changed ) // load after version loaded
 	{
@@ -540,9 +543,8 @@ void * config_loader( void * app_data )
 	{
 		cur_time = time( NULL );
 
-		if ( _g->cfg._general_config == NULL || _g->cfg._version_changed /* || difftime(cur_time , prev_time) > 60*/ )
+		if ( _g->cfg._general_config == NULL || _g->cfg._version_changed || difftime(cur_time , prev_time) > 15 * 60 )
 		{
-			prev_time = prev_time; // to just used
 			prev_time = cur_time;
 
 			struct Global_Config temp_config = { 0 };
@@ -557,7 +559,7 @@ void * config_loader( void * app_data )
 				}
 				result( json_element ) rs_Protocol_Bridge_config = json_parse( Protocol_Bridge_config_file_content );
 				free( ( void * )Protocol_Bridge_config_file_content );
-				if ( catch_error( &rs_Protocol_Bridge_config , "U2T_config" ) ) ERR_RET( "cannot parse config file" , VOID_RET );
+				if ( catch_error( &rs_Protocol_Bridge_config , "Protocol_Bridge_config" ) ) ERR_RET( "cannot parse config file" , VOID_RET );
 				typed( json_element ) el_Protocol_Bridge_config = result_unwrap( json_element )( &rs_Protocol_Bridge_config );
 
 				/*configurations*/
@@ -667,13 +669,14 @@ void * config_loader( void * app_data )
 			pPbs = NULL; // to not delete intentionally
 			pbs_count = 0;
 		}
+		sleep( 2 );
 	}
 	return NULL;
 }
 
 void * protocol_bridge_manager( void * app_data )
 {
-	char custom_message[ 256 ] = "";
+	FUNCTION_SCOPE_INIT();
 	struct App_Data * _g = ( struct App_Data * )app_data;
 
 	pthread_t trd_udp_connection , trd_tcp_connection;
@@ -730,7 +733,7 @@ void * protocol_bridge_manager( void * app_data )
 
 int main()
 {
-	char custom_message[ 256 ] = "";
+	FUNCTION_SCOPE_INIT();
 	struct App_Data _g = { 0 };
 
 	pthread_t trd_version_checker;
