@@ -132,10 +132,12 @@ struct Bridge_holder
 
 struct Bridges_holder
 {
-	struct Bridge_holder * pbs;
+	struct Bridge_holder * pbs; // all the active bridges
 	size_t pbs_count;
 
 	size_t pb_connection_establishment_count; // each protocol_bridge established
+
+	struct Bridge_holder empty_one; // just use for condition that loaded config does not have any valid enable bridge config . it must be zero all the time
 };
 
 struct Config_ver
@@ -204,13 +206,16 @@ struct App_Config // global config
 {
 	struct Config_ver ___temp_ver; // not usable just to prevent reallocation
 	struct Config_ver * _ver; // app version
-	int _version_changed;
+	int _version_changed; // act like bool . this var indicate just load new config
+	int _propagate_changes; // act like bool . this car indicate change must apply on system config activly used
 
+	// general
 	struct Global_Config * _prev_general_config;
 	struct Global_Config * _general_config;
 	int _general_config_changed;
 
-	struct Protocol_Bridge_CFG * _prev_cfg_pbs;
+	// bridge
+	struct Protocol_Bridge_CFG * _prev_cfg_pbs; // maybe later in some condition we need to roolback ro prev config
 	size_t _prev_cfg_pbs_count;
 	struct Protocol_Bridge_CFG * _cfg_pbs;
 	size_t _cfg_pbs_count;
@@ -244,7 +249,10 @@ void * thread_udp_connection_proc( void * app_data )
 				break;
 			}
 		}
-		if ( !any_udp_to_connect ) break;
+		if ( !any_udp_to_connect )
+		{
+			break;
+		}
 
 		for ( int i = 0 ; i < _g->bridges.pbs_count ; i++ )
 		{
@@ -371,6 +379,7 @@ void * thread_tcp_connection_proc( void * app_data )
 				}
 			}
 		}
+		sleep( 1 ); // not usable
 	}
 
 	return NULL; // Threads can return a value, but this example returns NULL
@@ -403,7 +412,7 @@ void * thread_protocol_bridge_proc( void * app_data )
 		int sockfd_max = -1; // for select compulsion
 		for ( int i = 0 ; i < _g->bridges.pb_connection_establishment_count ; i++ )
 		{
-			if ( _g->bridges.pbs[ i ].counterpart_connection_establishment_count )
+			if ( _g->bridges.pbs[ i ].counterpart_connection_establishment_count == 2 ) // TODO . warning
 			{
 				// Add socket to set
 				FD_SET( _g->bridges.pbs[ i ].udp_data.udp_sockfd , &readfds );
@@ -420,12 +429,12 @@ void * thread_protocol_bridge_proc( void * app_data )
 			continue;
 		}
 
-		struct timeval timeout; // Set timeout (e.g., 5 seconds)
-		timeout.tv_sec = 5;
-		timeout.tv_usec = 0;
+		//struct timeval timeout; // Set timeout (e.g., 5 seconds)
+		//timeout.tv_sec = 5;
+		//timeout.tv_usec = 0;
 
 		// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-		int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , &timeout );
+		int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , NULL/* & timeout*/);
 
 		if ( ( activity < 0 ) && ( errno != EINTR ) )
 		{
@@ -461,8 +470,11 @@ void * thread_protocol_bridge_proc( void * app_data )
 						continue;
 					}
 
-					printf( "Received from client: %s\n" , buffer );
-					printf( "Forwarded %zd bytes from UDP to TCP.\n" , bytes_received );
+					//printf( "Received from client: %s\n" , buffer );
+					//printf( "Forwarded %zd bytes from UDP to TCP.\n" , bytes_received );
+
+
+
 				}
 			}
 			else
@@ -474,6 +486,8 @@ void * thread_protocol_bridge_proc( void * app_data )
 }
 
 #endif
+
+#define CONFIG_ROOT_PATH "/home/my_projects/home-config/protocol_Bridge"
 
 // TODO . exit gracefully by auto mechanism
 // TODO . think about race condition
@@ -493,7 +507,7 @@ void * version_checker( void * app_data )
 			prev_time = cur_time;
 
 			memset( buf , 0 , sizeof(buf) );
-			const char * config_ver_file_content = read_file( "/home/mohsen/workplace/config/Protocol_Bridge/config_ver.txt" , ( char * )buf );
+			const char * config_ver_file_content = read_file( CONFIG_ROOT_PATH "/config_ver.txt" , ( char * )buf );
 			if ( config_ver_file_content == NULL ) ERR_RET( "cannot open and read version file" , VOID_RET );
 
 			result( json_element ) rs_config_ver = json_parse( config_ver_file_content );
@@ -543,8 +557,9 @@ void * config_loader( void * app_data )
 	{
 		cur_time = time( NULL );
 
-		if ( _g->cfg._general_config == NULL || _g->cfg._version_changed || difftime(cur_time , prev_time) > 15 * 60 )
+		if ( _g->cfg._general_config == NULL || _g->cfg._version_changed /* || difftime(cur_time , prev_time) > 15 * 60*/ )
 		{
+			prev_time = prev_time; // to ignore warning
 			prev_time = cur_time;
 
 			struct Global_Config temp_config = { 0 };
@@ -552,7 +567,7 @@ void * config_loader( void * app_data )
 			struct Protocol_Bridge_CFG * pPbs = NULL;
 			size_t pbs_count = 0;
 			{
-				const char * Protocol_Bridge_config_file_content = read_file( "/home/mohsen/workplace/config/Protocol_Bridge/Protocol_Bridge_config.txt" , NULL );
+				const char * Protocol_Bridge_config_file_content = read_file( CONFIG_ROOT_PATH "/Protocol_Bridge_config.txt" , NULL );
 				if ( Protocol_Bridge_config_file_content == NULL )
 				{
 					ERR_RET( "cannot open config file" , VOID_RET );
@@ -666,6 +681,8 @@ void * config_loader( void * app_data )
 			}
 			_g->cfg._cfg_pbs = pPbs;
 			_g->cfg._cfg_pbs_count = pbs_count;
+			_g->cfg._version_changed = 0;
+			_g->cfg._propagate_changes = 1;
 			pPbs = NULL; // to not delete intentionally
 			pbs_count = 0;
 		}
@@ -689,19 +706,38 @@ void * protocol_bridge_manager( void * app_data )
 
 	while ( 1 )
 	{
-		if ( !_g->cfg._prev_cfg_pbs && !_g->bridges.pbs_count && _g->cfg._cfg_pbs_count )
+		if ( !_g->cfg._prev_cfg_pbs && !_g->bridges.pbs_count && _g->bridges.pbs == NULL && _g->cfg._cfg_pbs_count )
 		{
-			if ( !( _g->bridges.pbs = ( struct Bridge_holder * )malloc( sizeof( struct Bridge_holder ) * _g->cfg._cfg_pbs_count ) ) )
+			size_t enable_cfg_count = 0;
+			for ( int i = 0 ; i < _g->cfg._cfg_pbs_count ; i++ )
+			{
+				if ( _g->cfg._cfg_pbs[ i ].c.c.enable )
+				{
+					enable_cfg_count++;
+				}
+			}
+			if ( !enable_cfg_count )
+			{
+				_g->bridges.pbs = &_g->bridges.empty_one;
+				_g->bridges.pbs_count = 0;
+				continue;
+			}
+
+			if ( !( _g->bridges.pbs = ( struct Bridge_holder * )malloc( sizeof( struct Bridge_holder ) * enable_cfg_count ) ) )
 			{
 				ERR_RET( "insufficient memory" , VOID_RET );
 			}
-			memset( _g->bridges.pbs , 0 , sizeof( struct Bridge_holder ) * _g->cfg._cfg_pbs_count );
-			_g->bridges.pbs_count = _g->cfg._cfg_pbs_count;
-			for ( int i = 0 ; i < _g->bridges.pbs_count ; i++ )
+			memset( _g->bridges.pbs , 0 , sizeof( struct Bridge_holder ) * enable_cfg_count );
+			_g->bridges.pbs_count = enable_cfg_count;
+			int index_active_bridge = -1;
+			for ( int i = 0 ; i < _g->cfg._cfg_pbs_count ; i++ ) // check all cfg
 			{
-				_g->bridges.pbs[ i ].udp_data.udp_port_number = _g->cfg._cfg_pbs[ i ].c.c.UDP_origin_port;
-				strcpy( _g->bridges.pbs[ i ].tcp_data.tcp_ip , _g->cfg._cfg_pbs[ i ].c.c.TCP_destination_ip );
-				_g->bridges.pbs[ i ].tcp_data.tcp_port_number = _g->cfg._cfg_pbs[ i ].c.c.TCP_destination_port;
+				if ( _g->cfg._cfg_pbs[ i ].c.c.enable )
+				{
+					_g->bridges.pbs[ ++index_active_bridge ].udp_data.udp_port_number = _g->cfg._cfg_pbs[ i ].c.c.UDP_origin_port;
+					strcpy( _g->bridges.pbs[ index_active_bridge ].tcp_data.tcp_ip , _g->cfg._cfg_pbs[ i ].c.c.TCP_destination_ip );
+					_g->bridges.pbs[ index_active_bridge ].tcp_data.tcp_port_number = _g->cfg._cfg_pbs[ i ].c.c.TCP_destination_port;
+				}
 			}
 
 			if ( pthread_create( &trd_udp_connection , NULL , thread_udp_connection_proc , app_data ) != 0 )
@@ -709,18 +745,18 @@ void * protocol_bridge_manager( void * app_data )
 				_DETAIL_ERROR( "Failed to create thread" );
 				return NULL; // Indicate an error
 			}
-
 			if ( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , app_data ) != 0 )
 			{
 				_DETAIL_ERROR( "Failed to create thread" );
 				return NULL; // Indicate an error
 			}
-
 			if ( pthread_create( &trd_protocol_bridge , NULL , thread_protocol_bridge_proc , app_data ) != 0 )
 			{
 				_DETAIL_ERROR( "Failed to create thread" );
 				return NULL; // Indicate an error
 			}
+
+			_g->cfg._propagate_changes = 0; // changes applied
 		}
 		else if ( _g->cfg._prev_cfg_pbs_count != _g->cfg._cfg_pbs_count )
 		{
@@ -750,6 +786,8 @@ int main()
 		_DETAIL_ERROR( "Failed to join thread" );
 		return 1; // Indicate an error
 	}
+
+	sleep( 1000 );
 
 	printf( _MSG( "Main thread finished waiting for the new thread." ) );
 
