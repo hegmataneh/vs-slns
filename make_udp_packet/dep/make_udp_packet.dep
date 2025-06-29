@@ -1,0 +1,12 @@
+
+#include "make_udp_packet.use"
+
+#include "general.dep"
+
+#include "make_udp_packet.inc"
+
+#if defined(__PROJECT_NAME__) && __PROJECT_NAME__ == make_udp_packet // in each project must be at last  order
+
+#include <IntellisenseAssist.h> // should be at the end of any include to correct Intellisense bug
+
+#endif

@@ -1,6 +1,11 @@
-#include "MUTO.use"
+#include "Protocol_Bridge.use"
 
 #include "general.dep"
 
-#include "MUTO.inc"
+#include "Protocol_Bridge.inc"
 
+#if defined(__PROJECT_NAME__) && __PROJECT_NAME__ == Protocol_Bridge
+
+#include <IntellisenseAssist.h> // should be at the end of any include to correct Intellisense bug
+
+#endif

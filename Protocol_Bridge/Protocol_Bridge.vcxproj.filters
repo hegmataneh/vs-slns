@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="src\main.c">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="header">
+      <UniqueIdentifier>{73b64528-d8a2-405f-9381-d5a10e8006d0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{5d609be6-01bd-4a62-ab99-d88db53b9813}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="dep">
+      <UniqueIdentifier>{b39b1add-6bdc-4f57-942e-9f6385d8491b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="dep\Protocol_Bridge.dep">
+      <Filter>dep</Filter>
+    </None>
+    <None Include="dep\Protocol_Bridge.inc">
+      <Filter>dep</Filter>
+    </None>
+    <None Include="dep\Protocol_Bridge.use">
+      <Filter>dep</Filter>
+    </None>
+  </ItemGroup>
+</Project>

@@ -78,22 +78,23 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
-    <ClCompile Include="json.c" />
-    <ClCompile Include="main.c" />
+    <ClCompile Include="src\main.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="IntellisenseAssist.h">
-      <RemoteCopyToOutputDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </RemoteCopyToOutputDir>
-      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </DeploymentContent>
-    </ClInclude>
-    <ClInclude Include="json.h" />
+    <None Include="dep\Protocol_Bridge.dep" />
+    <None Include="dep\Protocol_Bridge.inc" />
+    <None Include="dep\Protocol_Bridge.use" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\General projects\general\general.vcxproj">
+      <Project>{65d7d4b3-bbfa-4c50-adce-72911e410ca0}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile />
     <ClCompile>
-      <PreprocessorDefinitions>INTELISENSE_BUILD=$(IntelliSenseBuild)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>INTELISENSE_BUILD=$(IntelliSenseBuild);__PROJECT_NAME__=$(ProjectName)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(RemoteRootDir)/$(ProjectName)/dep;$(RemoteRootDir)/$(ProjectName)/header;%(ClCompile.AdditionalIncludeDirectories);$(RemoteHeadersDir);./header;$(RemoteRootDir)/general/dep;$(RemoteRootDir)/general/header</AdditionalIncludeDirectories>
     </ClCompile>
     <PreBuildEvent>
       <Command>

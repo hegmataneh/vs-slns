@@ -1,48 +1,52 @@
-#include <stdio.h>
-#include <stdlib.h> // also Required for rand() and srand()
-#include <string.h>
-#include <pthread.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h> // For close()
-#include <errno.h> // For errno
-#include <stdarg.h>
-#include <time.h>   // Required for time() to seed srand()
+#define USES_close
+#define USES_socket
+#define USES_pthread_t
+#define USES_rand
+#define USES_errno
+#define USES_strerror
+#define USES_va_list
+#define USES_printf
+#define USES_sockaddr_in
+#define USES_ssize_t
+
+#include <make_udp_packet.dep>
+
 
 #pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
 
-const char * __msg( char * msg_holder , ssize_t size_of_msg_holder , const char * msg , int line_number)
-{
-    snprintf(msg_holder, size_of_msg_holder, "%s: ln(%d)\n", msg , line_number);
-    return msg_holder;
-}
 
-const char * __snprintf( char * msg_holder , ssize_t size_of_msg_holder , const char * format , ... )
-{
-    va_list args;
-
-    va_start(args, format);
-    vsnprintf(msg_holder, size_of_msg_holder, format, args);
-    va_end(args);
-
-    return msg_holder;
-}
-
-#define _MSG(s) __msg(custom_message,sizeof(custom_message),s,__LINE__)
-
-#define _DETAIL_ERROR( user_friendly_msg ) do { perror(_MSG(user_friendly_msg)); perror( __snprintf( custom_message , sizeof(custom_message) , "more details: %s(#%d)@%d\n" , strerror(errno), errno , __LINE__ ) ); } while(0);
+//const char * __msg( char * msg_holder , ssize_t size_of_msg_holder , const char * msg , int line_number)
+//{
+//    snprintf(msg_holder, size_of_msg_holder, "%s: ln(%d)\n", msg , line_number);
+//    return msg_holder;
+//}
+//
+//const char * __snprintf( char * msg_holder , ssize_t size_of_msg_holder , const char * format , ... )
+//{
+//    va_list args;
+//
+//    va_start(args, format);
+//    vsnprintf(msg_holder, size_of_msg_holder, format, args);
+//    va_end(args);
+//
+//    return msg_holder;
+//}
+//
+//#define _MSG(s) __msg(custom_message,sizeof(custom_message),s,__LINE__)
+//
+//#define _DETAIL_ERROR( user_friendly_msg ) do { perror(_MSG(user_friendly_msg)); perror( __snprintf( custom_message , sizeof(custom_message) , "more details: %s(#%d)@%d\n" , strerror(errno), errno , __LINE__ ) ); } while(0);
 
 #define BUFFER_SIZE 1024
 
-#define DEST_PORT_1 1234
-#define DEST_IP_1 "192.168.1.60"
-
-#define DEST_PORT_2 1235
-#define DEST_IP_2 "192.168.1.60"
-
-#define SOCKS_COUNT 2
+//#define DEST_PORT_1 1234
+//#define DEST_IP_1 "192.168.1.60"
+//
+//#define DEST_PORT_2 1235
+//#define DEST_IP_2 "192.168.1.60"
+//
+//#define SOCKS_COUNT 2
 
 // Structure to pass arguments to the thread
 struct ThreadArgs {

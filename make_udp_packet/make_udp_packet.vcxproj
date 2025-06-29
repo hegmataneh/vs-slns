@@ -74,12 +74,31 @@
   <ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
+  </PropertyGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\main.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="dep\make_udp_packet.dep" />
+    <None Include="dep\make_udp_packet.inc" />
+    <None Include="dep\make_udp_packet.use" />
   </ItemGroup>
-  <ItemDefinitionGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\..\General projects\general\general.vcxproj">
+      <Project>{65d7d4b3-bbfa-4c50-adce-72911e410ca0}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>INTELISENSE_BUILD=$(IntelliSenseBuild);__PROJECT_NAME__=$(ProjectName)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(RemoteRootDir)/$(ProjectName)/dep;$(RemoteRootDir)/$(ProjectName)/header;%(ClCompile.AdditionalIncludeDirectories);$(RemoteHeadersDir);./header;$(RemoteRootDir)/general/dep;$(RemoteRootDir)/general/header</AdditionalIncludeDirectories>
+      <CompileAs>CompileAsC</CompileAs>
+      <UndefinePreprocessorDefinitions>
+      </UndefinePreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>

@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="src\main.c">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="dep">
+      <UniqueIdentifier>{8929314d-6dc4-4fd4-bb34-53ce0757213a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="header">
+      <UniqueIdentifier>{ffe02f81-1927-4dcf-a772-bc8effb1cd68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{eeb0663b-2ff9-4343-a2e1-e56cb17e22f9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="dep\make_udp_packet.dep">
+      <Filter>dep</Filter>
+    </None>
+    <None Include="dep\make_udp_packet.inc">
+      <Filter>dep</Filter>
+    </None>
+    <None Include="dep\make_udp_packet.use">
+      <Filter>dep</Filter>
+    </None>
+  </ItemGroup>
+</Project>

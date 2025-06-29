@@ -1,19 +1,17 @@
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <errno.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <sys/time.h>
-#include <sys/select.h>
-#include <sys/types.h>
-#include <time.h>
-#include "json.h"
-#include "IntellisenseAssist.h" // should be at the end of any include to correct Intellisense bug
+#define USES_json
+#define USES_fd_set
+#define USES_close
+#define USES_socket
+#define USES_pthread_t
+#define USES_rand
+#define USES_errno
+#define USES_strerror
+#define USES_va_list
+#define USES_printf
+#define USES_sockaddr_in
+#define USES_ssize_t
+
+#include <Protocol_Bridge.dep>
 
 #ifndef definitions_section
 
@@ -22,86 +20,86 @@
 
 #define BUFFER_SIZE 9000
 
-#define EOS '\0'
+//#define EOS '\0'
 
 #endif
 
 #ifndef utils_section
 
-const char * __msg( char * msg_holder , size_t size_of_msg_holder , const char * msg , int line_number )
-{
-	snprintf( msg_holder , size_of_msg_holder , "%s: ln(%d)\n" , msg , line_number );
-	return msg_holder;
-}
-
-const char * __snprintf( char * msg_holder , size_t size_of_msg_holder , const char * format , ... )
-{
-	va_list args;
-
-	va_start( args , format );
-	vsnprintf( msg_holder , size_of_msg_holder , format , args );
-	va_end( args );
-
-	return msg_holder;
-}
-
-#define FUNCTION_SCOPE_INIT() char __custom_message[ 256 ] = "";
-static char __custom_message[ 256 ] = ""; // if forgot to define __custom_message then global is choosed
-#define _MSG(s) __msg(__custom_message,sizeof(__custom_message),s,__LINE__)
-
-#define _DETAIL_ERROR( user_friendly_msg ) do { perror(_MSG(user_friendly_msg)); perror( __snprintf( __custom_message , sizeof(__custom_message) , "more details: %s(#%d)@ln(%d)\n" , strerror(errno), errno , __LINE__ ) ); } while(0);
-
-#define VOID_RET ((void*)NULL)
-#define MAIN_BAD_RET (1/*Indicate an error*/)
-
-#define ERR_RET( user_friendly_msg , RET ) \
-	do {\
-	_DETAIL_ERROR( user_friendly_msg );\
-	return RET; } while(0);
-
-#define BAD_RETURN "bad"
-
-void _close_socket( int * socket_id )
-{
-	close( *socket_id );
-	*socket_id = -1;
-}
-
-const char * read_file( const char * path , char * pInBuffer /*= NULL*/ )
-{
-	FILE * file = fopen( path , "r" );
-	if ( file == NULL )
-	{
-		fprintf( stderr , "Expected file \"%s\" not found" , path );
-		return NULL;
-	}
-	fseek( file , 0 , SEEK_END );
-	long len = ftell( file );
-	fseek( file , 0 , SEEK_SET );
-	char * buffer = pInBuffer ? pInBuffer : malloc( (size_t)(len + 1) );
-
-	if ( buffer == NULL )
-	{
-		fprintf( stderr , "Unable to allocate memory for file" );
-		fclose( file );
-		return NULL;
-	}
-
-	fread( buffer , 1 , (size_t)len , file );
-	buffer[ len ] = EOS;
-
-	fclose( file );
-	file = NULL;
-
-	return ( const char * )buffer;
-}
-
-const char * const newstr( const char * const pchar )
-{
-	size_t len = strlen( pchar );
-	char * ar = malloc( len + 1 );
-	return strcpy( ar , pchar );
-}
+//const char * __msg( char * msg_holder , size_t size_of_msg_holder , const char * msg , int line_number )
+//{
+//	snprintf( msg_holder , size_of_msg_holder , "%s: ln(%d)\n" , msg , line_number );
+//	return msg_holder;
+//}
+//
+//const char * __snprintf( char * msg_holder , size_t size_of_msg_holder , const char * format , ... )
+//{
+//	va_list args;
+//
+//	va_start( args , format );
+//	vsnprintf( msg_holder , size_of_msg_holder , format , args );
+//	va_end( args );
+//
+//	return msg_holder;
+//}
+//
+//#define FUNCTION_SCOPE_INIT() char __custom_message[ 256 ] = "";
+//static char __custom_message[ 256 ] = ""; // if forgot to define __custom_message then global is choosed
+//#define _MSG(s) __msg(__custom_message,sizeof(__custom_message),s,__LINE__)
+//
+//#define _DETAIL_ERROR( user_friendly_msg ) do { perror(_MSG(user_friendly_msg)); perror( __snprintf( __custom_message , sizeof(__custom_message) , "more details: %s(#%d)@ln(%d)\n" , strerror(errno), errno , __LINE__ ) ); } while(0);
+//
+//#define VOID_RET ((void*)NULL)
+//#define MAIN_BAD_RET (1/*Indicate an error*/)
+//
+//#define ERR_RET( user_friendly_msg , RET ) \
+//	do {\
+//	_DETAIL_ERROR( user_friendly_msg );\
+//	return RET; } while(0);
+//
+//#define BAD_RETURN "bad"
+//
+//void _close_socket( int * socket_id )
+//{
+//	close( *socket_id );
+//	*socket_id = -1;
+//}
+//
+//const char * read_file( const char * path , char * pInBuffer /*= NULL*/ )
+//{
+//	FILE * file = fopen( path , "r" );
+//	if ( file == NULL )
+//	{
+//		fprintf( stderr , "Expected file \"%s\" not found" , path );
+//		return NULL;
+//	}
+//	fseek( file , 0 , SEEK_END );
+//	long len = ftell( file );
+//	fseek( file , 0 , SEEK_SET );
+//	char * buffer = pInBuffer ? pInBuffer : malloc( (size_t)(len + 1) );
+//
+//	if ( buffer == NULL )
+//	{
+//		fprintf( stderr , "Unable to allocate memory for file" );
+//		fclose( file );
+//		return NULL;
+//	}
+//
+//	fread( buffer , 1 , (size_t)len , file );
+//	buffer[ len ] = EOS;
+//
+//	fclose( file );
+//	file = NULL;
+//
+//	return ( const char * )buffer;
+//}
+//
+//const char * const newstr( const char * const pchar )
+//{
+//	size_t len = strlen( pchar );
+//	char * ar = malloc( len + 1 );
+//	return strcpy( ar , pchar );
+//}
 
 #endif
 
