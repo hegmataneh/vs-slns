@@ -1,11 +1,13 @@
 #include "Protocol_Bridge.use"
 
-#include "general.dep"
+#include "general.h"
 
 #include "Protocol_Bridge.inc"
 
-#if defined(__PROJECT_NAME__) && __PROJECT_NAME__ == Protocol_Bridge
+#if !defined(__COMPILE) && defined(__PROJECT_NAME__) && __PROJECT_NAME__ == make_udp_packet // in each project must be at last  order
 
-#include <IntellisenseAssist.h> // should be at the end of any include to correct Intellisense bug
+#define __FORCE_INTELLISENSE_ASSIST
+#include <d:/My project/General projects/general/header/IntellisenseAssist.h> // should be at the end of any include to correct Intellisense bug
 
 #endif
+
