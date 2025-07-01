@@ -34,8 +34,6 @@ struct Config_ver
 	int Revision_Patch; //Represents backwards - compatible bug fixes or minor updates.
 };
 
-// general config
-
 struct Global_Config_0
 {
 	const char * create_date; // "2025-06-21 20:43:00"
@@ -108,8 +106,6 @@ struct wave_cfg // finalizer
 
 #ifndef section_udp_wave
 
-//struct 
-
 struct udp_wave
 {
 	//int udp_port_number;
@@ -118,6 +114,13 @@ struct udp_wave
 	//int udp_connection_established; // udp socket established
 
 	struct wave_cfg cfg; // copy of applied cfg
+
+	pthread_t * pThreads; // each one keep one thread
+	int * socket_ids; // 
+	int * thread_masks; // each int represent thrread is valid
+	size_t mask_count; // thread keeper count
+
+	int sent_counter;
 };
 
 struct udp_wave_holder
@@ -167,80 +170,132 @@ struct App_Data
 
 #ifndef section_connection_functions
 
-// Thread function to send UDP packets
-//void *send_udp_thread(void *arg) {
-//
-//    char custom_message[256];
-//
-//    struct ThreadArgs *args = (struct ThreadArgs *)arg;
-//    char buffer[BUFFER_SIZE];
-//
-//    while (1) {
-//        printf("Enter text to send (or 'exit'): ");
-//        if (fgets(buffer, BUFFER_SIZE, stdin) == NULL) {
-//            _DETAIL_ERROR("fgets failed");
-//            break;
-//        }
-//
-//        // Remove trailing newline character if present
-//        buffer[strcspn(buffer, "\n")] = 0;
-//
-//        if (strcmp(buffer, "exit") == 0) {
-//            printf("Exiting sender thread.\n");
-//            break;
-//        }
-//        ssize_t bytes_sent = 0;
-//        int dest = rand() % 3;
-//        switch ( dest )
-//        {
-//            case 0:
-//            {
-//                bytes_sent += sendto(args->sockfds[0] , buffer , strlen(buffer) , 0 ,
-//                                     (struct sockaddr *)&args->dest_addrs[0] ,
-//                                     sizeof(args->dest_addrs[0]));
-//                break;
-//            }
-//            case 1:
-//            {
-//                bytes_sent = sendto(args->sockfds[1] , buffer , strlen(buffer) , 0 ,
-//                                     (struct sockaddr *)&args->dest_addrs[1] ,
-//                                     sizeof(args->dest_addrs[1]));
-//                break;
-//            }
-//            case 2:
-//            {
-//                bytes_sent = sendto(args->sockfds[0] , buffer , strlen(buffer) , 0 ,
-//                                     (struct sockaddr *)&args->dest_addrs[0] ,
-//                                     sizeof(args->dest_addrs[0]));
-//                bytes_sent += sendto(args->sockfds[1] , buffer , strlen(buffer) , 0 ,
-//                                     (struct sockaddr *)&args->dest_addrs[1] ,
-//                                     sizeof(args->dest_addrs[1]));
-//                break;
-//            }
-//        }
-//        if ( bytes_sent < 0 )
-//        {
-//            _DETAIL_ERROR("sendto failed");
-//            break;
-//        }
-//        printf("Sent %zd bytes: '%s' to terminal %d\n", bytes_sent, buffer, dest);
-//    }
-//    pthread_exit(NULL);
-//}
+void * wave_runner( void * src_pwave )
+{
+	struct udp_wave * pwave = ( struct udp_wave * )src_pwave;
+	pthread_t tid = pthread_self();
+	int socketid = -1;
+	for ( int i = 0 ; i < pwave->mask_count ; i++ )
+	{
+		if ( pwave->thread_masks[ i ] )
+		{
+			if ( pwave->pThreads[ i ] == tid )
+			{
+				socketid = pwave->socket_ids[ i ];
+				break;
+			}
+		}
+	}
+	ASSERT( socketid >= 0 );
+
+	char buffer[ 100 ];
+	memset( buffer , 0 , sizeof( buffer ) );
+	sprintf( buffer , "sent %d from %d" , pwave->sent_counter , tid );
+
+	while ( 1 )
+	{
+		pwave->sent_counter++;
+
+		send( socketid , buffer , strlen( buffer ) , 0 );
+	}
+	return NULL;
+}
 
 void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , struct wave_cfg * new_cfg )
 {
 	INIT_BREAKABLE_FXN();
 
-	// TODO
+	if ( pwave->mask_count < new_cfg->m.m.parallelism_count )
+	{
+		int old_mask_count = pwave->mask_count;
+		int diff_count = ( new_cfg->m.m.parallelism_count - pwave->mask_count );
+		int new_mask_count = old_mask_count + diff_count;
+
+		M_BREAK_IF( !( pwave->pThreads = REALLOC( pwave->pThreads , new_mask_count * sizeof( pthread_t ) ) ) , errMemoryLow , 0 );
+		MEMSET_ZERO( pwave->pThreads + old_mask_count , pthread_t , diff_count );
+
+		M_BREAK_IF( !( pwave->socket_ids = REALLOC( pwave->socket_ids , new_mask_count * sizeof( int ) ) ) , errMemoryLow , 1 );
+		MEMSET_ZERO( pwave->socket_ids + old_mask_count , int , diff_count );
+
+		M_BREAK_IF( !( pwave->thread_masks = REALLOC( pwave->thread_masks , new_mask_count * sizeof( int ) ) ) , errMemoryLow , 2 );
+		MEMSET_ZERO( pwave->thread_masks + old_mask_count , int , diff_count );
+
+		pwave->mask_count = new_mask_count;
+	}
+
+	int valid_thread_count = 0;
+	for ( int i = 0 ; i < pwave->mask_count ; i++ )
+	{
+		if ( pwave->thread_masks[ i ] ) valid_thread_count++;
+	}
+	if ( valid_thread_count < new_cfg->m.m.parallelism_count )
+	{
+		// run new one
+		int diff_new_thread_count = new_cfg->m.m.parallelism_count - valid_thread_count;
+		while ( diff_new_thread_count > 0 )
+		{
+			for ( int i = 0 ; i < pwave->mask_count ; i++ )
+			{
+				if ( !pwave->thread_masks[ i ] )
+				{
+					pthread_t trd;
+					M_BREAK_IF( ( pthread_create( &trd , NULL , wave_runner , ( void * )pwave ) ) != 0 , errGeneral , 2 );
+					pwave->pThreads[ i ] = trd;
+					pwave->thread_masks[ i ] = 1;
+
+					M_BREAK_IF( ( pwave->socket_ids[ i ] = socket( AF_INET , SOCK_DGRAM , 0 ) ) < 0 , errGeneral , 2 );
+					struct sockaddr_in server_addr;
+					memset( &server_addr , 0 , sizeof( server_addr ) );
+					server_addr.sin_family = AF_INET; // IPv4
+					server_addr.sin_port = htons( ( uint16_t )pwave->cfg.m.m.id.UDP_destination_port ); // Convert port to network byte order
+					//server_addr.sin_addr.s_addr = inet_addr("YOUR_IP_ADDRESS"); // Specify the IP address to bind to
+					server_addr.sin_addr.s_addr = INADDR_ANY; // Or use INADDR_ANY to bind to all available interfaces:
+					M_BREAK_IF( bind( pwave->socket_ids[ i ] , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) < 0 , errGeneral , 2 );
+
+					diff_new_thread_count--;
+					break;
+				}
+			}
+		}
+	}
+
+	if ( valid_thread_count > new_cfg->m.m.parallelism_count )
+	{
+		// stop extra
+		int extra_count = valid_thread_count - new_cfg->m.m.parallelism_count;
+		while ( extra_count > 0 )
+		{
+			for ( int i = pwave->mask_count - 1 ; i >= 0 ; i-- ) // az yah hazf kon
+			{
+				if ( pwave->thread_masks[ i ] )
+				{
+					_close_socket( pwave->socket_ids + i );
+					if ( pthread_cancel( pwave->pThreads[ i ] ) == 0 )
+					{
+						pwave->thread_masks[ i ] = 0;
+						extra_count--;
+					}
+					break;
+				}
+			}
+		}
+	}
 
 	memcpy( &pwave->cfg , new_cfg , sizeof( struct wave_cfg ) );
+
+	// TODO . complete reverse on error
+
+	BEGIN_RET
+		case 1: DAC( pwave->pThreads );
+	V_END_RET
 }
 
 void stop_wave( struct App_Data * _g , struct udp_wave * pwave )
 {
 	INIT_BREAKABLE_FXN();
 
+	pwave->cfg.m.m.parallelism_count = 0;
+	apply_new_wave_config( _g , pwave , &pwave->cfg );
 	// TODO
 }
 
@@ -486,6 +541,7 @@ void * config_loader( void * app_data )
 					for ( int i = 0 ; i < el_waves.value.as_object->count ; i++ )
 					{
 						char output_wave_name[32];
+						memset( output_wave_name , 0 , sizeof( output_wave_name ) );
 						sprintf( output_wave_name , "wave%d" , i + 1 );
 
 						result( json_element ) re_output_wave = json_object_find( el_waves.value.as_object , output_wave_name );
