@@ -99,7 +99,8 @@
       </UndefinePreprocessorDefinitions>
       <ShowIncludes>
       </ShowIncludes>
-      <Verbose>false</Verbose>
+      <Verbose>
+      </Verbose>
       <AdditionalOptions>-D__COMPILE %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
