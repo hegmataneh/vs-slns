@@ -13,6 +13,7 @@
 #define Uses_ssize_t
 #define Uses_Remote_vs_prj
 #define Uses_NEWSTR
+#define Uses_INIT_BREAKABLE_FXN
 
 #include <make_udp_packet.dep>
 
@@ -67,20 +68,21 @@ struct Global_Config // finalizer
 
 #endif
 
-#ifndef section_udp_config
+#ifndef section_wave_config
 
-struct output_udp_cfg_id_part
+struct wave_cfg_id
 {
+	char wave_name[64];
 	char UDP_destination_ip[64];
 	int UDP_destination_port;
 	char UDP_destination_interface[128];
 };
 
-struct output_udp_CFG_0
+struct wave_cfg_0
 {
-	struct output_udp_cfg_id_part id;
+	struct wave_cfg_id id;
 
-	int limit_packets;
+	int limited_packets;
 	int packet_count;
 	int parallelism_count;
 
@@ -88,14 +90,14 @@ struct output_udp_CFG_0
 	int reset_connections;
 };
 
-struct output_udp_CFG_n
+struct wave_cfg_n
 {
-	struct output_udp_CFG_0 m; // first member , n - 1
+	struct wave_cfg_0 m; // first member , n - 1
 };
 
-struct output_udp_CFG // finalizer
+struct wave_cfg // finalizer
 {
-	struct output_udp_CFG_n m; // be first member
+	struct wave_cfg_n m; // be first member
 	// ...
 	//int checked_off; // if removed from a list after action
 	//int changed;
@@ -104,28 +106,32 @@ struct output_udp_CFG // finalizer
 
 #endif
 
-#ifndef section_udp_connections
+#ifndef section_udp_wave
 
-struct UDP_connection_data
+//struct 
+
+struct udp_wave
 {
-	int udp_port_number;
-	int udp_sockfd;
-	int udp_connection_established; // udp socket established
+	//int udp_port_number;
+	//int udp_sockfd;
+	//int try_connect;
+	//int udp_connection_established; // udp socket established
 
-	struct output_udp_CFG * pCFG;
+	struct wave_cfg cfg; // copy of applied cfg
 };
 
-struct UDP_connection_holder
+struct udp_wave_holder
 {
-	struct UDP_connection_data udp_data;
+	struct udp_wave * pwave; // allocated
 };
 
-struct UDPs_holder
+struct wave_holders
 {
-	struct UDP_connection_holder * udps; // all the active udps
-	size_t udps_count;
+	struct udp_wave_holder * pholder; // all the active waves
+	int * pValidity_masks; // waves masks
+	size_t mask_count; // mask count
 
-	struct UDP_connection_holder empty_one; // just use for condition that loaded config does not have any valid enable bridge config . it must be zero all the time
+	//struct udp_wave_holder empty_one; // just use for condition that loaded config does not have any valid enable bridge config . it must be zero all the time
 };
 
 #endif
@@ -143,18 +149,18 @@ struct App_Config // global config
 	struct Global_Config * _general_config;
 	int _general_config_changed;
 
-	// udps
-	struct output_udp_CFG * _prev_cfg_udps; // maybe later in some condition we need to rollback ro prev config
-	size_t _prev_cfg_udps_count;
-	struct output_udp_CFG * _cfg_udps;
-	size_t _cfg_udps_count;
-	int _udp_config_changed; // act like bool . something is changed
+	// waves
+	struct wave_cfg * _pprev_wave_cfg; // maybe later in some condition we need to rollback ro prev config
+	size_t _prev_wave_cfg_count;
+	struct wave_cfg * _pwave_cfg;
+	size_t _wave_cfg_count;
+	int _wave_config_changed; // act like bool . something is changed
 };
 
 struct App_Data
 {
 	struct App_Config cfg;
-	struct UDPs_holder udps;
+	struct wave_holders waves;
 };
 
 #endif
@@ -222,20 +228,112 @@ struct App_Data
 //    pthread_exit(NULL);
 //}
 
-void apply_new_udp_changes( struct App_Data * _g , struct output_udp_CFG * prev_cfg , struct output_udp_CFG * new_cfg )
+void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , struct wave_cfg * new_cfg )
 {
+	INIT_BREAKABLE_FXN();
 
+	// TODO
+
+	memcpy( &pwave->cfg , new_cfg , sizeof( struct wave_cfg ) );
 }
 
-void remove_udp( struct App_Data * _g , struct output_udp_CFG * cfg )
+void stop_wave( struct App_Data * _g , struct udp_wave * pwave )
 {
+	INIT_BREAKABLE_FXN();
 
+	// TODO
 }
 
-void add_new_udp_changes( struct App_Data * _g , struct output_udp_CFG * cfg )
+void apply_new_wave_changes( struct App_Data * _g , struct wave_cfg * prev_cfg , struct wave_cfg * new_cfg )
 {
+	INIT_BREAKABLE_FXN();
 
+	for ( int i = 0 ; i < _g->waves.mask_count ; i++ )
+	{
+		if ( _g->waves.pValidity_masks[ i ] )
+		{
+			if ( memcmp( &_g->waves.pholder[ i ].pwave->cfg.m.m.id , &prev_cfg->m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+			{
+				apply_new_wave_config( _g , _g->waves.pholder[ i ].pwave , new_cfg );
+			}
+		}
+	}
 }
+
+void remove_wave( struct App_Data * _g , struct wave_cfg * cfg )
+{
+	INIT_BREAKABLE_FXN();
+	for ( int i = 0 ; i < _g->waves.mask_count ; i++ )
+	{
+		if ( _g->waves.pValidity_masks[ i ] )
+		{
+			if ( memcmp( &_g->waves.pholder[ i ].pwave->cfg.m.m.id , &cfg->m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+			{
+				stop_wave( _g , _g->waves.pholder[ i ].pwave );
+				_g->waves.pValidity_masks[ i ] = 0;
+				DAC( _g->waves.pholder[ i ].pwave );
+			}
+		}
+	}
+}
+
+#define PREALLOCAION_SIZE 10
+
+void add_new_wave( struct App_Data * _g , struct wave_cfg * new_cfg )
+{
+	INIT_BREAKABLE_FXN();
+
+	if ( !_g->waves.mask_count )
+	{
+		M_BREAK_IF( !( _g->waves.pValidity_masks = NEWBUF( int , PREALLOCAION_SIZE ) ) , errMemoryLow , 0 );
+		MEMSET_ZERO( _g->waves.pValidity_masks , int , PREALLOCAION_SIZE );
+
+		M_BREAK_IF( !( _g->waves.pholder = NEWBUF( struct udp_wave_holder , PREALLOCAION_SIZE ) ) , errMemoryLow , 1 );
+		MEMSET_ZERO( _g->waves.pholder , struct udp_wave_holder , PREALLOCAION_SIZE );
+
+		_g->waves.mask_count = PREALLOCAION_SIZE;
+	}
+
+	int new_cfg_placement_index = -1;
+	while ( new_cfg_placement_index < 0 )
+	{
+		for ( int i = 0 ; i < _g->waves.mask_count ; i++ )
+		{
+			if ( !_g->waves.pValidity_masks[ i ] )
+			{
+				new_cfg_placement_index = i;
+				break;
+			}
+		}
+		if ( new_cfg_placement_index < 0 )
+		{
+			int old_mask_count = _g->waves.mask_count;
+			int new_mask_count = old_mask_count + PREALLOCAION_SIZE;
+
+			M_BREAK_IF( !( _g->waves.pValidity_masks = REALLOC( _g->waves.pValidity_masks , new_mask_count * sizeof( int ) ) ) , errMemoryLow , 2 );
+			MEMSET_ZERO( _g->waves.pValidity_masks + old_mask_count , int , PREALLOCAION_SIZE );
+
+			M_BREAK_IF( !( _g->waves.pholder = REALLOC( _g->waves.pholder , new_mask_count * sizeof( struct udp_wave_holder ) ) ) , errMemoryLow , 1 );
+			MEMSET_ZERO( _g->waves.pholder + old_mask_count , struct udp_wave_holder , PREALLOCAION_SIZE );
+
+			_g->waves.mask_count = new_mask_count;
+		}
+	}
+
+	ASSERT( _g->waves.pholder[ new_cfg_placement_index ].pwave );
+	M_BREAK_IF( !( _g->waves.pholder[ new_cfg_placement_index ].pwave = NEW( struct udp_wave ) ) , errMemoryLow , 0 );
+	MEMSET_ZERO( _g->waves.pholder[ new_cfg_placement_index ].pwave , struct udp_wave , 1 );
+	_g->waves.pValidity_masks[ new_cfg_placement_index ] = 1;
+	memcpy( &_g->waves.pholder[ new_cfg_placement_index ].pwave->cfg , new_cfg , sizeof( struct wave_cfg ) );
+	//_g->waves.pholder[ new_cfg_placement_index ].pwave->try_connect = 1;
+
+	apply_new_wave_changes( _g , new_cfg , new_cfg );
+
+	BEGIN_RET
+		case 2: DAC( _g->waves.pholder );
+		case 1: DAC( _g->waves.pValidity_masks );
+	V_END_RET
+} // TODO . return value
 
 #endif
 
@@ -322,8 +420,8 @@ void * config_loader( void * app_data )
 
 			struct Global_Config temp_config = { 0 };
 			struct Global_Config_0 * pGeneralConfiguration = ( struct Global_Config_0 * )&temp_config;
-			struct output_udp_CFG * pUDPs = NULL;
-			size_t udps_count = 0;
+			struct wave_cfg * pWaves = NULL;
+			size_t waves_count = 0;
 			{
 				const char * UDP_generator_config_file_content = read_file( CONFIG_ROOT_PATH "/UDP_generator_config.txt" , NULL );
 				if ( UDP_generator_config_file_content == NULL )
@@ -372,56 +470,58 @@ void * config_loader( void * app_data )
 					#undef CFG_ELEM_STR
 				}
 
-				/*output_udps*/
+				/*waves*/
 				{
-					result( json_element ) re_output_udps = json_object_find( el_UDP_generator_config.value.as_object , "output_udps" );
-					if ( catch_error( &re_output_udps , "output_udps" ) ) ERR_RET( "err" , VOID_RET );
-					typed( json_element ) el_output_udps = result_unwrap( json_element )( &re_output_udps );
+					result( json_element ) re_waves = json_object_find( el_UDP_generator_config.value.as_object , "waves" );
+					if ( catch_error( &re_waves , "waves" ) ) ERR_RET( "err" , VOID_RET );
+					typed( json_element ) el_waves = result_unwrap( json_element )( &re_waves );
 
-					if ( ( udps_count = el_output_udps.value.as_object->count ) < 1 ) ERR_RET( "err" , VOID_RET );
+					if ( ( waves_count = el_waves.value.as_object->count ) < 1 ) ERR_RET( "err" , VOID_RET );
 
-					if ( !( pUDPs = ( struct output_udp_CFG * )malloc( sizeof( struct output_udp_CFG ) * el_output_udps.value.as_object->count ) ) )
+					if ( !( pWaves = ( struct wave_cfg * )malloc( sizeof( struct wave_cfg ) * el_waves.value.as_object->count ) ) )
 					{
 						ERR_RET( "insufficient memory" , VOID_RET );
 					}
 
-					for ( int i = 0 ; i < el_output_udps.value.as_object->count ; i++ )
+					for ( int i = 0 ; i < el_waves.value.as_object->count ; i++ )
 					{
-						char output_udp_name[32];
-						sprintf( output_udp_name , "UDP%d" , i + 1 );
+						char output_wave_name[32];
+						sprintf( output_wave_name , "wave%d" , i + 1 );
 
-						result( json_element ) re_output_udp = json_object_find( el_output_udps.value.as_object , output_udp_name );
-						if ( catch_error( &re_output_udp , output_udp_name ) ) ERR_RET( "err" , VOID_RET );
-						typed( json_element ) el_output_udp = result_unwrap( json_element )( &re_output_udp );
+						result( json_element ) re_output_wave = json_object_find( el_waves.value.as_object , output_wave_name );
+						if ( catch_error( &re_output_wave , output_wave_name ) ) ERR_RET( "err" , VOID_RET );
+						typed( json_element ) el_output_wave = result_unwrap( json_element )( &re_output_wave );
 
 						#define CFG_ELEM_STR( name ) \
-							result( json_element ) re_##name = json_object_find( el_output_udp.value.as_object , #name );\
+							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
 							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-							strcpy(((struct output_udp_CFG_0 *)(pUDPs + i))->name , el_##name.value.as_string );
+							strcpy(((struct wave_cfg_0 *)(pWaves + i))->name , el_##name.value.as_string );
 						
 						#define CFG_ID_ELEM_STR( name ) \
-							result( json_element ) re_##name = json_object_find( el_output_udp.value.as_object , #name );\
+							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
 							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-							strcpy(((struct output_udp_CFG_0 *)(pUDPs + i))->id.name , el_##name.value.as_string );
+							strcpy(((struct wave_cfg_0 *)(pWaves + i))->id.name , el_##name.value.as_string );
 						
 						#define CFG_ELEM_I( name ) \
-							result( json_element ) re_##name = json_object_find( el_output_udp.value.as_object , #name );\
+							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
 							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-							((struct output_udp_CFG_0 *)(pUDPs + i))->name = (int)el_##name.value.as_number.value.as_long;
+							((struct wave_cfg_0 *)(pWaves + i))->name = (int)el_##name.value.as_number.value.as_long;
 
 						#define CFG_ID_ELEM_I( name ) \
-							result( json_element ) re_##name = json_object_find( el_output_udp.value.as_object , #name );\
+							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
 							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-							((struct output_udp_CFG_0 *)(pUDPs + i))->id.name = (int)el_##name.value.as_number.value.as_long;
+							((struct wave_cfg_0 *)(pWaves + i))->id.name = (int)el_##name.value.as_number.value.as_long;
+
+						strcpy(((struct wave_cfg_0 *)(pWaves + i))->id.wave_name , output_wave_name );
 
 						CFG_ID_ELEM_STR( UDP_destination_ip );
 						CFG_ID_ELEM_I( UDP_destination_port );
 						CFG_ID_ELEM_STR( UDP_destination_interface );
-						CFG_ELEM_I( limit_packets );
+						CFG_ELEM_I( limited_packets );
 						CFG_ELEM_I( packet_count );
 						CFG_ELEM_I( parallelism_count );
 						CFG_ELEM_I( enable );
@@ -452,15 +552,6 @@ void * config_loader( void * app_data )
 			}
 			if ( !initial_general_config )
 			{
-				//DAC(_g->cfg._prev_general_config );
-				//do
-				//{
-				//	if ( _g->cfg._prev_general_config )
-				//	{
-				//		DEL( _g->cfg._prev_general_config ); _g->cfg._prev_general_config = NULL;
-				//	}
-				//} while ( 0 );
-
 				DAC(_g->cfg._prev_general_config);
 
 				_g->cfg._prev_general_config = _g->cfg._general_config;
@@ -494,17 +585,17 @@ void * config_loader( void * app_data )
 				}
 			}
 			
-			if ( !_g->cfg._cfg_udps )
+			if ( !_g->cfg._pwave_cfg )
 			{
-				_g->cfg._prev_cfg_udps = _g->cfg._cfg_udps;
-				_g->cfg._prev_cfg_udps_count = _g->cfg._cfg_udps_count;
+				_g->cfg._pprev_wave_cfg = _g->cfg._pwave_cfg;
+				_g->cfg._prev_wave_cfg_count = _g->cfg._wave_cfg_count;
 			}
-			_g->cfg._cfg_udps = pUDPs;
-			_g->cfg._cfg_udps_count = udps_count;
+			_g->cfg._pwave_cfg = pWaves;
+			_g->cfg._wave_cfg_count = waves_count;
 			_g->cfg._version_changed = 0;
-			_g->cfg._udp_config_changed = 1;
-			pUDPs = NULL; // to not delete intentionally
-			udps_count = 0;
+			_g->cfg._wave_config_changed = 1;
+			pWaves = NULL; // to not delete intentionally
+			waves_count = 0;
 		}
 		sleep( 2 );
 	}
@@ -523,46 +614,46 @@ void * config_loader( void * app_data )
 // TODO . aware of concurrency in config read and act on it
 void * udp_generator_manager( void * app_data )
 {
-	FUNCTION_SCOPE_INIT();
+	INIT_BREAKABLE_FXN();
 	struct App_Data * _g = ( struct App_Data * )app_data;
 
 	pthread_t trd_udp_connection , trd_tcp_connection;
 	pthread_t trd_protocol_bridge;
 
-	while ( !_g->cfg._cfg_udps_count ) // load after any config loaded
+	while ( !_g->cfg._wave_cfg_count ) // load after any config loaded
 	{
 		sleep( 1 );
 	}
 
 	while ( 1 )
 	{
-		if ( _g->cfg._udp_config_changed )
+		if ( _g->cfg._wave_config_changed )
 		{
-			for ( int i = 0 ; i < _g->cfg._prev_cfg_udps_count ; i++ )
+			for ( int i = 0 ; i < _g->cfg._prev_wave_cfg_count ; i++ )
 			{
 				int exist = 0;
-				for ( int j = 0 ; j < _g->cfg._cfg_udps_count ; j++ )
+				for ( int j = 0 ; j < _g->cfg._wave_cfg_count ; j++ )
 				{
 					if ( exist ) break;
-					if ( memcmp( &_g->cfg._prev_cfg_udps[ i ].m.m.id , &_g->cfg._cfg_udps[ j ].m.m.id , sizeof( struct output_udp_cfg_id_part ) ) == 0 )
+					if ( memcmp( &_g->cfg._pprev_wave_cfg[ i ].m.m.id , &_g->cfg._pwave_cfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
 					{
 						// existed cfg changed
-						apply_new_udp_changes( _g , &_g->cfg._prev_cfg_udps[ i ] , &_g->cfg._cfg_udps[ j ] );
+						apply_new_wave_changes( _g , &_g->cfg._pprev_wave_cfg[ i ] , &_g->cfg._pwave_cfg[ j ] );
 						exist = 1;
 					}
 				}
 				if ( !exist )
 				{
 					// remove removed one
-					remove_udp( _g , &_g->cfg._prev_cfg_udps[ i ] );
+					remove_wave( _g , &_g->cfg._pprev_wave_cfg[ i ] );
 				}
 			}
-			for ( int i = 0 ; i < _g->cfg._cfg_udps_count ; i++ )
+			for ( int i = 0 ; i < _g->cfg._wave_cfg_count ; i++ )
 			{
 				int exist = 0;
-				for ( int j = 0 ; j < _g->cfg._prev_cfg_udps_count ; j++ )
+				for ( int j = 0 ; j < _g->cfg._prev_wave_cfg_count ; j++ )
 				{
-					if ( memcmp( &_g->cfg._cfg_udps[ i ].m.m.id , &_g->cfg._prev_cfg_udps[ j ].m.m.id , sizeof(struct output_udp_cfg_id_part)) == 0 )
+					if ( memcmp( &_g->cfg._pwave_cfg[ i ].m.m.id , &_g->cfg._pprev_wave_cfg[ j ].m.m.id , sizeof(struct wave_cfg_id)) == 0 )
 					{
 						exist = 1;
 						break;
@@ -571,52 +662,10 @@ void * udp_generator_manager( void * app_data )
 				if ( !exist )
 				{
 					// start new cfg
-					add_new_udp_changes( _g , &_g->cfg._cfg_udps[ i ] );
+					add_new_wave( _g , &_g->cfg._pwave_cfg[ i ] );
 				}
 			}
-
-
-
-			//size_t enable_cfg_count = 0;
-			//for ( int i = 0 ; i < _g->cfg._cfg_pbs_count ; i++ )
-			//{
-			//	if ( _g->cfg._cfg_pbs[ i ].c.c.enable )
-			//	{
-			//		enable_cfg_count++;
-			//	}
-			//}
-			//if ( !enable_cfg_count )
-			//{
-			//	_g->bridges.pbs = &_g->bridges.empty_one;
-			//	_g->bridges.pbs_count = 0;
-			//	continue;
-			//}
-
-			//if ( !( _g->bridges.pbs = ( struct Bridge_holder * )malloc( sizeof( struct Bridge_holder ) * enable_cfg_count ) ) )
-			//{
-			//	ERR_RET( "insufficient memory" , VOID_RET );
-			//}
-			//memset( _g->bridges.pbs , 0 , sizeof( struct Bridge_holder ) * enable_cfg_count );
-			//_g->bridges.pbs_count = enable_cfg_count;
-			//int index_active_bridge = -1;
-			//for ( int i = 0 ; i < _g->cfg._cfg_pbs_count ; i++ ) // check all cfg
-			//{
-			//	if ( _g->cfg._cfg_pbs[ i ].c.c.enable )
-			//	{
-			//		_g->bridges.pbs[ ++index_active_bridge ].udp_data.udp_port_number = _g->cfg._cfg_pbs[ i ].c.c.UDP_origin_port;
-			//		strcpy( _g->bridges.pbs[ index_active_bridge ].tcp_data.tcp_ip , _g->cfg._cfg_pbs[ i ].c.c.TCP_destination_ip );
-			//		_g->bridges.pbs[ index_active_bridge ].tcp_data.tcp_port_number = _g->cfg._cfg_pbs[ i ].c.c.TCP_destination_port;
-			//	}
-			//}
-
-			//if ( pthread_create( &trd_udp_connection , NULL , thread_udp_connection_proc , app_data ) != 0 )
-			//{
-			//	_DETAIL_ERROR( "Failed to create thread" );
-			//	return NULL; // Indicate an error
-			//}
-
-
-			_g->cfg._udp_config_changed = 0; // changes applied
+			_g->cfg._wave_config_changed = 0; // changes applied
 		}
 		sleep( 5 );
 	}
