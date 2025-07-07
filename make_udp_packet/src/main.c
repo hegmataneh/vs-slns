@@ -15,6 +15,9 @@
 #define Uses_Remote_vs_prj
 #define Uses_NEWSTR
 #define Uses_INIT_BREAKABLE_FXN
+#define Uses_ncurses
+#define Uses_fd_set
+#define Uses_fileno
 
 #include <make_udp_packet.dep>
 
@@ -34,7 +37,7 @@
 
 struct Config_ver
 {
-	char version[64];
+	char version[ 64 ];
 	int Major; //Indicates significant changes , potentially including incompatible API changes.
 	int Minor; //Denotes new functionality added in a backwards - compatible manner.
 	int Build; //Represents the specific build number of the software.
@@ -50,7 +53,7 @@ struct Global_Config_0
 	const char * description;
 	const char * log_level; // no , error , warn , verbose,
 	const char * log_file;
-	
+
 	int enable;
 	int shutdown;
 	int watchdog_enabled;
@@ -58,9 +61,10 @@ struct Global_Config_0
 	int dump_current_config;
 	int dump_prev_config;
 	int time_out_sec;
-	
+
 	int verbose_mode;
 	int hi_frequent_log_interval_sec;
+	int refresh_variable_from_scratch;
 };
 
 struct Global_Config_n
@@ -80,10 +84,10 @@ struct Global_Config // finalizer
 
 struct wave_cfg_id
 {
-	char wave_name[64];
-	char UDP_destination_ip[64];
+	char wave_name[ 64 ];
+	char UDP_destination_ip[ 64 ];
 	int UDP_destination_port;
-	char UDP_destination_interface[128];
+	char UDP_destination_interface[ 128 ];
 };
 
 struct wave_maintained_parameter // stays in position
@@ -110,11 +114,8 @@ struct wave_temp_data
 struct wave_cfg_0
 {
 	struct wave_cfg_id id; // must be uniq for each wave
-
 	struct wave_maintained_parameter maintained;
-
 	struct wave_momentary_parameter momentary;
-	
 	struct wave_temp_data temp_data;
 };
 
@@ -141,7 +142,7 @@ struct udp_wave
 	int * thread_masks; // each int represent thrread is valid
 	size_t mask_count; // thread keeper count
 
-	int sent_counter;
+	//__int64u sent_counter;
 };
 
 struct udp_wave_holder
@@ -179,10 +180,32 @@ struct App_Config // global config
 	int _wave_config_changed; // act like bool . something is changed
 };
 
+#define INPUT_MAX 256
+
+struct statistics
+{
+	// box & window
+	int scr_height , scr_width;
+	WINDOW * main_win;
+	WINDOW * input_win;
+
+	// cmd
+	int pipefds[ 2 ]; // used for bypass stdout
+	char last_command[ INPUT_MAX ];
+	char input_buffer[ INPUT_MAX ];
+
+	// stat
+	time_t start_time;
+	int sender_thread_count;
+	__int64u all_benchmarks_total_sent_count , cur_benchmark_total_sent_count;
+	__int64u all_benchmarks_total_sent_byte , cur_benchmarks_total_sent_byte;
+};
+
 struct App_Data
 {
 	struct App_Config cfg;
 	struct wave_holders waves;
+	struct statistics stat;
 };
 
 #endif
@@ -191,6 +214,8 @@ struct App_Data
 
 void * wave_runner( void * src_pwave )
 {
+	INIT_BREAKABLE_FXN();
+
 	struct udp_wave * pwave = ( struct udp_wave * )src_pwave;
 	struct App_Data * _g = pwave->cfg.m.m.temp_data._g;
 	pthread_t tid = pthread_self();
@@ -212,19 +237,19 @@ void * wave_runner( void * src_pwave )
 	ASSERT( socketid >= 0 );
 
 	struct sockaddr_in server_addr;
-	memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons( ( uint16_t )pwave->cfg.m.m.id.UDP_destination_port );
-    if ( inet_pton( AF_INET , pwave->cfg.m.m.id.UDP_destination_ip , &server_addr.sin_addr ) <= 0 )
+	memset( &server_addr , 0 , sizeof( server_addr ) );
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons( ( uint16_t )pwave->cfg.m.m.id.UDP_destination_port );
+	if ( inet_pton( AF_INET , pwave->cfg.m.m.id.UDP_destination_ip , &server_addr.sin_addr ) <= 0 )
 	{
-        perror("inet_pton failed");
-    }
+		_ECHO( "inet_pton failed" );
+	}
 
 	char buffer[ 100 ];
-	
+
 	if ( IF_VERBOSE_MODE_CONDITION() )
 	{
-		printf( "thread started %s \n" , buffer );
+		_ECHO( "thread started %s \n" , buffer );
 	}
 
 	ssize_t sz = 0;
@@ -244,12 +269,15 @@ void * wave_runner( void * src_pwave )
 		{
 			if ( IF_VERBOSE_MODE_CONDITION() )
 			{
-				printf( "%s" , buffer );
+				_ECHO( "%s" , buffer );
 			}
 			prev_time_log = time( NULL );
 		}
 
 		sz += sendto( socketid , buffer , strlen( buffer ) , 0 , ( struct sockaddr * )&server_addr , sizeof( server_addr ) );
+
+		_g->stat.all_benchmarks_total_sent_count++;
+		_g->stat.all_benchmarks_total_sent_byte += sz;
 
 		if ( pwave->cfg.m.m.maintained.iteration_delay_milisec > 0 )
 		{
@@ -294,10 +322,10 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 	{
 		// run new one
 		int diff_new_thread_count = new_cfg->m.m.maintained.parallelism_count - valid_thread_count;
-		
+
 		if ( IF_VERBOSE_MODE_CONDITION() )
 		{
-			printf( "num new thread %d \n" , diff_new_thread_count );
+			_ECHO( "num new thread %d \n" , diff_new_thread_count );
 		}
 		while ( diff_new_thread_count > 0 )
 		{
@@ -311,38 +339,22 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 						_DETAIL_ERROR( "create sock error" );
 						M_BREAK_IF( pwave->socket_ids[ i ] < 0 , errGeneral , 2 );
 					}
-					
+					if ( IF_VERBOSE_MODE_CONDITION() )
+					{
+						_ECHO( "create socket %d \n" , pwave->socket_ids[ i ] );
+					}
+
 					pwave->thread_masks[ i ] = 1; // order is matter
 
 					pthread_t trd;
 					M_BREAK_IF( ( pthread_create( &trd , NULL , wave_runner , ( void * )pwave ) ) != 0 , errGeneral , 2 );
 					pwave->pThreads[ i ] = trd;
-					
-
 					if ( IF_VERBOSE_MODE_CONDITION() )
 					{
-						printf( "create thread %lu \n" , trd );
+						_ECHO( "create thread %lu \n" , trd );
 					}
 
-					
-
-					if ( IF_VERBOSE_MODE_CONDITION() )
-					{
-						printf( "create socket %d \n" , pwave->socket_ids[ i ] );
-					}
-
-					//struct sockaddr_in server_addr;
-					//memset( &server_addr , 0 , sizeof( server_addr ) );
-					//server_addr.sin_family = AF_INET; // IPv4
-					//server_addr.sin_port = htons( ( uint16_t )pwave->cfg.m.m.id.UDP_destination_port ); // Convert port to network byte order
-					////server_addr.sin_addr.s_addr = inet_addr("YOUR_IP_ADDRESS"); // Specify the IP address to bind to
-					//server_addr.sin_addr.s_addr = INADDR_ANY; // Or use INADDR_ANY to bind to all available interfaces . Send me anything arriving at port 12345 on any interface
-					//int bind_ret = bind( pwave->socket_ids[ i ] , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) );
-					//if ( bind_ret < 0 )
-					//{
-					//	_DETAIL_ERROR( "bind error" );
-					//}
-					//M_BREAK_IF( bind_ret < 0 , errGeneral , 2 );
+					_g->stat.sender_thread_count++;
 
 					diff_new_thread_count--;
 					break;
@@ -358,7 +370,7 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 		int extra_count = valid_thread_count - new_cfg->m.m.maintained.parallelism_count;
 		if ( IF_VERBOSE_MODE_CONDITION() )
 		{
-			printf( "num retire extra thread %d \n" , extra_count );
+			_ECHO( "num retire extra thread %d \n" , extra_count );
 		}
 		while ( extra_count > 0 )
 		{
@@ -371,6 +383,8 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 					{
 						pwave->thread_masks[ i ] = 0;
 						extra_count--;
+
+						_g->stat.sender_thread_count--;
 					}
 					break;
 				}
@@ -393,7 +407,7 @@ void stop_wave( struct App_Data * _g , struct udp_wave * pwave )
 
 	//if ( IF_VERBOSE_MODE_CONDITION() )
 	//{
-	//	printf( "stop_wave \n" );
+	//	_ECHO( "stop_wave \n" );
 	//}
 
 	pwave->cfg.m.m.maintained.parallelism_count = 0;
@@ -407,7 +421,7 @@ void apply_new_wave_changes( struct App_Data * _g , struct wave_cfg * prev_cfg ,
 
 	//if ( IF_VERBOSE_MODE_CONDITION() )
 	//{
-	//	printf( "apply_new_wave_changes \n" );
+	//	_ECHO( "apply_new_wave_changes \n" );
 	//}
 
 	for ( int i = 0 ; i < _g->waves.mask_count ; i++ )
@@ -428,7 +442,7 @@ void remove_wave( struct App_Data * _g , struct wave_cfg * cfg )
 
 	//if ( IF_VERBOSE_MODE_CONDITION() )
 	//{
-	//	printf( "remove_wave \n" );
+	//	_ECHO( "remove_wave \n" );
 	//}
 
 	for ( int i = 0 ; i < _g->waves.mask_count ; i++ )
@@ -453,7 +467,7 @@ void add_new_wave( struct App_Data * _g , struct wave_cfg * new_cfg )
 
 	//if ( IF_VERBOSE_MODE_CONDITION() )
 	//{
-	//	printf( "add_new_wave \n" );
+	//	_ECHO( "add_new_wave \n" );
 	//}
 
 	if ( !_g->waves.mask_count )
@@ -505,7 +519,7 @@ void add_new_wave( struct App_Data * _g , struct wave_cfg * new_cfg )
 	BEGIN_RET
 		case 2: DAC( _g->waves.pholder );
 		case 1: DAC( _g->waves.pValidity_masks );
-	V_END_RET
+			V_END_RET
 } // TODO . return value
 
 #endif
@@ -522,7 +536,7 @@ void * version_checker( void * app_data )
 
 	struct App_Data * _g = ( struct App_Data * )app_data;
 	char buf[ 50 ] = { 0 };
-	time_t prev_time = {0} , cur_time = { 0 };
+	time_t prev_time = { 0 } , cur_time = { 0 };
 	struct Config_ver temp_ver = { 0 };
 	while ( 1 )
 	{
@@ -532,7 +546,7 @@ void * version_checker( void * app_data )
 		{
 			prev_time = cur_time;
 
-			memset( buf , 0 , sizeof(buf) );
+			memset( buf , 0 , sizeof( buf ) );
 			const char * config_ver_file_content = read_file( CONFIG_ROOT_PATH "/config_ver.txt" , ( char * )buf );
 			if ( config_ver_file_content == NULL ) ERR_RET( "cannot open and read version file" , VOID_RET );
 
@@ -561,7 +575,7 @@ void * version_checker( void * app_data )
 				_g->cfg._version_changed = 1;
 				if ( IF_VERBOSE_MODE_CONDITION() )
 				{
-					printf( "version changed %s \n" , _g->cfg._ver->version );
+					_ECHO( "version changed %s \n" , _g->cfg._ver->version );
 				}
 			}
 		}
@@ -617,12 +631,12 @@ void * config_loader( void * app_data )
 					if ( catch_error( &re_configurations , "configurations" ) ) ERR_RET( "err" , VOID_RET );
 					typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 
-					#define CFG_ELEM_STR( name ) \
+#define CFG_ELEM_STR( name ) \
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );\
 						if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 						NEWSTR( pGeneralConfiguration->name , el_##name.value.as_string , 0 );
-					#define CFG_ELEM_I( name ) \
+#define CFG_ELEM_I( name ) \
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );\
 						if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
@@ -644,9 +658,11 @@ void * config_loader( void * app_data )
 					CFG_ELEM_I( time_out_sec );
 					CFG_ELEM_I( verbose_mode );
 					CFG_ELEM_I( hi_frequent_log_interval_sec );
+					CFG_ELEM_I( refresh_variable_from_scratch );
+					
 
-					#undef CFG_ELEM_I
-					#undef CFG_ELEM_STR
+#undef CFG_ELEM_I
+#undef CFG_ELEM_STR
 				}
 
 				/*waves*/
@@ -666,7 +682,7 @@ void * config_loader( void * app_data )
 
 					for ( int i = 0 ; i < el_waves.value.as_object->count ; i++ )
 					{
-						char output_wave_name[32];
+						char output_wave_name[ 32 ];
 						memset( output_wave_name , 0 , sizeof( output_wave_name ) );
 						sprintf( output_wave_name , "wave%d" , i + 1 );
 
@@ -674,37 +690,37 @@ void * config_loader( void * app_data )
 						if ( catch_error( &re_output_wave , output_wave_name ) ) ERR_RET( "err" , VOID_RET );
 						typed( json_element ) el_output_wave = result_unwrap( json_element )( &re_output_wave );
 
-						#define CFG_ELEM_STR( name ) \
+#define CFG_ELEM_STR( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
 							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							strcpy(((struct wave_cfg_0 *)(pWaves + i))->name , el_##name.value.as_string );
-						
-						#define CFG_ID_ELEM_STR( name ) \
+
+#define CFG_ID_ELEM_STR( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
 							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							strcpy(((struct wave_cfg_0 *)(pWaves + i))->id.name , el_##name.value.as_string );
-						
-						#define CFG_ELEM_I_maintained( name ) \
+
+#define CFG_ELEM_I_maintained( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
 							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct wave_cfg_0 *)(pWaves + i))->maintained.name = (int)el_##name.value.as_number.value.as_long;
 
-						#define CFG_ELEM_I_momentary( name ) \
+#define CFG_ELEM_I_momentary( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
 							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct wave_cfg_0 *)(pWaves + i))->momentary.name = (int)el_##name.value.as_number.value.as_long;
 
-						#define CFG_ID_ELEM_I( name ) \
+#define CFG_ID_ELEM_I( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
 							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct wave_cfg_0 *)(pWaves + i))->id.name = (int)el_##name.value.as_number.value.as_long;
 
-						strcpy(((struct wave_cfg_0 *)(pWaves + i))->id.wave_name , output_wave_name );
+						strcpy( ( ( struct wave_cfg_0 * )( pWaves + i ) )->id.wave_name , output_wave_name );
 
 						CFG_ID_ELEM_STR( UDP_destination_ip );
 						CFG_ID_ELEM_I( UDP_destination_port );
@@ -716,16 +732,16 @@ void * config_loader( void * app_data )
 						CFG_ELEM_I_maintained( enable );
 						CFG_ELEM_I_momentary( reset_connections );
 
-						#undef CFG_ID_ELEM_I
-						#undef CFG_ELEM_I
-						#undef CFG_ID_ELEM_STR
-						#undef CFG_ELEM_STR
+#undef CFG_ID_ELEM_I
+#undef CFG_ELEM_I
+#undef CFG_ID_ELEM_STR
+#undef CFG_ELEM_STR
 					}
 				}
 
 				json_free( &el_UDP_generator_config );
 			}
-		
+
 			int initial_general_config = 0;
 			if ( _g->cfg._general_config == NULL ) // TODO . make assignemnt atomic
 			{
@@ -741,7 +757,7 @@ void * config_loader( void * app_data )
 			}
 			if ( !initial_general_config )
 			{
-				DAC(_g->cfg._prev_general_config);
+				DAC( _g->cfg._prev_general_config );
 
 				_g->cfg._prev_general_config = _g->cfg._general_config;
 				_g->cfg._general_config = NULL;
@@ -774,14 +790,17 @@ void * config_loader( void * app_data )
 
 					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.verbose_mode == _g->cfg._prev_general_config->c.c.verbose_mode );
 					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.hi_frequent_log_interval_sec == _g->cfg._prev_general_config->c.c.hi_frequent_log_interval_sec );
+					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.refresh_variable_from_scratch == _g->cfg._prev_general_config->c.c.refresh_variable_from_scratch );
+
+					
 				}
 			}
-			
+
 			if ( _g->cfg._general_config_changed )
 			{
 				if ( IF_VERBOSE_MODE_CONDITION() )
 				{
-					printf( "general config changed \n" );
+					_ECHO( "general config changed \n" );
 				}
 			}
 
@@ -862,21 +881,21 @@ void * config_loader( void * app_data )
 
 			if ( _g->cfg._wave_config_changed && IF_VERBOSE_MODE_CONDITION() )
 			{
-				printf( "wave config changed \n" );
+				_ECHO( "wave config changed \n" );
 			}
 		}
 		sleep( 2 );
 	}
 
 	BEGIN_RET
-	case 0:
+		case 0:
 	{
 		json_free( &el_UDP_generator_config );
 		break;
 	}
 	V_END_RET
 
-	return NULL;
+		return NULL;
 }
 
 // TODO . aware of concurrency in config read and act on it
@@ -898,9 +917,9 @@ void * udp_generator_manager( void * app_data )
 		if ( _g->cfg._general_config_changed )
 		{
 			_g->cfg._general_config_changed = 0; // for now . TODO later
-			
+
 		}
-		
+
 		if ( _g->cfg._wave_config_changed )
 		{
 			for ( int i = 0 ; i < _g->cfg._prev_wave_cfg_count ; i++ )
@@ -927,7 +946,7 @@ void * udp_generator_manager( void * app_data )
 				int exist = 0;
 				for ( int j = 0 ; j < _g->cfg._prev_wave_cfg_count ; j++ )
 				{
-					if ( memcmp( &_g->cfg._pwave_cfg[ i ].m.m.id , &_g->cfg._pprev_wave_cfg[ j ].m.m.id , sizeof(struct wave_cfg_id)) == 0 )
+					if ( memcmp( &_g->cfg._pwave_cfg[ i ].m.m.id , &_g->cfg._pprev_wave_cfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
 					{
 						exist = 1;
 						break;
@@ -948,12 +967,265 @@ void * udp_generator_manager( void * app_data )
 
 #endif
 
+#ifndef section_stat
+
+pthread_mutex_t data_lock;
+
+// Centered cell printing
+void print_cell( WINDOW * win , int y , int x , int width , const char * text )
+{
+	size_t len = strlen( text );
+	int pad = ( width - ( int )len ) / 2;
+	if ( pad < 0 ) pad = 0;
+	mvwprintw( win , y , x + pad , "%s" , text );
+}
+
+#define MAIN_STAT()  _g->stat
+#define MAIN_WIN  MAIN_STAT().main_win
+
+// Drawing the full table
+void draw_table( struct App_Data * _g )
+{
+	char * header_border = "+----------+--------------------+";
+
+	int cell_w = strlen( header_border ) / 2;
+	int start_x = 2;
+	int y = 1;
+
+	// Top border
+	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+
+	// Header
+	wattron( MAIN_WIN , COLOR_PAIR( 1 ) );
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "Metric" );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , "Value" );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	wattroff( MAIN_WIN , COLOR_PAIR( 1 ) );
+
+	// Header border
+	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+
+	// Data rows
+	wattron( MAIN_WIN , COLOR_PAIR( 2 ) );
+	char buf[ 32 ];
+
+	
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "sender_thread_count" );
+	snprintf( buf , sizeof( buf ) , "%d" , MAIN_STAT().sender_thread_count );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "total_sent_count" );
+	snprintf( buf , sizeof( buf ) , "%llu" , MAIN_STAT().all_benchmarks_total_sent_count );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "total_sent_byte" );
+	snprintf( buf , sizeof( buf ) , "%llu" , MAIN_STAT().all_benchmarks_total_sent_byte );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+
+
+	//// Memory
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "MemoryMB" );
+	//snprintf( buf , sizeof( buf ) , "%.2f" , pdata->mem_usage );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	//// IO
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "001 IO KB/s" );
+	//snprintf( buf , sizeof( buf ) , "%.2f" , pdata->io_rate );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+
+	wattroff( MAIN_WIN , COLOR_PAIR( 2 ) );
+
+	// Mid border
+	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+
+	// Last Command Row
+	wattron( MAIN_WIN , COLOR_PAIR( 3 ) );
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "Last Cmd" );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , MAIN_STAT().last_command );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	wattroff( MAIN_WIN , COLOR_PAIR( 3 ) );
+
+	// Bottom border
+	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+}
+
+#undef MAIN_WIN
+
+// Stats update thread
+void * stats_thread( void * pdata )
+{
+	struct App_Data * _g = ( struct App_Data * )pdata;
+	while ( 1 )
+	{
+		pthread_mutex_lock( &data_lock );
+
+		werase( _g->stat.main_win );
+		box( _g->stat.main_win , 0 , 0 );
+		draw_table( _g );
+		wrefresh( _g->stat.main_win );
+
+		pthread_mutex_unlock( &data_lock );
+
+		sleep( 1 );
+	}
+	return NULL;
+}
+
+// Input thread
+void * input_thread( void * pdata )
+{
+	struct App_Data * _g = ( struct App_Data * )pdata;
+	while ( 1 )
+	{
+		pthread_mutex_lock( &data_lock );
+
+		werase( _g->stat.input_win );
+		box( _g->stat.input_win , 0 , 0 );
+
+		pthread_mutex_unlock( &data_lock );
+
+		// Enable echo and get input
+		echo();
+		curs_set( 1 );
+		wmove( _g->stat.input_win , 1 , 1 );
+		wprintw( _g->stat.input_win , "cmd(quit to exit): " );
+		wrefresh( _g->stat.input_win );
+		wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
+		noecho();
+		curs_set( 0 );
+
+		pthread_mutex_lock( &data_lock );
+
+		strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX - 1 );
+		_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
+
+		pthread_mutex_unlock( &data_lock );
+	}
+	return NULL;
+}
+
+void init_windows( struct App_Data * _g )
+{
+	//int maxy, maxx;
+	getmaxyx( stdscr , _g->stat.scr_height , _g->stat.scr_width );
+
+	// Calculate window sizes (60% for cells, 40% for input)
+	int stats_height = _g->stat.scr_height - 3;
+	int input_height = 3;
+
+	// Create or replace windows
+	if ( _g->stat.main_win ) delwin( _g->stat.main_win );
+	if ( _g->stat.input_win ) delwin( _g->stat.input_win );
+
+	_g->stat.main_win = newwin( stats_height , _g->stat.scr_width , 0 , 0 );
+	_g->stat.input_win = newwin( input_height , _g->stat.scr_width , stats_height , 0 );
+
+	// Enable scrolling and keypad for input window
+	scrollok( _g->stat.main_win , TRUE );
+	keypad( _g->stat.input_win , TRUE );
+
+	// Set box borders
+	box( _g->stat.main_win , 0 , 0 );
+	box( _g->stat.input_win , 0 , 0 );
+
+	// Refresh windows
+	wrefresh( _g->stat.main_win );
+	wrefresh( _g->stat.input_win );
+}
+
+#endif
+
 #ifndef section_main
+
+#define BUF_SIZE 2048
+
+void * stdout_bypass_thread( void * pdata )
+{
+	struct App_Data * _g = ( struct App_Data * )pdata;
+	fd_set readfds;
+	char buffer[ BUF_SIZE ];
+	while ( 1 )
+	{
+		FD_ZERO( &readfds );
+		FD_SET( _g->stat.pipefds[ 0 ] , &readfds );
+
+		int ready = select( _g->stat.pipefds[ 0 ] + 1 , &readfds , NULL , NULL , NULL );
+		if ( ready > 0 && FD_ISSET( _g->stat.pipefds[ 0 ] , &readfds ) )
+		{
+			int n = read( _g->stat.pipefds[ 0 ] , buffer , BUF_SIZE - 1 );
+			buffer[ n ] = EOS;
+			strncpy( _g->stat.last_command , buffer , sizeof( _g->stat.last_command ) - 1 );
+		}
+	}
+	return NULL;
+}
+
+void init_bypass_stdout( struct App_Data * _g )
+{
+	//int pipefd[ 2 ];
+	//memset( pipefd , 0 , sizeof( pipefd ) );
+
+	// Make pipe
+	pipe( _g->stat.pipefds );
+
+	// Redirect stdout
+	//fflush( stdout );
+	dup2( _g->stat.pipefds[ 1 ] , fileno( stderr ) );
+
+	pthread_t tid_stdout_bypass;
+	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( void * )_g );
+}
 
 int main()
 {
-    INIT_BREAKABLE_FXN();
+	INIT_BREAKABLE_FXN();
 	struct App_Data _g = { 0 };
+
+	// Initialize curses
+	initscr();
+	start_color();
+	cbreak();
+	noecho();
+	curs_set( 1 );
+
+	init_pair( 1 , COLOR_WHITE , COLOR_BLUE );   // Header
+	init_pair( 2 , COLOR_GREEN , COLOR_BLACK );  // Data
+	init_pair( 3 , COLOR_YELLOW , COLOR_BLACK ); // Last Command
+
+	pthread_mutex_init( &data_lock , NULL );
+
+	// Initial window creation
+	init_windows( &_g );
+
+	init_bypass_stdout( &_g );
+
+	pthread_t tid_stats , tid_input;
+	pthread_create( &tid_stats , NULL , stats_thread , ( void * )&_g );
+	pthread_create( &tid_input , NULL , input_thread , ( void * )&_g );
 
 	pthread_t trd_version_checker;
 	if ( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )&_g ) != 0 ) ERR_RET( "Failed to create thread" , MAIN_BAD_RET );
@@ -970,7 +1242,7 @@ int main()
 		return 1; // Indicate an error
 	}
 
-    return 0;
+	return 0;
 }
 
 #endif

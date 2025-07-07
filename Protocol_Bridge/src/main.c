@@ -23,13 +23,7 @@
 
 #ifndef utils_section
 
-
-
-//static char __custom_message[ 256 ] = ""; // if forgot to define __custom_message then global is choosed
-
-
-//#define BAD_RETURN "bad"
-
+static char __custom_message[ 256 ] = ""; // if forgot to define __custom_message then global is choosed
 
 #endif
 
