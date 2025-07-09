@@ -27,4 +27,9 @@
       <Filter>dep</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="header\msg.h">
+      <Filter>header</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>

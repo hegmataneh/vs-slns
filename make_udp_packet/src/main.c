@@ -1,4 +1,4 @@
-#ifndef section_include
+﻿#ifndef section_include
 
 #define Uses_thrd_sleep
 #define Uses_json
@@ -25,11 +25,11 @@
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #pragma GCC diagnostic ignored "-Wsign-conversion"
 
-#define VERBOSE_MODE_DEFAULT 1
+#define VERBOSE_MODE_DEFAULT 0
 #define HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT 5
 
-#define IF_VERBOSE_MODE_CONDITION() ( _g->cfg._general_config ? _g->cfg._general_config->c.c.verbose_mode : VERBOSE_MODE_DEFAULT )
-#define HI_FREQUENT_LOG_INTERVAL ( _g->cfg._general_config ? _g->cfg._general_config->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
+#define IF_VERBOSE_MODE_CONDITION() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.verbose_mode : VERBOSE_MODE_DEFAULT )
+#define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
 
 #endif
 
@@ -98,17 +98,19 @@ struct wave_maintained_parameter // stays in position
 
 	int enable;
 	int iteration_delay_milisec;
+	int packet_payload_size;
 };
 
-struct wave_momentary_parameter // returns automatically
+struct wave_momentary_parameter // popup automatically
 {
 	int reset_connections;
 };
 
 struct wave_temp_data
 {
-	void * _g;
-	int cfg_changed;
+	void * _g; // just point to the main g
+	int wcfg_changed; // in passive cfg and active cfg that in alive wave, in both it means something changed
+	//int wcfg_stabled; // after change happened in action thread cfg must be stablesh before doing any action
 };
 
 struct wave_cfg_0
@@ -133,28 +135,41 @@ struct wave_cfg // finalizer
 
 #ifndef section_udp_wave
 
-struct udp_wave
+struct wave_thread // هر موج یک دسته ترد دارد که هر کدام بر مبنای کانیگ مشترکی که دارند کار واحدی انجام می دهند
 {
-	struct wave_cfg cfg; // copy of applied cfg
+	pthread_t trd_id;
+	int base_config_change_applied;
+	int do_close_thread; // command from outside to inside thread
 
-	pthread_t * pThreads; // each one keep one thread
-	int * socket_ids; // 
-	int * thread_masks; // each int represent thrread is valid
-	size_t mask_count; // thread keeper count
-
-	//__int64u sent_counter;
+	struct udp_wave * pwave; // point to upper wave
 };
 
-struct udp_wave_holder
+struct wave_thread_holder
 {
-	struct udp_wave * pwave; // allocated
+	struct wave_thread * alc_thread;
+};
+
+struct udp_wave
+{
+	struct wave_cfg awcfg;  // copy of applied cfg . active wave config . یک دسته کامل از ترد ها یک کانفیگ را اعمال می کند
+
+	int socket_id;
+
+	struct wave_thread_holder * wv_trds; // wave threads
+	int * wv_trds_masks;  // each int represent thread is valid
+	size_t wv_trds_masks_count;  // thread keeper count
+};
+
+struct udp_wave_holder // every elemnt at the reallocation array must have holder because reallocate change data values but with holder just pointer addr change
+{
+	struct udp_wave * alc_wave; // allocated
 };
 
 struct wave_holders
 {
-	struct udp_wave_holder * pholder; // all the active waves
-	int * pValidity_masks; // waves masks
-	size_t mask_count; // mask count
+	struct udp_wave_holder * wv_holders; // all the active waves
+	int * wv_holders_masks; // waves masks
+	size_t wv_holders_masks_count; // mask count
 };
 
 #endif
@@ -173,11 +188,11 @@ struct App_Config // global config
 	int _general_config_changed;
 
 	// waves
-	struct wave_cfg * _pprev_wave_cfg; // maybe later in some condition we need to rollback ro prev config
-	size_t _prev_wave_cfg_count;
-	struct wave_cfg * _pwave_cfg;
-	size_t _wave_cfg_count;
-	int _wave_config_changed; // act like bool . something is changed
+	struct wave_cfg * _pprev_wave_psvcfg; // maybe later in some condition we need to rollback to prev config
+	size_t _prev_wave_psvcfg_count;
+	struct wave_cfg * _pwave_psvcfg;
+	size_t _wave_psvcfg_count;
+	int _psvcfg_changed; // act like bool . something is changed
 };
 
 #define INPUT_MAX 256
@@ -197,13 +212,17 @@ struct statistics
 	// stat
 	time_t start_time;
 	int sender_thread_count;
-	__int64u all_benchmarks_total_sent_count , cur_benchmark_total_sent_count;
-	__int64u all_benchmarks_total_sent_byte , cur_benchmarks_total_sent_byte;
+	__int64u all_benchmarks_total_sent_count;
+	__int64u all_benchmarks_total_sent_byte;
+
+	__int64u all_benchmarks_total_sent_fail_count;
+
+	__int64u syscal_err_count;
 };
 
 struct App_Data
 {
-	struct App_Config cfg;
+	struct App_Config appcfg;
 	struct wave_holders waves;
 	struct statistics stat;
 };
@@ -217,145 +236,210 @@ void * wave_runner( void * src_pwave )
 	INIT_BREAKABLE_FXN();
 
 	struct udp_wave * pwave = ( struct udp_wave * )src_pwave;
-	struct App_Data * _g = pwave->cfg.m.m.temp_data._g;
+	struct App_Data * _g = pwave->awcfg.m.m.temp_data._g;
 	pthread_t tid = pthread_self();
 	int socketid = -1;
+	struct wave_thread * pthread = NULL;
 	while ( socketid == -1 )
 	{
-		for ( int i = 0 ; i < pwave->mask_count ; i++ )
+		for ( int i = 0 ; i < pwave->wv_trds_masks_count ; i++ )
 		{
-			if ( pwave->thread_masks[ i ] )
+			if ( pwave->wv_trds_masks[ i ] )
 			{
-				if ( pwave->pThreads[ i ] == tid )
+				if ( pwave->wv_trds[ i ].alc_thread->trd_id == tid )
 				{
-					socketid = pwave->socket_ids[ i ];
+					socketid = pwave->socket_id;
+					pthread = pwave->wv_trds[ i ].alc_thread;
 					break;
 				}
 			}
 		}
 	}
-	ASSERT( socketid >= 0 );
-
-	struct sockaddr_in server_addr;
-	memset( &server_addr , 0 , sizeof( server_addr ) );
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons( ( uint16_t )pwave->cfg.m.m.id.UDP_destination_port );
-	if ( inet_pton( AF_INET , pwave->cfg.m.m.id.UDP_destination_ip , &server_addr.sin_addr ) <= 0 )
+	if ( pthread == NULL )
 	{
-		_ECHO( "inet_pton failed" );
+		_g->stat.syscal_err_count++;
+		return NULL;
 	}
+	ASSERT( socketid >= 0 );
+	//ASSERT( pbase_config_change_applied != NULL );
 
-	char buffer[ 100 ];
+	_g->stat.sender_thread_count++;
 
 	if ( IF_VERBOSE_MODE_CONDITION() )
 	{
-		_ECHO( "thread started %s \n" , buffer );
+		_ECHO( "thread started" );
 	}
 
-	ssize_t sz = 0;
-
-	while ( 1 )
+	int config_changes = 0;
+	do
 	{
-		//if ( socketid < 0 ) break;
-
-		//pwave->sent_counter++;
-
-		memset( buffer , 0 , sizeof( buffer ) );
-		sprintf( buffer , "trd(%lu) sock(%d) sendsz (%lu) \n" , tid , socketid , sz );
-
-		static time_t prev_time_log = 0;
-		if ( !prev_time_log ) prev_time_log = time( NULL );
-		if ( difftime( time( NULL ) , prev_time_log ) > HI_FREQUENT_LOG_INTERVAL )
+		if ( pthread->do_close_thread )
 		{
+			break;
+		}
+
+		config_changes = 0;
+		struct sockaddr_in server_addr;
+		memset( &server_addr , 0 , sizeof( server_addr ) );
+		server_addr.sin_family = AF_INET;
+		server_addr.sin_port = htons( ( uint16_t )pwave->awcfg.m.m.id.UDP_destination_port );
+		if ( inet_pton( AF_INET , pwave->awcfg.m.m.id.UDP_destination_ip , &server_addr.sin_addr ) <= 0 )
+		{
+			_g->stat.syscal_err_count++;
+			_ECHO( "inet_pton failed" );
+		}
+
+		int buf_size = pwave->awcfg.m.m.maintained.packet_payload_size;
+		char * buffer = NEWBUF( char , buf_size );
+		MEMSET_ZERO( buffer , char , buf_size );
+
+		ssize_t sz = 0;
+
+		while ( 1 )
+		{
+			if ( pthread->do_close_thread )
+			{
+				break;
+			}
+			if ( pthread->base_config_change_applied )
+			{
+				pthread->base_config_change_applied = 0;
+				config_changes = 1;
+				break;
+			}
+
+			//if ( socketid < 0 ) break;
+			//pwave->sent_counter++;
+			//memset( buffer , 0 , sizeof( buffer ) );
+			//sprintf( buffer , "trd(%lu) sock(%d) sendsz (%lu) \n" , tid , socketid , sz );
+
 			if ( IF_VERBOSE_MODE_CONDITION() )
 			{
-				_ECHO( "%s" , buffer );
+				static time_t prev_time_log = 0;
+				if ( !prev_time_log ) prev_time_log = time( NULL );
+				if ( difftime( time( NULL ) , prev_time_log ) > HI_FREQUENT_LOG_INTERVAL )
+				{
+					_ECHO( "%s" , buffer );
+					prev_time_log = time( NULL );
+				}
 			}
-			prev_time_log = time( NULL );
-		}
 
-		sz += sendto( socketid , buffer , strlen( buffer ) , 0 , ( struct sockaddr * )&server_addr , sizeof( server_addr ) );
+			if ( ( sz = sendto( socketid , buffer , buf_size , 0 , ( struct sockaddr * )&server_addr , sizeof( server_addr ) ) ) < SENDTO_MIN_OK )
+			{
+				_g->stat.all_benchmarks_total_sent_fail_count++;
+			}
+			else
+			{
+				_g->stat.all_benchmarks_total_sent_count++;
+				_g->stat.all_benchmarks_total_sent_byte += sz;
+			}
 
-		_g->stat.all_benchmarks_total_sent_count++;
-		_g->stat.all_benchmarks_total_sent_byte += sz;
+			if ( pwave->awcfg.m.m.maintained.iteration_delay_milisec > 0 )
+			{
+				sleep( pwave->awcfg.m.m.maintained.iteration_delay_milisec / 1000 );
+				//struct timespec ts = { 0, pwave->cfg.m.m.maintained.iteration_delay_milisec * 1000000 };
+				//thrd_sleep( &ts , NULL );
+			}
+		} // while ( 1 )
 
-		if ( pwave->cfg.m.m.maintained.iteration_delay_milisec > 0 )
+		DAC( buffer );
+
+	} while ( config_changes );
+
+	_g->stat.sender_thread_count--;
+	
+	// delete mask
+	for ( int i = 0 ; i < pthread->pwave->wv_trds_masks_count ; i++ )
+	{
+		if ( pthread->pwave->wv_trds_masks[ i ] && pthread->pwave->wv_trds[ i ].alc_thread->trd_id == tid )
 		{
-			sleep( pwave->cfg.m.m.maintained.iteration_delay_milisec / 1000 );
-			//struct timespec ts = { 0, pwave->cfg.m.m.maintained.iteration_delay_milisec * 1000000 };
-			//thrd_sleep( &ts , NULL );
+			pthread->pwave->wv_trds_masks[ i ] = 0;
+			break;
 		}
 	}
+	
 	return NULL;
 }
 
-void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , struct wave_cfg * new_cfg )
+void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , struct wave_cfg * new_wcfg )
 {
 	INIT_BREAKABLE_FXN();
 
-	// make extra space for new one
-	if ( pwave->mask_count < new_cfg->m.m.maintained.parallelism_count )
+	int open_socket = 0;
+	if ( new_wcfg->m.m.maintained.parallelism_count > 0 && pwave->wv_trds == NULL )
 	{
-		int old_mask_count = pwave->mask_count;
-		int diff_count = ( new_cfg->m.m.maintained.parallelism_count - pwave->mask_count );
-		int new_mask_count = old_mask_count + diff_count;
+		open_socket = 1;
+	}
 
-		M_BREAK_IF( !( pwave->pThreads = REALLOC( pwave->pThreads , new_mask_count * sizeof( pthread_t ) ) ) , errMemoryLow , 0 );
-		MEMSET_ZERO( pwave->pThreads + old_mask_count , pthread_t , diff_count );
+	// make extra space for new one
+	if ( pwave->wv_trds_masks_count < new_wcfg->m.m.maintained.parallelism_count )
+	{
+		int old_thread_count = pwave->wv_trds_masks_count;
+		int diff_count = ( new_wcfg->m.m.maintained.parallelism_count - pwave->wv_trds_masks_count );
+		int new_thread_count = old_thread_count + diff_count;
 
-		M_BREAK_IF( !( pwave->socket_ids = REALLOC( pwave->socket_ids , new_mask_count * sizeof( int ) ) ) , errMemoryLow , 1 );
-		MEMSET_ZERO( pwave->socket_ids + old_mask_count , int , diff_count );
+		M_BREAK_IF( ( pwave->wv_trds_masks = REALLOC( pwave->wv_trds_masks , new_thread_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
+		MEMSET_ZERO( pwave->wv_trds_masks + old_thread_count , int , diff_count );
 
-		M_BREAK_IF( !( pwave->thread_masks = REALLOC( pwave->thread_masks , new_mask_count * sizeof( int ) ) ) , errMemoryLow , 2 );
-		MEMSET_ZERO( pwave->thread_masks + old_mask_count , int , diff_count );
+		M_BREAK_IF( ( pwave->wv_trds = REALLOC( pwave->wv_trds , new_thread_count * sizeof( struct wave_thread_holder ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
+		MEMSET_ZERO( pwave->wv_trds + old_thread_count , struct wave_thread_holder , diff_count );
 
-		pwave->mask_count = new_mask_count;
+		pwave->wv_trds_masks_count = new_thread_count;
+	}
+
+	// 1. create socket first
+	if ( open_socket )
+	{
+		MM_BREAK_IF( ( pwave->socket_id = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" )
+		{
+			_DETAIL_ERROR( "create sock error" );
+			MM_BREAK_IF( pwave->socket_id < 0 , errGeneral , 2 );
+		}
+		if ( IF_VERBOSE_MODE_CONDITION() )
+		{
+			_ECHO( "create socket %d" , pwave->socket_id );
+		}
 	}
 
 	// create extra needed thread and socket for each of them
 	int valid_thread_count = 0;
-	for ( int i = 0 ; i < pwave->mask_count ; i++ )
+	for ( int i = 0 ; i < pwave->wv_trds_masks_count ; i++ )
 	{
-		if ( pwave->thread_masks[ i ] ) valid_thread_count++;
+		if ( pwave->wv_trds_masks[ i ] ) valid_thread_count++;
 	}
-	if ( valid_thread_count < new_cfg->m.m.maintained.parallelism_count )
+	// must add new thread to active wave
+	if ( valid_thread_count < new_wcfg->m.m.maintained.parallelism_count )
 	{
 		// run new one
-		int diff_new_thread_count = new_cfg->m.m.maintained.parallelism_count - valid_thread_count;
+		int diff_new_thread_count = new_wcfg->m.m.maintained.parallelism_count - valid_thread_count;
 
 		if ( IF_VERBOSE_MODE_CONDITION() )
 		{
-			_ECHO( "num new thread %d \n" , diff_new_thread_count );
+			_ECHO( "num new thread %d" , diff_new_thread_count );
 		}
 		while ( diff_new_thread_count > 0 )
 		{
-			for ( int i = 0 ; i < pwave->mask_count ; i++ )
+			for ( int i = 0 ; i < pwave->wv_trds_masks_count ; i++ )
 			{
-				if ( !pwave->thread_masks[ i ] )
+				if ( !pwave->wv_trds_masks[ i ] )
 				{
-					pwave->socket_ids[ i ] = socket( AF_INET , SOCK_DGRAM , 0 );
-					if ( pwave->socket_ids[ i ] < 0 )
-					{
-						_DETAIL_ERROR( "create sock error" );
-						M_BREAK_IF( pwave->socket_ids[ i ] < 0 , errGeneral , 2 );
-					}
+					// 2. set mask
+					pwave->wv_trds_masks[ i ] = 1; // order is matter
+
+					DAC( pwave->wv_trds[ i ].alc_thread );
+					M_BREAK_IF( ( pwave->wv_trds[ i ].alc_thread = NEW( struct wave_thread ) ) == NEW_ERR , errMemoryLow , 0 );
+					MEMSET_ZERO( pwave->wv_trds[ i ].alc_thread , struct wave_thread , 1 );
+					pwave->wv_trds[ i ].alc_thread->pwave = pwave;
+
+					// 3. create thread also
+					M_BREAK_IF( pthread_create( &pwave->wv_trds[ i ].alc_thread->trd_id , NULL , wave_runner , ( void * )pwave ) != PTHREAD_CREATE_OK , errGeneral , 2 );
+					
+					// 4. etc
 					if ( IF_VERBOSE_MODE_CONDITION() )
 					{
-						_ECHO( "create socket %d \n" , pwave->socket_ids[ i ] );
+						_ECHO( "create thread %lu" , pwave->wv_trds[ i ].alc_thread->trd_id );
 					}
-
-					pwave->thread_masks[ i ] = 1; // order is matter
-
-					pthread_t trd;
-					M_BREAK_IF( ( pthread_create( &trd , NULL , wave_runner , ( void * )pwave ) ) != 0 , errGeneral , 2 );
-					pwave->pThreads[ i ] = trd;
-					if ( IF_VERBOSE_MODE_CONDITION() )
-					{
-						_ECHO( "create thread %lu \n" , trd );
-					}
-
-					_g->stat.sender_thread_count++;
-
+					//_g->stat.sender_thread_count++;
 					diff_new_thread_count--;
 					break;
 				}
@@ -364,27 +448,29 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 	}
 
 	// retire extra thread
-	if ( valid_thread_count > new_cfg->m.m.maintained.parallelism_count )
+	if ( valid_thread_count > new_wcfg->m.m.maintained.parallelism_count )
 	{
 		// stop extra
-		int extra_count = valid_thread_count - new_cfg->m.m.maintained.parallelism_count;
+		int extra_count = valid_thread_count - new_wcfg->m.m.maintained.parallelism_count;
 		if ( IF_VERBOSE_MODE_CONDITION() )
 		{
-			_ECHO( "num retire extra thread %d \n" , extra_count );
+			_ECHO( "num retire extra thread %d" , extra_count );
 		}
 		while ( extra_count > 0 )
 		{
-			for ( int i = pwave->mask_count - 1 ; i >= 0 ; i-- ) // az yah hazf kon
+			for ( int i = pwave->wv_trds_masks_count - 1 ; i >= 0 ; i-- ) // az yah hazf kon
 			{
-				if ( pwave->thread_masks[ i ] )
+				if ( pwave->wv_trds_masks[ i ] && pwave->wv_trds[ i ].alc_thread->do_close_thread == 0 )
 				{
-					_close_socket( pwave->socket_ids + i );
-					if ( pthread_cancel( pwave->pThreads[ i ] ) == 0 )
-					{
-						pwave->thread_masks[ i ] = 0;
-						extra_count--;
+					pwave->wv_trds[ i ].alc_thread->do_close_thread = 1;
 
-						_g->stat.sender_thread_count--;
+					//if ( pthread_cancel( pwave->wv_trds[ i ].trd_id ) == 0 )
+					{
+						//pwave->wv_trds[ i ].alc_thread->trd_id = 0;
+						//_close_socket( &pwave->wv_trds[ i ].socket_id );
+						
+						extra_count--;
+						//_g->stat.sender_thread_count--;
 					}
 					break;
 				}
@@ -392,12 +478,29 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 		}
 	}
 
-	memcpy( &pwave->cfg , new_cfg , sizeof( struct wave_cfg ) );
+	
+	// when we arrive at this point we sure that somethings is changed
+	memcpy( &pwave->awcfg , new_wcfg , sizeof( struct wave_cfg ) );
+	//pwave->awcfg.m.m.temp_data.wcfg_stabled = 1;
+	new_wcfg->m.m.temp_data.wcfg_changed = 0;
+	// Set every threads that their state must change
+	for ( int i = 0 ; i < pwave->wv_trds_masks_count ; i++ )
+	{
+		if ( pwave->wv_trds_masks[ i ] )
+		{
+			pwave->wv_trds[ i ].alc_thread->base_config_change_applied = 1;
+		}
+	}
 
 	// TODO . complete reverse on error
 
 	BEGIN_RET
-		case 1: DAC( pwave->pThreads );
+		case 2: {}
+		case 1: {}
+		case 0:
+		{
+			_g->stat.syscal_err_count++;
+		}
 	V_END_RET
 }
 
@@ -407,53 +510,54 @@ void stop_wave( struct App_Data * _g , struct udp_wave * pwave )
 
 	//if ( IF_VERBOSE_MODE_CONDITION() )
 	//{
-	//	_ECHO( "stop_wave \n" );
+	//	_ECHO( "stop_wave" );
 	//}
 
-	pwave->cfg.m.m.maintained.parallelism_count = 0;
-	apply_new_wave_config( _g , pwave , &pwave->cfg );
+	pwave->awcfg.m.m.maintained.parallelism_count = 0;
+	pwave->awcfg.m.m.temp_data.wcfg_changed = 1;
+	apply_new_wave_config( _g , pwave , &pwave->awcfg );
 	// TODO
 }
 
-void apply_new_wave_changes( struct App_Data * _g , struct wave_cfg * prev_cfg , struct wave_cfg * new_cfg )
+void apply_wave_new_cfg_changes( struct App_Data * _g , struct wave_cfg * prev_wcfg , struct wave_cfg * new_wcfg )
 {
 	INIT_BREAKABLE_FXN();
 
 	//if ( IF_VERBOSE_MODE_CONDITION() )
 	//{
-	//	_ECHO( "apply_new_wave_changes \n" );
+	//	_ECHO( "apply_wave_new_cfg_changes" );
 	//}
 
-	for ( int i = 0 ; i < _g->waves.mask_count ; i++ )
+	for ( int i = 0 ; i < _g->waves.wv_holders_masks_count ; i++ )
 	{
-		if ( _g->waves.pValidity_masks[ i ] )
+		if ( _g->waves.wv_holders_masks[ i ] )
 		{
-			if ( memcmp( &_g->waves.pholder[ i ].pwave->cfg.m.m.id , &prev_cfg->m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+			if ( memcmp( &_g->waves.wv_holders[ i ].alc_wave->awcfg.m.m.id , &prev_wcfg->m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
 			{
-				apply_new_wave_config( _g , _g->waves.pholder[ i ].pwave , new_cfg );
+				apply_new_wave_config( _g , _g->waves.wv_holders[ i ].alc_wave , new_wcfg );
 			}
 		}
 	}
 }
 
-void remove_wave( struct App_Data * _g , struct wave_cfg * cfg )
+void remove_wave( struct App_Data * _g , struct wave_cfg * wcfg )
 {
 	INIT_BREAKABLE_FXN();
 
 	//if ( IF_VERBOSE_MODE_CONDITION() )
 	//{
-	//	_ECHO( "remove_wave \n" );
+	//	_ECHO( "remove_wave" );
 	//}
 
-	for ( int i = 0 ; i < _g->waves.mask_count ; i++ )
+	for ( int i = 0 ; i < _g->waves.wv_holders_masks_count ; i++ )
 	{
-		if ( _g->waves.pValidity_masks[ i ] )
+		if ( _g->waves.wv_holders_masks[ i ] )
 		{
-			if ( memcmp( &_g->waves.pholder[ i ].pwave->cfg.m.m.id , &cfg->m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+			if ( memcmp( &_g->waves.wv_holders[ i ].alc_wave->awcfg.m.m.id , &wcfg->m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
 			{
-				stop_wave( _g , _g->waves.pholder[ i ].pwave );
-				_g->waves.pValidity_masks[ i ] = 0;
-				DAC( _g->waves.pholder[ i ].pwave );
+				stop_wave( _g , _g->waves.wv_holders[ i ].alc_wave );
+				_g->waves.wv_holders_masks[ i ] = 0;
+				DAC( _g->waves.wv_holders[ i ].alc_wave );
 			}
 		}
 	}
@@ -461,65 +565,54 @@ void remove_wave( struct App_Data * _g , struct wave_cfg * cfg )
 
 #define PREALLOCAION_SIZE 10
 
-void add_new_wave( struct App_Data * _g , struct wave_cfg * new_cfg )
+void add_new_wave( struct App_Data * _g , struct wave_cfg * new_wcfg )
 {
 	INIT_BREAKABLE_FXN();
 
 	//if ( IF_VERBOSE_MODE_CONDITION() )
 	//{
-	//	_ECHO( "add_new_wave \n" );
+	//	_ECHO( "add_new_wave" );
 	//}
 
-	if ( !_g->waves.mask_count )
+	int new_wcfg_placement_index = -1;
+	while ( new_wcfg_placement_index < 0 ) // try to find one place for new wave
 	{
-		M_BREAK_IF( !( _g->waves.pValidity_masks = NEWBUF( int , PREALLOCAION_SIZE ) ) , errMemoryLow , 0 );
-		MEMSET_ZERO( _g->waves.pValidity_masks , int , PREALLOCAION_SIZE );
-
-		M_BREAK_IF( !( _g->waves.pholder = NEWBUF( struct udp_wave_holder , PREALLOCAION_SIZE ) ) , errMemoryLow , 1 );
-		MEMSET_ZERO( _g->waves.pholder , struct udp_wave_holder , PREALLOCAION_SIZE );
-
-		_g->waves.mask_count = PREALLOCAION_SIZE;
-	}
-
-	int new_cfg_placement_index = -1;
-	while ( new_cfg_placement_index < 0 )
-	{
-		for ( int i = 0 ; i < _g->waves.mask_count ; i++ )
+		for ( int i = 0 ; i < _g->waves.wv_holders_masks_count ; i++ )
 		{
-			if ( !_g->waves.pValidity_masks[ i ] )
+			if ( !_g->waves.wv_holders_masks[ i ] )
 			{
-				new_cfg_placement_index = i;
+				new_wcfg_placement_index = i;
 				break;
 			}
 		}
-		if ( new_cfg_placement_index < 0 )
+		if ( new_wcfg_placement_index < 0 )
 		{
-			int old_mask_count = _g->waves.mask_count;
-			int new_mask_count = old_mask_count + PREALLOCAION_SIZE;
+			int old_wv_holders_masks_count = _g->waves.wv_holders_masks_count;
+			int new_wv_holders_masks_count = old_wv_holders_masks_count + PREALLOCAION_SIZE;
 
-			M_BREAK_IF( !( _g->waves.pValidity_masks = REALLOC( _g->waves.pValidity_masks , new_mask_count * sizeof( int ) ) ) , errMemoryLow , 2 );
-			MEMSET_ZERO( _g->waves.pValidity_masks + old_mask_count , int , PREALLOCAION_SIZE );
+			M_BREAK_IF( ( _g->waves.wv_holders_masks = REALLOC( _g->waves.wv_holders_masks , new_wv_holders_masks_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 2 );
+			MEMSET_ZERO( _g->waves.wv_holders_masks + old_wv_holders_masks_count , int , PREALLOCAION_SIZE );
 
-			M_BREAK_IF( !( _g->waves.pholder = REALLOC( _g->waves.pholder , new_mask_count * sizeof( struct udp_wave_holder ) ) ) , errMemoryLow , 1 );
-			MEMSET_ZERO( _g->waves.pholder + old_mask_count , struct udp_wave_holder , PREALLOCAION_SIZE );
+			M_BREAK_IF( ( _g->waves.wv_holders = REALLOC( _g->waves.wv_holders , new_wv_holders_masks_count * sizeof( struct udp_wave_holder ) ) ) == REALLOC_ERR , errMemoryLow , 1 );
+			MEMSET_ZERO( _g->waves.wv_holders + old_wv_holders_masks_count , struct udp_wave_holder , PREALLOCAION_SIZE );
 
-			_g->waves.mask_count = new_mask_count;
+			_g->waves.wv_holders_masks_count = new_wv_holders_masks_count;
 		}
 	}
 
-	ASSERT( _g->waves.pholder[ new_cfg_placement_index ].pwave );
-	M_BREAK_IF( !( _g->waves.pholder[ new_cfg_placement_index ].pwave = NEW( struct udp_wave ) ) , errMemoryLow , 0 );
-	MEMSET_ZERO( _g->waves.pholder[ new_cfg_placement_index ].pwave , struct udp_wave , 1 );
-	_g->waves.pValidity_masks[ new_cfg_placement_index ] = 1;
-	memcpy( &_g->waves.pholder[ new_cfg_placement_index ].pwave->cfg , new_cfg , sizeof( struct wave_cfg ) );
-	//_g->waves.pholder[ new_cfg_placement_index ].pwave->try_connect = 1;
+	ASSERT( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave == NULL );
+	M_BREAK_IF( ( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave = NEW( struct udp_wave ) ) == NEW_ERR , errMemoryLow , 0 );
+	MEMSET_ZERO( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave , struct udp_wave , 1 );
+	_g->waves.wv_holders_masks[ new_wcfg_placement_index ] = 1;
+	memcpy( &_g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave->awcfg , new_wcfg , sizeof( struct wave_cfg ) );
 
-	apply_new_wave_changes( _g , new_cfg , new_cfg );
+	apply_wave_new_cfg_changes( _g , new_wcfg , new_wcfg );
 
 	BEGIN_RET
-		case 2: DAC( _g->waves.pholder );
-		case 1: DAC( _g->waves.pValidity_masks );
-			V_END_RET
+		case 2: DAC( _g->waves.wv_holders );
+		case 1: DAC( _g->waves.wv_holders_masks );
+		case 0: _g->stat.syscal_err_count++;
+	M_V_END_RET
 } // TODO . return value
 
 #endif
@@ -542,46 +635,51 @@ void * version_checker( void * app_data )
 	{
 		cur_time = time( NULL );
 
-		if ( _g->cfg._ver == NULL || difftime( cur_time , prev_time ) > 5 )
+		if ( _g->appcfg._ver == NULL || difftime( cur_time , prev_time ) > 5 )
 		{
 			prev_time = cur_time;
 
 			memset( buf , 0 , sizeof( buf ) );
 			const char * config_ver_file_content = read_file( CONFIG_ROOT_PATH "/config_ver.txt" , ( char * )buf );
-			if ( config_ver_file_content == NULL ) ERR_RET( "cannot open and read version file" , VOID_RET );
+			MM_BREAK_IF( !config_ver_file_content , errGeneral , 0 , "cannot open and read version file" );
 
 			result( json_element ) rs_config_ver = json_parse( config_ver_file_content );
 			//free( ( void * )config_ver_file_content );
-			if ( catch_error( &rs_config_ver , "config_ver" ) ) ERR_RET( "error in json_parse version file" , VOID_RET );
+			MM_BREAK_IF( catch_error( &rs_config_ver , "config_ver" ) , errGeneral , 0 , "error in json_parse version file" );
 			typed( json_element ) el_config_ver = result_unwrap( json_element )( &rs_config_ver );
 
 			result( json_element ) ver = json_object_find( el_config_ver.value.as_object , "ver" );
-			if ( catch_error( &ver , "ver" ) ) ERR_RET( "ver not found" , VOID_RET );
+			MM_BREAK_IF( catch_error( &ver , "ver" ) , errGeneral , 0 , "ver not found" );
 
 			memset( &temp_ver , 0 , sizeof( temp_ver ) );
 
 			strcpy( temp_ver.version , ( char * )ver.inner.value.value.as_string );
 			char * perr = NULL;
 			char * pver = ( char * )ver.inner.value.value.as_string;
-			temp_ver.Major = ( int )strtol( strtok( pver , "." ) , &perr , 10 ); if ( !perr ) ERR_RET( "ver Major wrong" , VOID_RET );
-			temp_ver.Minor = ( int )strtol( strtok( NULL , "." ) , &perr , 10 ); if ( !perr ) ERR_RET( "ver Minor wrong" , VOID_RET );
-			temp_ver.Build = ( int )strtol( strtok( NULL , "." ) , &perr , 10 ); if ( !perr ) ERR_RET( "ver Build wrong" , VOID_RET );
-			temp_ver.Revision_Patch = ( int )strtol( strtok( NULL , "." ) , &perr , 10 ); if ( !perr ) ERR_RET( "ver Revision_Patch wrong" , VOID_RET );
+			temp_ver.Major = ( int )strtol( strtok( pver , "." ) , &perr , 10 );			MM_BREAK_IF( !perr , errGeneral , 0 , "ver Major wrong" );
+			temp_ver.Minor = ( int )strtol( strtok( NULL , "." ) , &perr , 10 );			MM_BREAK_IF( !perr , errGeneral , 0 , "ver Minor wrong" );
+			temp_ver.Build = ( int )strtol( strtok( NULL , "." ) , &perr , 10 );			MM_BREAK_IF( !perr , errGeneral , 0 , "ver Build wrong" );
+			temp_ver.Revision_Patch = ( int )strtol( strtok( NULL , "." ) , &perr , 10 );	MM_BREAK_IF( !perr , errGeneral , 0 , "ver Revision_Patch wrong" );
 			json_free( &el_config_ver ); // string is user so must be free at the end
 
-			if ( _g->cfg._ver == NULL || strcmp( temp_ver.version , _g->cfg._ver->version ) )
+			if ( _g->appcfg._ver == NULL || strcmp( temp_ver.version , _g->appcfg._ver->version ) )
 			{
-				_g->cfg._ver = ( struct Config_ver * )memcpy( &_g->cfg.___temp_ver , &temp_ver , sizeof( temp_ver ) );
-				_g->cfg._version_changed = 1;
+				_g->appcfg._ver = ( struct Config_ver * )memcpy( &_g->appcfg.___temp_ver , &temp_ver , sizeof( temp_ver ) );
+				_g->appcfg._version_changed = 1;
 				if ( IF_VERBOSE_MODE_CONDITION() )
 				{
-					_ECHO( "version changed %s \n" , _g->cfg._ver->version );
+					_ECHO( "version changed %s" , _g->appcfg._ver->version );
 				}
 			}
 		}
-		sleep( 3 );
+		sleep( 1 );
 	}
-	return NULL;
+	BEGIN_RET
+		case 2: {}
+		case 1: {}
+		case 0: _g->stat.syscal_err_count++;
+	M_V_END_RET
+	return VOID_RET;
 }
 
 // TODO . fix memory leak
@@ -593,7 +691,7 @@ void * config_loader( void * app_data )
 	struct App_Data * _g = ( struct App_Data * )app_data;
 	time_t prev_time , cur_time;
 
-	while ( !_g->cfg._version_changed ) // load after version loaded
+	while ( !_g->appcfg._version_changed ) // load after version loaded
 	{
 		sleep( 1 );
 	}
@@ -604,7 +702,7 @@ void * config_loader( void * app_data )
 	{
 		cur_time = time( NULL );
 
-		if ( _g->cfg._general_config == NULL || _g->cfg._version_changed /* || difftime(cur_time , prev_time) > 15 * 60*/ )
+		if ( _g->appcfg._general_config == NULL || _g->appcfg._version_changed /* || difftime(cur_time , prev_time) > 15 * 60*/ )
 		{
 			prev_time = prev_time; // to ignore warning
 			prev_time = cur_time;
@@ -625,7 +723,7 @@ void * config_loader( void * app_data )
 				el_UDP_generator_config = result_unwrap( json_element )( &rs_UDP_generator_config );
 
 				/*configurations*/
-				if ( _g->cfg._ver->Major >= 1 ) // first version of config file structure
+				if ( _g->appcfg._ver->Major >= 1 ) // first version of config file structure
 				{
 					result( json_element ) re_configurations = json_object_find( el_UDP_generator_config.value.as_object , "configurations" );
 					if ( catch_error( &re_configurations , "configurations" ) ) ERR_RET( "err" , VOID_RET );
@@ -729,6 +827,7 @@ void * config_loader( void * app_data )
 						CFG_ELEM_I_maintained( packet_count );
 						CFG_ELEM_I_maintained( parallelism_count );
 						CFG_ELEM_I_maintained( iteration_delay_milisec );
+						CFG_ELEM_I_maintained( packet_payload_size );
 						CFG_ELEM_I_maintained( enable );
 						CFG_ELEM_I_momentary( reset_connections );
 
@@ -743,145 +842,143 @@ void * config_loader( void * app_data )
 			}
 
 			int initial_general_config = 0;
-			if ( _g->cfg._general_config == NULL ) // TODO . make assignemnt atomic
+			if ( _g->appcfg._general_config == NULL ) // TODO . make assignemnt atomic
 			{
-				if ( !( _g->cfg._general_config = malloc( sizeof( struct Global_Config ) ) ) )
+				if ( !( _g->appcfg._general_config = malloc( sizeof( struct Global_Config ) ) ) )
 				{
 					ERR_RET( "insufficient memory" , VOID_RET );
 				}
-				memset( _g->cfg._general_config , 0 , sizeof( struct Global_Config ) );
-				memcpy( _g->cfg._general_config , &temp_config , sizeof( temp_config ) );
+				memset( _g->appcfg._general_config , 0 , sizeof( struct Global_Config ) );
+				memcpy( _g->appcfg._general_config , &temp_config , sizeof( temp_config ) );
 				memset( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings
 				initial_general_config = 1;
-				_g->cfg._general_config_changed = 1;
+				_g->appcfg._general_config_changed = 1;
 			}
 			if ( !initial_general_config )
 			{
-				DAC( _g->cfg._prev_general_config );
+				DAC( _g->appcfg._prev_general_config );
 
-				_g->cfg._prev_general_config = _g->cfg._general_config;
-				_g->cfg._general_config = NULL;
+				_g->appcfg._prev_general_config = _g->appcfg._general_config;
+				_g->appcfg._general_config = NULL;
 
-				if ( !( _g->cfg._general_config = malloc( sizeof( struct Global_Config ) ) ) )
+				if ( !( _g->appcfg._general_config = malloc( sizeof( struct Global_Config ) ) ) )
 				{
 					ERR_RET( "insufficient memory" , VOID_RET );
 				}
-				memset( _g->cfg._general_config , 0 , sizeof( struct Global_Config ) );
-				memcpy( _g->cfg._general_config , &temp_config , sizeof( temp_config ) );
+				memset( _g->appcfg._general_config , 0 , sizeof( struct Global_Config ) );
+				memcpy( _g->appcfg._general_config , &temp_config , sizeof( temp_config ) );
 				memset( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings
 
-				if ( _g->cfg._prev_general_config != NULL && _g->cfg._general_config != NULL )
+				if ( _g->appcfg._prev_general_config != NULL && _g->appcfg._general_config != NULL )
 				{
-					_g->cfg._general_config_changed |= !!strcmp( _g->cfg._general_config->c.c.create_date , _g->cfg._prev_general_config->c.c.create_date );
-					_g->cfg._general_config_changed |= !!strcmp( _g->cfg._general_config->c.c.modify_date , _g->cfg._prev_general_config->c.c.modify_date );
-					_g->cfg._general_config_changed |= !!strcmp( _g->cfg._general_config->c.c.config_name , _g->cfg._prev_general_config->c.c.config_name );
-					_g->cfg._general_config_changed |= !!strcmp( _g->cfg._general_config->c.c.config_tags , _g->cfg._prev_general_config->c.c.config_tags );
-					_g->cfg._general_config_changed |= !!strcmp( _g->cfg._general_config->c.c.description , _g->cfg._prev_general_config->c.c.description );
-					_g->cfg._general_config_changed |= !!strcmp( _g->cfg._general_config->c.c.log_level , _g->cfg._prev_general_config->c.c.log_level );
-					_g->cfg._general_config_changed |= !!strcmp( _g->cfg._general_config->c.c.log_file , _g->cfg._prev_general_config->c.c.log_file );
+					_g->appcfg._general_config_changed |= !!strcmp( _g->appcfg._general_config->c.c.create_date , _g->appcfg._prev_general_config->c.c.create_date );
+					_g->appcfg._general_config_changed |= !!strcmp( _g->appcfg._general_config->c.c.modify_date , _g->appcfg._prev_general_config->c.c.modify_date );
+					_g->appcfg._general_config_changed |= !!strcmp( _g->appcfg._general_config->c.c.config_name , _g->appcfg._prev_general_config->c.c.config_name );
+					_g->appcfg._general_config_changed |= !!strcmp( _g->appcfg._general_config->c.c.config_tags , _g->appcfg._prev_general_config->c.c.config_tags );
+					_g->appcfg._general_config_changed |= !!strcmp( _g->appcfg._general_config->c.c.description , _g->appcfg._prev_general_config->c.c.description );
+					_g->appcfg._general_config_changed |= !!strcmp( _g->appcfg._general_config->c.c.log_level , _g->appcfg._prev_general_config->c.c.log_level );
+					_g->appcfg._general_config_changed |= !!strcmp( _g->appcfg._general_config->c.c.log_file , _g->appcfg._prev_general_config->c.c.log_file );
 
-					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.enable == _g->cfg._prev_general_config->c.c.enable );
-					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.shutdown == _g->cfg._prev_general_config->c.c.shutdown );
-					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.watchdog_enabled == _g->cfg._prev_general_config->c.c.watchdog_enabled );
-					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.load_prev_config == _g->cfg._prev_general_config->c.c.load_prev_config );
-					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.dump_current_config == _g->cfg._prev_general_config->c.c.dump_current_config );
-					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.dump_prev_config == _g->cfg._prev_general_config->c.c.dump_prev_config );
-					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.time_out_sec == _g->cfg._prev_general_config->c.c.time_out_sec );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.enable == _g->appcfg._prev_general_config->c.c.enable );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.shutdown == _g->appcfg._prev_general_config->c.c.shutdown );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.watchdog_enabled == _g->appcfg._prev_general_config->c.c.watchdog_enabled );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.load_prev_config == _g->appcfg._prev_general_config->c.c.load_prev_config );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.dump_current_config == _g->appcfg._prev_general_config->c.c.dump_current_config );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.dump_prev_config == _g->appcfg._prev_general_config->c.c.dump_prev_config );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.time_out_sec == _g->appcfg._prev_general_config->c.c.time_out_sec );
 
-					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.verbose_mode == _g->cfg._prev_general_config->c.c.verbose_mode );
-					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.hi_frequent_log_interval_sec == _g->cfg._prev_general_config->c.c.hi_frequent_log_interval_sec );
-					_g->cfg._general_config_changed |= !( _g->cfg._general_config->c.c.refresh_variable_from_scratch == _g->cfg._prev_general_config->c.c.refresh_variable_from_scratch );
-
-					
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.verbose_mode == _g->appcfg._prev_general_config->c.c.verbose_mode );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.hi_frequent_log_interval_sec == _g->appcfg._prev_general_config->c.c.hi_frequent_log_interval_sec );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.refresh_variable_from_scratch == _g->appcfg._prev_general_config->c.c.refresh_variable_from_scratch );
 				}
 			}
 
-			if ( _g->cfg._general_config_changed )
+			if ( _g->appcfg._general_config_changed )
 			{
 				if ( IF_VERBOSE_MODE_CONDITION() )
 				{
-					_ECHO( "general config changed \n" );
+					_ECHO( "general config changed" );
 				}
 			}
 
-			if ( _g->cfg._pwave_cfg )
+			if ( _g->appcfg._pwave_psvcfg )
 			{
-				DAC( _g->cfg._pprev_wave_cfg );
-				_g->cfg._prev_wave_cfg_count = 0;
-				_g->cfg._pprev_wave_cfg = _g->cfg._pwave_cfg;
-				_g->cfg._prev_wave_cfg_count = _g->cfg._wave_cfg_count;
+				DAC( _g->appcfg._pprev_wave_psvcfg );
+				_g->appcfg._prev_wave_psvcfg_count = 0;
+				_g->appcfg._pprev_wave_psvcfg = _g->appcfg._pwave_psvcfg;
+				_g->appcfg._prev_wave_psvcfg_count = _g->appcfg._wave_psvcfg_count;
 			}
-			_g->cfg._pwave_cfg = pWaves;
-			_g->cfg._wave_cfg_count = waves_count;
+			_g->appcfg._pwave_psvcfg = pWaves;
+			_g->appcfg._wave_psvcfg_count = waves_count;
 			pWaves = NULL; // to not delete intentionally
 			waves_count = 0;
 
-			if ( _g->cfg._pprev_wave_cfg == NULL && _g->cfg._pwave_cfg )
+			if ( _g->appcfg._pprev_wave_psvcfg == NULL && _g->appcfg._pwave_psvcfg )
 			{
 				// all new ones
-				_g->cfg._wave_config_changed = 1; // ham koli set mishavad change rokh dad
-				for ( int i = 0 ; i < _g->cfg._wave_cfg_count ; i++ )
+				_g->appcfg._psvcfg_changed = 1; // ham koli set mishavad change rokh dad
+				for ( int i = 0 ; i < _g->appcfg._wave_psvcfg_count ; i++ )
 				{
-					_g->cfg._pwave_cfg[ i ].m.m.temp_data.cfg_changed = 1; // ham joz e set mishavad
+					_g->appcfg._pwave_psvcfg[ i ].m.m.temp_data.wcfg_changed = 1; // ham joz e set mishavad
 				}
 			}
-			else if ( _g->cfg._pprev_wave_cfg && _g->cfg._pwave_cfg )
+			else if ( _g->appcfg._pprev_wave_psvcfg && _g->appcfg._pwave_psvcfg )
 			{
 				// from old perspective
-				for ( int i = 0 ; i < _g->cfg._prev_wave_cfg_count ; i++ )
+				for ( int i = 0 ; i < _g->appcfg._prev_wave_psvcfg_count ; i++ )
 				{
 					int prev_exist = 0;
-					for ( int j = 0 ; j < _g->cfg._wave_cfg_count ; j++ )
+					for ( int j = 0 ; j < _g->appcfg._wave_psvcfg_count ; j++ )
 					{
-						if ( memcmp( &_g->cfg._pprev_wave_cfg[ i ].m.m.id , &_g->cfg._pwave_cfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+						if ( memcmp( &_g->appcfg._pprev_wave_psvcfg[ i ].m.m.id , &_g->appcfg._pwave_psvcfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
 						{
 							prev_exist = 1;
-							if ( memcmp( &_g->cfg._pprev_wave_cfg[ i ].m.m.maintained , &_g->cfg._pwave_cfg[ j ].m.m.maintained , sizeof( struct wave_maintained_parameter ) ) )
+							if ( memcmp( &_g->appcfg._pprev_wave_psvcfg[ i ].m.m.maintained , &_g->appcfg._pwave_psvcfg[ j ].m.m.maintained , sizeof( struct wave_maintained_parameter ) ) )
 							{
-								_g->cfg._wave_config_changed = 1;
-								_g->cfg._pwave_cfg[ j ].m.m.temp_data.cfg_changed = 1;
+								_g->appcfg._psvcfg_changed = 1;
+								_g->appcfg._pwave_psvcfg[ j ].m.m.temp_data.wcfg_changed = 1;
 							}
 							break;
 						}
 					}
 					if ( !prev_exist )
 					{
-						_g->cfg._wave_config_changed = 1;
-						_g->cfg._pprev_wave_cfg[ i ].m.m.temp_data.cfg_changed = 1;
+						_g->appcfg._psvcfg_changed = 1;
+						_g->appcfg._pprev_wave_psvcfg[ i ].m.m.temp_data.wcfg_changed = 1;
 						break;
 					}
 				}
 				// from new perspective
-				for ( int j = 0 ; j < _g->cfg._wave_cfg_count ; j++ )
+				for ( int j = 0 ; j < _g->appcfg._wave_psvcfg_count ; j++ )
 				{
 					int new_exist = 0;
-					for ( int i = 0 ; i < _g->cfg._prev_wave_cfg_count ; i++ )
+					for ( int i = 0 ; i < _g->appcfg._prev_wave_psvcfg_count ; i++ )
 					{
-						if ( memcmp( &_g->cfg._pprev_wave_cfg[ i ].m.m.id , &_g->cfg._pwave_cfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+						if ( memcmp( &_g->appcfg._pprev_wave_psvcfg[ i ].m.m.id , &_g->appcfg._pwave_psvcfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
 						{
 							new_exist = 1;
-							if ( memcmp( &_g->cfg._pprev_wave_cfg[ i ].m.m.maintained , &_g->cfg._pwave_cfg[ j ].m.m.maintained , sizeof( struct wave_maintained_parameter ) ) )
+							if ( memcmp( &_g->appcfg._pprev_wave_psvcfg[ i ].m.m.maintained , &_g->appcfg._pwave_psvcfg[ j ].m.m.maintained , sizeof( struct wave_maintained_parameter ) ) )
 							{
-								_g->cfg._wave_config_changed = 1;
-								_g->cfg._pwave_cfg[ j ].m.m.temp_data.cfg_changed = 1;
+								_g->appcfg._psvcfg_changed = 1;
+								_g->appcfg._pwave_psvcfg[ j ].m.m.temp_data.wcfg_changed = 1;
 							}
 							break;
 						}
 					}
 					if ( !new_exist )
 					{
-						_g->cfg._wave_config_changed = 1;
-						_g->cfg._pwave_cfg[ j ].m.m.temp_data.cfg_changed = 1;
+						_g->appcfg._psvcfg_changed = 1;
+						_g->appcfg._pwave_psvcfg[ j ].m.m.temp_data.wcfg_changed = 1;
 						break;
 					}
 				}
 			}
 
-			_g->cfg._version_changed = 0;
+			_g->appcfg._version_changed = 0;
 
-			if ( _g->cfg._wave_config_changed && IF_VERBOSE_MODE_CONDITION() )
+			if ( _g->appcfg._psvcfg_changed && IF_VERBOSE_MODE_CONDITION() )
 			{
-				_ECHO( "wave config changed \n" );
+				_ECHO( "wave config changed" );
 			}
 		}
 		sleep( 2 );
@@ -889,17 +986,17 @@ void * config_loader( void * app_data )
 
 	BEGIN_RET
 		case 0:
-	{
-		json_free( &el_UDP_generator_config );
-		break;
-	}
+		{
+			json_free( &el_UDP_generator_config );
+			break;
+		}
 	V_END_RET
 
-		return NULL;
+	return NULL;
 }
 
 // TODO . aware of concurrency in config read and act on it
-void * udp_generator_manager( void * app_data )
+void * waves_manager( void * app_data )
 {
 	INIT_BREAKABLE_FXN();
 	struct App_Data * _g = ( struct App_Data * )app_data;
@@ -907,46 +1004,45 @@ void * udp_generator_manager( void * app_data )
 	pthread_t trd_udp_connection , trd_tcp_connection;
 	pthread_t trd_protocol_bridge;
 
-	while ( !_g->cfg._wave_cfg_count ) // load after any config loaded
+	while ( !_g->appcfg._wave_psvcfg_count ) // load after any config loaded
 	{
 		sleep( 1 );
 	}
 
 	while ( 1 )
 	{
-		if ( _g->cfg._general_config_changed )
+		if ( _g->appcfg._general_config_changed )
 		{
-			_g->cfg._general_config_changed = 0; // for now . TODO later
-
+			_g->appcfg._general_config_changed = 0; // for now . TODO later
 		}
 
-		if ( _g->cfg._wave_config_changed )
+		if ( _g->appcfg._psvcfg_changed )
 		{
-			for ( int i = 0 ; i < _g->cfg._prev_wave_cfg_count ; i++ )
+			for ( int i = 0 ; i < _g->appcfg._prev_wave_psvcfg_count ; i++ )
 			{
 				int exist = 0;
-				for ( int j = 0 ; j < _g->cfg._wave_cfg_count ; j++ )
+				for ( int j = 0 ; j < _g->appcfg._wave_psvcfg_count ; j++ )
 				{
 					if ( exist ) break;
-					if ( memcmp( &_g->cfg._pprev_wave_cfg[ i ].m.m.id , &_g->cfg._pwave_cfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 && _g->cfg._pwave_cfg[ j ].m.m.temp_data.cfg_changed )
+					if ( memcmp( &_g->appcfg._pprev_wave_psvcfg[ i ].m.m.id , &_g->appcfg._pwave_psvcfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 && _g->appcfg._pwave_psvcfg[ j ].m.m.temp_data.wcfg_changed )
 					{
 						// existed cfg changed
-						apply_new_wave_changes( _g , &_g->cfg._pprev_wave_cfg[ i ] , &_g->cfg._pwave_cfg[ j ] );
+						apply_wave_new_cfg_changes( _g , &_g->appcfg._pprev_wave_psvcfg[ i ] , &_g->appcfg._pwave_psvcfg[ j ] );
 						exist = 1;
 					}
 				}
 				if ( !exist )
 				{
 					// remove removed one
-					remove_wave( _g , &_g->cfg._pprev_wave_cfg[ i ] );
+					remove_wave( _g , &_g->appcfg._pprev_wave_psvcfg[ i ] );
 				}
 			}
-			for ( int i = 0 ; i < _g->cfg._wave_cfg_count ; i++ )
+			for ( int i = 0 ; i < _g->appcfg._wave_psvcfg_count ; i++ )
 			{
 				int exist = 0;
-				for ( int j = 0 ; j < _g->cfg._prev_wave_cfg_count ; j++ )
+				for ( int j = 0 ; j < _g->appcfg._prev_wave_psvcfg_count ; j++ )
 				{
-					if ( memcmp( &_g->cfg._pwave_cfg[ i ].m.m.id , &_g->cfg._pprev_wave_cfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+					if ( memcmp( &_g->appcfg._pwave_psvcfg[ i ].m.m.id , &_g->appcfg._pprev_wave_psvcfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
 					{
 						exist = 1;
 						break;
@@ -955,10 +1051,10 @@ void * udp_generator_manager( void * app_data )
 				if ( !exist )
 				{
 					// start new cfg
-					add_new_wave( _g , &_g->cfg._pwave_cfg[ i ] );
+					add_new_wave( _g , &_g->appcfg._pwave_psvcfg[ i ] );
 				}
 			}
-			_g->cfg._wave_config_changed = 0; // changes applied
+			_g->appcfg._psvcfg_changed = 0; // changes applied
 		}
 		sleep( 5 );
 	}
@@ -1010,8 +1106,7 @@ void draw_table( struct App_Data * _g )
 	// Data rows
 	wattron( MAIN_WIN , COLOR_PAIR( 2 ) );
 	char buf[ 32 ];
-
-	
+		
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "sender_thread_count" );
@@ -1030,13 +1125,28 @@ void draw_table( struct App_Data * _g )
 
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "sent_fail_count" );
+	snprintf( buf , sizeof( buf ) , "%llu" , MAIN_STAT().all_benchmarks_total_sent_fail_count );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "total_sent_byte" );
 	snprintf( buf , sizeof( buf ) , "%llu" , MAIN_STAT().all_benchmarks_total_sent_byte );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "failure_count" );
+	snprintf( buf , sizeof( buf ) , "%llu" , MAIN_STAT().syscal_err_count );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	
 
 	//// Memory
 	//mvwprintw( MAIN_WIN , y , start_x , "|" );
@@ -1053,7 +1163,6 @@ void draw_table( struct App_Data * _g )
 	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
 
 	wattroff( MAIN_WIN , COLOR_PAIR( 2 ) );
 
@@ -1159,7 +1268,7 @@ void init_windows( struct App_Data * _g )
 
 #endif
 
-#ifndef section_main
+#ifndef section_stderr
 
 #define BUF_SIZE 2048
 
@@ -1200,10 +1309,22 @@ void init_bypass_stdout( struct App_Data * _g )
 	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( void * )_g );
 }
 
+struct App_Data * __g;
+
+void M_showMsg( const char * msg )
+{
+	if ( __g ) strcpy( __g->stat.last_command , msg );
+}
+
+#endif
+
+#ifndef section_main
+
 int main()
 {
 	INIT_BREAKABLE_FXN();
 	struct App_Data _g = { 0 };
+	__g = &_g;
 
 	// Initialize curses
 	initscr();
@@ -1228,20 +1349,28 @@ int main()
 	pthread_create( &tid_input , NULL , input_thread , ( void * )&_g );
 
 	pthread_t trd_version_checker;
-	if ( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )&_g ) != 0 ) ERR_RET( "Failed to create thread" , MAIN_BAD_RET );
+	MM_BREAK_IF( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "" ) ERR_RET("Failed to create thread" , MAIN_BAD_RET);
 
 	pthread_t trd_config_loader;
-	if ( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )&_g ) != 0 ) ERR_RET( "Failed to create thread" , MAIN_BAD_RET );
+	if ( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )&_g ) != PTHREAD_CREATE_OK ) ERR_RET( "Failed to create thread" , MAIN_BAD_RET );
 
-	pthread_t trd_udp_generator_manager;
-	if ( pthread_create( &trd_udp_generator_manager , NULL , udp_generator_manager , ( void * )&_g ) != 0 ) ERR_RET( "Failed to create thread" , MAIN_BAD_RET );
+	pthread_t trd_waves_manager;
+	if ( pthread_create( &trd_waves_manager , NULL , waves_manager , ( void * )&_g ) != PTHREAD_CREATE_OK ) ERR_RET( "Failed to create thread" , MAIN_BAD_RET );
 
-	if ( pthread_join( trd_udp_generator_manager , NULL ) != 0 )
+	if ( pthread_join( trd_waves_manager , NULL ) != PTHREAD_JOIN_OK )
 	{
 		_DETAIL_ERROR( "Failed to join thread" );
 		return 1; // Indicate an error
 	}
 
+	BEGIN_RET
+		case 2: {}
+		case 1: {}
+		case 0:
+		{
+			__g->stat.syscal_err_count++;
+		}
+	V_END_RET
 	return 0;
 }
 

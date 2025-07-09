@@ -90,6 +90,9 @@
       <Project>{65d7d4b3-bbfa-4c50-adce-72911e410ca0}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="header\msg.h" />
+  </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <PreprocessorDefinitions>INTELISENSE_BUILD=$(IntelliSenseBuild);__PROJECT_NAME__=$(ProjectName)</PreprocessorDefinitions>
