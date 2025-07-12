@@ -1311,7 +1311,7 @@ void init_bypass_stdout( struct App_Data * _g )
 
 struct App_Data * __g;
 
-void M_showMsg( const char * msg )
+void M_showMsg( const char * msg ) 
 {
 	if ( __g ) strcpy( __g->stat.last_command , msg );
 }
