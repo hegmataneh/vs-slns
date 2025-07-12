@@ -390,11 +390,7 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 	// 1. create socket first
 	if ( open_socket )
 	{
-		MM_BREAK_IF( ( pwave->socket_id = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" )
-		{
-			_DETAIL_ERROR( "create sock error" );
-			MM_BREAK_IF( pwave->socket_id < 0 , errGeneral , 2 );
-		}
+		MM_BREAK_IF( ( pwave->socket_id = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
 		if ( IF_VERBOSE_MODE_CONDITION() )
 		{
 			_ECHO( "create socket %d" , pwave->socket_id );
@@ -432,7 +428,7 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 					pwave->wv_trds[ i ].alc_thread->pwave = pwave;
 
 					// 3. create thread also
-					M_BREAK_IF( pthread_create( &pwave->wv_trds[ i ].alc_thread->trd_id , NULL , wave_runner , ( void * )pwave ) != PTHREAD_CREATE_OK , errGeneral , 2 );
+					MM_BREAK_IF( pthread_create( &pwave->wv_trds[ i ].alc_thread->trd_id , NULL , wave_runner , ( void * )pwave ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 					
 					// 4. etc
 					if ( IF_VERBOSE_MODE_CONDITION() )
@@ -465,13 +461,13 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 					pwave->wv_trds[ i ].alc_thread->do_close_thread = 1;
 
 					//if ( pthread_cancel( pwave->wv_trds[ i ].trd_id ) == 0 )
-					{
+					//{
 						//pwave->wv_trds[ i ].alc_thread->trd_id = 0;
 						//_close_socket( &pwave->wv_trds[ i ].socket_id );
 						
 						extra_count--;
 						//_g->stat.sender_thread_count--;
-					}
+					//}
 					break;
 				}
 			}
@@ -495,13 +491,13 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 	// TODO . complete reverse on error
 
 	BEGIN_RET
+		case 3: {}
 		case 2: {}
-		case 1: {}
-		case 0:
+		case 1:
 		{
 			_g->stat.syscal_err_count++;
 		}
-	V_END_RET
+	M_V_END_RET
 }
 
 void stop_wave( struct App_Data * _g , struct udp_wave * pwave )
@@ -609,9 +605,9 @@ void add_new_wave( struct App_Data * _g , struct wave_cfg * new_wcfg )
 	apply_wave_new_cfg_changes( _g , new_wcfg , new_wcfg );
 
 	BEGIN_RET
-		case 2: DAC( _g->waves.wv_holders );
-		case 1: DAC( _g->waves.wv_holders_masks );
-		case 0: _g->stat.syscal_err_count++;
+		case 3: DAC( _g->waves.wv_holders );
+		case 2: DAC( _g->waves.wv_holders_masks );
+		case 1: _g->stat.syscal_err_count++;
 	M_V_END_RET
 } // TODO . return value
 
@@ -675,9 +671,9 @@ void * version_checker( void * app_data )
 		sleep( 1 );
 	}
 	BEGIN_RET
+		case 3: {}
 		case 2: {}
-		case 1: {}
-		case 0: _g->stat.syscal_err_count++;
+		case 1: _g->stat.syscal_err_count++;
 	M_V_END_RET
 	return VOID_RET;
 }
@@ -713,30 +709,28 @@ void * config_loader( void * app_data )
 			size_t waves_count = 0;
 			{
 				const char * UDP_generator_config_file_content = read_file( CONFIG_ROOT_PATH "/UDP_generator_config.txt" , NULL );
-				if ( UDP_generator_config_file_content == NULL )
-				{
-					ERR_RET( "cannot open config file" , VOID_RET );
-				}
+				MM_BREAK_IF( !UDP_generator_config_file_content , errGeneral , 0 , "cannot open config file" );
+				
 				result( json_element ) rs_UDP_generator_config = json_parse( UDP_generator_config_file_content );
 				free( ( void * )UDP_generator_config_file_content );
-				if ( catch_error( &rs_UDP_generator_config , "UDP_generator_config" ) ) ERR_RET( "cannot parse config file" , VOID_RET );
+				MM_BREAK_IF( catch_error( &rs_UDP_generator_config , "UDP_generator_config" ) , errGeneral , 0 , "cannot parse config file" );
 				el_UDP_generator_config = result_unwrap( json_element )( &rs_UDP_generator_config );
 
 				/*configurations*/
 				if ( _g->appcfg._ver->Major >= 1 ) // first version of config file structure
 				{
 					result( json_element ) re_configurations = json_object_find( el_UDP_generator_config.value.as_object , "configurations" );
-					if ( catch_error( &re_configurations , "configurations" ) ) ERR_RET( "err" , VOID_RET );
+					MM_BREAK_IF( catch_error( &re_configurations , "configurations" ) , errGeneral , 0 , "configurations" );
 					typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 
 #define CFG_ELEM_STR( name ) \
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );\
-						if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
+						M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 						NEWSTR( pGeneralConfiguration->name , el_##name.value.as_string , 0 );
 #define CFG_ELEM_I( name ) \
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );\
-						if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
+						M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 						pGeneralConfiguration->name = (int)el_##name.value.as_number.value.as_long;
 
@@ -766,15 +760,12 @@ void * config_loader( void * app_data )
 				/*waves*/
 				{
 					result( json_element ) re_waves = json_object_find( el_UDP_generator_config.value.as_object , "waves" );
-					if ( catch_error( &re_waves , "waves" ) ) ERR_RET( "err" , VOID_RET );
+					MM_BREAK_IF( catch_error( &re_waves , "waves" ) , errGeneral , 0 , "waves" );
 					typed( json_element ) el_waves = result_unwrap( json_element )( &re_waves );
 
-					if ( ( waves_count = el_waves.value.as_object->count ) < 1 ) ERR_RET( "err" , VOID_RET );
+					MM_BREAK_IF( ( waves_count = el_waves.value.as_object->count ) < 1 , errGeneral , 0 , "waves must be not zero" );
 
-					if ( !( pWaves = NEWBUF( struct wave_cfg , el_waves.value.as_object->count ) ) )
-					{
-						ERR_RET( "insufficient memory" , VOID_RET );
-					}
+					M_BREAK_IF( !( pWaves = NEWBUF( struct wave_cfg , el_waves.value.as_object->count ) ) , errMemoryLow , 0 );
 					MEMSET_ZERO( pWaves , struct wave_cfg , el_waves.value.as_object->count );
 					pWaves->m.m.temp_data._g = ( void * )_g;
 
@@ -785,36 +776,36 @@ void * config_loader( void * app_data )
 						sprintf( output_wave_name , "wave%d" , i + 1 );
 
 						result( json_element ) re_output_wave = json_object_find( el_waves.value.as_object , output_wave_name );
-						if ( catch_error( &re_output_wave , output_wave_name ) ) ERR_RET( "err" , VOID_RET );
+						M_BREAK_IF( catch_error( &re_output_wave , output_wave_name ) , errGeneral , 0 );
 						typed( json_element ) el_output_wave = result_unwrap( json_element )( &re_output_wave );
 
 #define CFG_ELEM_STR( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
-							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
+							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							strcpy(((struct wave_cfg_0 *)(pWaves + i))->name , el_##name.value.as_string );
 
 #define CFG_ID_ELEM_STR( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
-							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
+							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							strcpy(((struct wave_cfg_0 *)(pWaves + i))->id.name , el_##name.value.as_string );
 
 #define CFG_ELEM_I_maintained( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
-							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
+							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct wave_cfg_0 *)(pWaves + i))->maintained.name = (int)el_##name.value.as_number.value.as_long;
 
 #define CFG_ELEM_I_momentary( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
-							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
+							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct wave_cfg_0 *)(pWaves + i))->momentary.name = (int)el_##name.value.as_number.value.as_long;
 
 #define CFG_ID_ELEM_I( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
-							if ( catch_error( &re_##name , #name ) ) ERR_RET( "err" , VOID_RET );\
+							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct wave_cfg_0 *)(pWaves + i))->id.name = (int)el_##name.value.as_number.value.as_long;
 
@@ -844,10 +835,8 @@ void * config_loader( void * app_data )
 			int initial_general_config = 0;
 			if ( _g->appcfg._general_config == NULL ) // TODO . make assignemnt atomic
 			{
-				if ( !( _g->appcfg._general_config = malloc( sizeof( struct Global_Config ) ) ) )
-				{
-					ERR_RET( "insufficient memory" , VOID_RET );
-				}
+				M_BREAK_IF( !( _g->appcfg._general_config = malloc( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
+
 				memset( _g->appcfg._general_config , 0 , sizeof( struct Global_Config ) );
 				memcpy( _g->appcfg._general_config , &temp_config , sizeof( temp_config ) );
 				memset( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings
@@ -861,10 +850,7 @@ void * config_loader( void * app_data )
 				_g->appcfg._prev_general_config = _g->appcfg._general_config;
 				_g->appcfg._general_config = NULL;
 
-				if ( !( _g->appcfg._general_config = malloc( sizeof( struct Global_Config ) ) ) )
-				{
-					ERR_RET( "insufficient memory" , VOID_RET );
-				}
+				M_BREAK_IF( !( _g->appcfg._general_config = malloc( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
 				memset( _g->appcfg._general_config , 0 , sizeof( struct Global_Config ) );
 				memcpy( _g->appcfg._general_config , &temp_config , sizeof( temp_config ) );
 				memset( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings
@@ -985,12 +971,12 @@ void * config_loader( void * app_data )
 	}
 
 	BEGIN_RET
-		case 0:
+		case 1:
 		{
 			json_free( &el_UDP_generator_config );
 			break;
 		}
-	V_END_RET
+	M_V_END_RET
 
 	return NULL;
 }
@@ -1349,20 +1335,17 @@ int main()
 	pthread_create( &tid_input , NULL , input_thread , ( void * )&_g );
 
 	pthread_t trd_version_checker;
-	MM_BREAK_IF( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "" ) ERR_RET("Failed to create thread" , MAIN_BAD_RET);
+	MM_BREAK_IF( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	pthread_t trd_config_loader;
-	if ( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )&_g ) != PTHREAD_CREATE_OK ) ERR_RET( "Failed to create thread" , MAIN_BAD_RET );
+	MM_BREAK_IF( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	pthread_t trd_waves_manager;
-	if ( pthread_create( &trd_waves_manager , NULL , waves_manager , ( void * )&_g ) != PTHREAD_CREATE_OK ) ERR_RET( "Failed to create thread" , MAIN_BAD_RET );
+	MM_BREAK_IF( pthread_create( &trd_waves_manager , NULL , waves_manager , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
-	if ( pthread_join( trd_waves_manager , NULL ) != PTHREAD_JOIN_OK )
-	{
-		_DETAIL_ERROR( "Failed to join thread" );
-		return 1; // Indicate an error
-	}
+	M_BREAK_IF( pthread_join( trd_waves_manager , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
 
+	return 0;
 	BEGIN_RET
 		case 2: {}
 		case 1: {}
@@ -1370,8 +1353,8 @@ int main()
 		{
 			__g->stat.syscal_err_count++;
 		}
-	V_END_RET
-	return 0;
+	M_V_END_RET
+	return 1;
 }
 
 #endif
