@@ -18,6 +18,7 @@
 #define Uses_ncurses
 #define Uses_fd_set
 #define Uses_fileno
+#define Uses_setlocale
 
 #include <make_udp_packet.dep>
 
@@ -27,9 +28,14 @@
 
 #define VERBOSE_MODE_DEFAULT 0
 #define HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT 5
+#define STAT_REFERESH_INTERVAL_SEC_DEFUALT 1
+#define CLOSE_APP_VAR_DEFAULT 0
 
 #define IF_VERBOSE_MODE_CONDITION() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.verbose_mode : VERBOSE_MODE_DEFAULT )
 #define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
+
+#define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
+#define CLOSE_APP_VAR() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.close_app : CLOSE_APP_VAR_DEFAULT )
 
 #endif
 
@@ -65,6 +71,9 @@ struct Global_Config_0
 	int verbose_mode;
 	int hi_frequent_log_interval_sec;
 	int refresh_variable_from_scratch;
+	int stat_referesh_interval_sec;
+
+	int close_app;
 };
 
 struct Global_Config_n
@@ -209,15 +218,25 @@ struct statistics
 	char last_command[ INPUT_MAX ];
 	char input_buffer[ INPUT_MAX ];
 
+	// to calc
+	time_t t_begin_throughput_benchmark;
+	__int64u throughput_benchmark_sent_count;
+	__int64u throughput_benchmark_sent_bytes;
+
 	// stat
-	time_t start_time;
+	time_t stat_start_time;
 	int sender_thread_count;
 	__int64u all_benchmarks_total_sent_count;
 	__int64u all_benchmarks_total_sent_byte;
 
+	// err
 	__int64u all_benchmarks_total_sent_fail_count;
-
 	__int64u syscal_err_count;
+
+	// throughput
+	__int64u last_throughput_benchmark_sent_count;
+	__int64u last_throughput_benchmark_sent_bytes;
+	
 };
 
 struct App_Data
@@ -239,6 +258,7 @@ void * wave_runner( void * src_pwave )
 	struct App_Data * _g = pwave->awcfg.m.m.temp_data._g;
 	pthread_t tid = pthread_self();
 	int socketid = -1;
+	time_t tnow = 0;
 	struct wave_thread * pthread = NULL;
 	while ( socketid == -1 )
 	{
@@ -308,11 +328,6 @@ void * wave_runner( void * src_pwave )
 				break;
 			}
 
-			//if ( socketid < 0 ) break;
-			//pwave->sent_counter++;
-			//memset( buffer , 0 , sizeof( buffer ) );
-			//sprintf( buffer , "trd(%lu) sock(%d) sendsz (%lu) \n" , tid , socketid , sz );
-
 			if ( IF_VERBOSE_MODE_CONDITION() )
 			{
 				static time_t prev_time_log = 0;
@@ -324,6 +339,20 @@ void * wave_runner( void * src_pwave )
 				}
 			}
 
+			tnow = time( NULL );
+			if ( difftime( tnow , _g->stat.t_begin_throughput_benchmark ) >= 1.0 )
+			{
+				if ( _g->stat.t_begin_throughput_benchmark > 0 )
+				{
+					_g->stat.last_throughput_benchmark_sent_count = _g->stat.throughput_benchmark_sent_count;
+					_g->stat.last_throughput_benchmark_sent_bytes = _g->stat.throughput_benchmark_sent_bytes;
+				}
+
+				_g->stat.t_begin_throughput_benchmark = tnow;
+				_g->stat.throughput_benchmark_sent_count = 0;
+				_g->stat.throughput_benchmark_sent_bytes = 0;
+			}
+
 			if ( ( sz = sendto( socketid , buffer , buf_size , 0 , ( struct sockaddr * )&server_addr , sizeof( server_addr ) ) ) < SENDTO_MIN_OK )
 			{
 				_g->stat.all_benchmarks_total_sent_fail_count++;
@@ -332,6 +361,8 @@ void * wave_runner( void * src_pwave )
 			{
 				_g->stat.all_benchmarks_total_sent_count++;
 				_g->stat.all_benchmarks_total_sent_byte += sz;
+				_g->stat.throughput_benchmark_sent_count++;
+				_g->stat.throughput_benchmark_sent_bytes += sz;
 			}
 
 			if ( pwave->awcfg.m.m.maintained.iteration_delay_milisec > 0 )
@@ -364,6 +395,18 @@ void * wave_runner( void * src_pwave )
 void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , struct wave_cfg * new_wcfg )
 {
 	INIT_BREAKABLE_FXN();
+
+	if ( !new_wcfg->m.m.maintained.enable )
+	{
+		for ( int i = 0 ; i < pwave->wv_trds_masks_count ; i++ )
+		{
+			if ( pwave->wv_trds_masks[ i ] )
+			{
+				pwave->wv_trds->alc_thread->do_close_thread = 1;
+			}
+		}
+		return;
+	}
 
 	int open_socket = 0;
 	if ( new_wcfg->m.m.maintained.parallelism_count > 0 && pwave->wv_trds == NULL )
@@ -509,7 +552,7 @@ void stop_wave( struct App_Data * _g , struct udp_wave * pwave )
 	//	_ECHO( "stop_wave" );
 	//}
 
-	pwave->awcfg.m.m.maintained.parallelism_count = 0;
+	pwave->awcfg.m.m.maintained.enable = 0;
 	pwave->awcfg.m.m.temp_data.wcfg_changed = 1;
 	apply_new_wave_config( _g , pwave , &pwave->awcfg );
 	// TODO
@@ -631,6 +674,8 @@ void * version_checker( void * app_data )
 	{
 		cur_time = time( NULL );
 
+		if ( CLOSE_APP_VAR() ) break;
+
 		if ( _g->appcfg._ver == NULL || difftime( cur_time , prev_time ) > 5 )
 		{
 			prev_time = cur_time;
@@ -689,6 +734,7 @@ void * config_loader( void * app_data )
 
 	while ( !_g->appcfg._version_changed ) // load after version loaded
 	{
+		if ( CLOSE_APP_VAR() ) break;
 		sleep( 1 );
 	}
 
@@ -697,7 +743,7 @@ void * config_loader( void * app_data )
 	while ( 1 )
 	{
 		cur_time = time( NULL );
-
+		if ( CLOSE_APP_VAR() ) break;
 		if ( _g->appcfg._general_config == NULL || _g->appcfg._version_changed /* || difftime(cur_time , prev_time) > 15 * 60*/ )
 		{
 			prev_time = prev_time; // to ignore warning
@@ -751,6 +797,8 @@ void * config_loader( void * app_data )
 					CFG_ELEM_I( verbose_mode );
 					CFG_ELEM_I( hi_frequent_log_interval_sec );
 					CFG_ELEM_I( refresh_variable_from_scratch );
+					CFG_ELEM_I( stat_referesh_interval_sec );
+					
 					
 
 #undef CFG_ELEM_I
@@ -876,6 +924,7 @@ void * config_loader( void * app_data )
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.verbose_mode == _g->appcfg._prev_general_config->c.c.verbose_mode );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.hi_frequent_log_interval_sec == _g->appcfg._prev_general_config->c.c.hi_frequent_log_interval_sec );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.refresh_variable_from_scratch == _g->appcfg._prev_general_config->c.c.refresh_variable_from_scratch );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.stat_referesh_interval_sec == _g->appcfg._prev_general_config->c.c.stat_referesh_interval_sec );
 				}
 			}
 
@@ -992,11 +1041,21 @@ void * waves_manager( void * app_data )
 
 	while ( !_g->appcfg._wave_psvcfg_count ) // load after any config loaded
 	{
+		if ( CLOSE_APP_VAR() ) break;
 		sleep( 1 );
 	}
 
 	while ( 1 )
 	{
+		if ( CLOSE_APP_VAR() )
+		{
+			for ( int j = 0 ; j < _g->appcfg._wave_psvcfg_count ; j++ )
+			{
+				_g->appcfg._pwave_psvcfg[ j ].m.m.maintained.enable = 0;
+				apply_wave_new_cfg_changes( _g , &_g->appcfg._pwave_psvcfg[ j ] , &_g->appcfg._pwave_psvcfg[ j ] );
+			}
+			break;
+		}
 		if ( _g->appcfg._general_config_changed )
 		{
 			_g->appcfg._general_config_changed = 0; // for now . TODO later
@@ -1091,12 +1150,23 @@ void draw_table( struct App_Data * _g )
 
 	// Data rows
 	wattron( MAIN_WIN , COLOR_PAIR( 2 ) );
-	char buf[ 32 ];
-		
+	char buf[ 64 ];
+	char buf2[ 64 ];
+	
+	setlocale(LC_NUMERIC, "en_US.UTF-8");
+
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "sender_thread_count" );
-	snprintf( buf , sizeof( buf ) , "%d" , MAIN_STAT().sender_thread_count );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "ver." );
+	snprintf( buf , sizeof( buf ) , "%s" , _g->appcfg._ver->version );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "sender_count" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().sender_thread_count , 1 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1104,7 +1174,7 @@ void draw_table( struct App_Data * _g )
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "total_sent_count" );
-	snprintf( buf , sizeof( buf ) , "%llu" , MAIN_STAT().all_benchmarks_total_sent_count );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_sent_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1112,7 +1182,7 @@ void draw_table( struct App_Data * _g )
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "sent_fail_count" );
-	snprintf( buf , sizeof( buf ) , "%llu" , MAIN_STAT().all_benchmarks_total_sent_fail_count );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_sent_fail_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1120,7 +1190,7 @@ void draw_table( struct App_Data * _g )
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "total_sent_byte" );
-	snprintf( buf , sizeof( buf ) , "%llu" , MAIN_STAT().all_benchmarks_total_sent_byte );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_sent_byte , 2 , "b" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1128,27 +1198,26 @@ void draw_table( struct App_Data * _g )
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "failure_count" );
-	snprintf( buf , sizeof( buf ) , "%llu" , MAIN_STAT().syscal_err_count );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().syscal_err_count , 2 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "pps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	
-
-	//// Memory
-	//mvwprintw( MAIN_WIN , y , start_x , "|" );
-	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "MemoryMB" );
-	//snprintf( buf , sizeof( buf ) , "%.2f" , pdata->mem_usage );
-	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
-	//// IO
-	//mvwprintw( MAIN_WIN , y , start_x , "|" );
-	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "001 IO KB/s" );
-	//snprintf( buf , sizeof( buf ) , "%.2f" , pdata->io_rate );
-	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "bps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_bytes , 2 , "b" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	wattroff( MAIN_WIN , COLOR_PAIR( 2 ) );
 
@@ -1176,6 +1245,8 @@ void * stats_thread( void * pdata )
 	struct App_Data * _g = ( struct App_Data * )pdata;
 	while ( 1 )
 	{
+		if ( CLOSE_APP_VAR() ) break;
+
 		pthread_mutex_lock( &data_lock );
 
 		werase( _g->stat.main_win );
@@ -1185,7 +1256,7 @@ void * stats_thread( void * pdata )
 
 		pthread_mutex_unlock( &data_lock );
 
-		sleep( 1 );
+		sleep( STAT_REFERESH_INTERVAL_SEC() );
 	}
 	return NULL;
 }
@@ -1214,6 +1285,12 @@ void * input_thread( void * pdata )
 		curs_set( 0 );
 
 		pthread_mutex_lock( &data_lock );
+
+		if ( strcmp( _g->stat.input_buffer , "quit" ) == 0 )
+		{
+			_g->appcfg._general_config->c.c.close_app = 1;
+			break;
+		}
 
 		strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX - 1 );
 		_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
@@ -1273,7 +1350,9 @@ void * stdout_bypass_thread( void * pdata )
 		{
 			int n = read( _g->stat.pipefds[ 0 ] , buffer , BUF_SIZE - 1 );
 			buffer[ n ] = EOS;
+			#pragma GCC diagnostic ignored "-Wstringop-truncation"
 			strncpy( _g->stat.last_command , buffer , sizeof( _g->stat.last_command ) - 1 );
+			#pragma GCC diagnostic pop
 		}
 	}
 	return NULL;
@@ -1285,7 +1364,7 @@ void init_bypass_stdout( struct App_Data * _g )
 	//memset( pipefd , 0 , sizeof( pipefd ) );
 
 	// Make pipe
-	pipe( _g->stat.pipefds );
+	if ( pipe( _g->stat.pipefds ) == -1 ) {}
 
 	// Redirect stdout
 	//fflush( stdout );
