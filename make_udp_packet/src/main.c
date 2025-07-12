@@ -815,10 +815,12 @@ void * config_loader( void * app_data )
 
 					M_BREAK_IF( !( pWaves = NEWBUF( struct wave_cfg , el_waves.value.as_object->count ) ) , errMemoryLow , 0 );
 					MEMSET_ZERO( pWaves , struct wave_cfg , el_waves.value.as_object->count );
-					pWaves->m.m.temp_data._g = ( void * )_g;
+					
 
 					for ( int i = 0 ; i < el_waves.value.as_object->count ; i++ )
 					{
+						((struct wave_cfg_0 *)(pWaves + i))->temp_data._g = ( void * )_g;
+
 						char output_wave_name[ 32 ];
 						memset( output_wave_name , 0 , sizeof( output_wave_name ) );
 						sprintf( output_wave_name , "wave%d" , i + 1 );
@@ -1159,6 +1161,14 @@ void draw_table( struct App_Data * _g )
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "ver." );
 	snprintf( buf , sizeof( buf ) , "%s" , _g->appcfg._ver->version );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "wave_count" );
+	snprintf( buf , sizeof( buf ) , "%d" , _g->appcfg._wave_psvcfg_count );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
