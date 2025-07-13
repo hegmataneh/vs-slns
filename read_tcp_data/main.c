@@ -208,7 +208,7 @@ void *income_handler(void *p_income_data)
                             t1 = time( NULL );
                         }
 
-                        __sszz += bytes_read;
+                        __sszz += (size_t)bytes_read;
 
                         t2 = time( NULL );
 

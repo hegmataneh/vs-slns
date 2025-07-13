@@ -368,11 +368,12 @@ void * wave_runner( void * src_pwave )
 				_g->stat.throughput_benchmark_sent_bytes += sz;
 			}
 
+
 			if ( pwave->awcfg.m.m.maintained.iteration_delay_milisec > 0 )
 			{
-				sleep( pwave->awcfg.m.m.maintained.iteration_delay_milisec / 1000 );
-				//struct timespec ts = { 0, pwave->cfg.m.m.maintained.iteration_delay_milisec * 1000000 };
-				//thrd_sleep( &ts , NULL );
+				//sleep( pwave->awcfg.m.m.maintained.iteration_delay_milisec / 1000 );
+				struct timespec ts = { 0, pwave->awcfg.m.m.maintained.iteration_delay_milisec * 1000000L };
+				thrd_sleep( &ts , NULL );
 			}
 		} // while ( 1 )
 
@@ -1216,7 +1217,7 @@ void draw_table( struct App_Data * _g )
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_count , 2 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_count , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1224,7 +1225,7 @@ void draw_table( struct App_Data * _g )
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_bytes , 2 , "b" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_bytes , 4 , "b" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );

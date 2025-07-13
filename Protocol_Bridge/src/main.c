@@ -245,6 +245,9 @@ struct statistics
 	//int sender_thread_count;
 	//__int64u all_benchmarks_total_sent_count;
 	//__int64u all_benchmarks_total_sent_byte;
+	__int64u all_benchmarks_total_udp_recieve_count;
+	__int64u all_benchmarks_total_udp_recieve_byte;
+
 
 	int udp_connection_count;
 	int tcp_connection_count;
@@ -290,8 +293,8 @@ void * thread_udp_connection_proc( void * src_pb )
 	memset( &server_addr , 0 , sizeof( server_addr ) );
 	server_addr.sin_family = AF_INET; // IPv4
 	server_addr.sin_port = htons( ( uint16_t )pb->apcfg.m.m.id.UDP_origin_port ); // Convert port to network byte order
-	//server_addr.sin_addr.s_addr = inet_addr("YOUR_IP_ADDRESS"); // Specify the IP address to bind to
-	server_addr.sin_addr.s_addr = INADDR_ANY; // Or use INADDR_ANY to bind to all available interfaces:
+	server_addr.sin_addr.s_addr = inet_addr( pb->apcfg.m.m.id.UDP_origin_ip ); // Specify the IP address to bind to
+	//server_addr.sin_addr.s_addr = INADDR_ANY; // Or use INADDR_ANY to bind to all available interfaces:
 
 	MM_BREAK_IF( bind( pb->udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errGeneral , 1 , "bind sock error" );
 	pb->udp_connection_established = 1;
@@ -407,6 +410,8 @@ void * bottleneck_thread_proc( void * src_pb )
 	struct protocol_bridge * pb = ( struct protocol_bridge * )src_pb;
 	struct App_Data * _g = pb->apcfg.m.m.temp_data._g;
 
+	time_t tnow = 0;
+
 	int config_changes = 0;
 	do
 	{
@@ -431,7 +436,7 @@ void * bottleneck_thread_proc( void * src_pb )
 		{
 			if ( _g->bridges.pb_holders_masks[ i ] )
 			{
-				if ( _g->bridges.pb_holders[ i ].alc_pb->udp_connection_established && _g->bridges.pb_holders[ i ].alc_pb->tcp_connection_established )
+				if ( _g->bridges.pb_holders[ i ].alc_pb->udp_connection_established && _g->bridges.pb_holders[i].alc_pb->tcp_connection_established )
 				{
 					FD_SET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds );
 					if ( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd > sockfd_max )
@@ -465,7 +470,7 @@ void * bottleneck_thread_proc( void * src_pb )
 			timeout.tv_usec = 0;
 
 			// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL ,  &timeout );
+			int activity = select( 127 , &readfds , NULL , NULL ,  &timeout );
 
 			if ( ( activity < 0 ) && ( errno != EINTR ) )
 			{
@@ -478,11 +483,25 @@ void * bottleneck_thread_proc( void * src_pb )
 				continue;
 			}
 
+			tnow = time( NULL );
+			if ( difftime( tnow , _g->stat.t_begin_throughput_benchmark ) >= 1.0 )
+			{
+				if ( _g->stat.t_begin_throughput_benchmark > 0 )
+				{
+					_g->stat.last_throughput_benchmark_sent_count = _g->stat.throughput_benchmark_sent_count;
+					_g->stat.last_throughput_benchmark_sent_bytes = _g->stat.throughput_benchmark_sent_bytes;
+				}
+
+				_g->stat.t_begin_throughput_benchmark = tnow;
+				_g->stat.throughput_benchmark_sent_count = 0;
+				_g->stat.throughput_benchmark_sent_bytes = 0;
+			}
+
 			for ( int i = 0 ; i < _g->bridges.pb_holders_masks_count ; i++ )
 			{
 				if ( _g->bridges.pb_holders_masks[ i ] )
 				{
-					if ( _g->bridges.pb_holders[ i ].alc_pb->udp_connection_established && _g->bridges.pb_holders[ i ].alc_pb->tcp_connection_established )
+					if ( _g->bridges.pb_holders[ i ].alc_pb->udp_connection_established && _g->bridges.pb_holders[i].alc_pb->tcp_connection_established )
 					{
 						if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 						{
@@ -495,6 +514,12 @@ void * bottleneck_thread_proc( void * src_pb )
 								continue;
 							}
 							buffer[ bytes_received ] = '\0'; // Null-terminate the received data
+
+							_g->stat.all_benchmarks_total_udp_recieve_count++;
+							_g->stat.all_benchmarks_total_udp_recieve_byte += bytes_received;
+
+							_g->stat.throughput_benchmark_sent_count++;
+							_g->stat.throughput_benchmark_sent_bytes += bytes_received;
 
 							// Send data over TCP
 							if ( send( _g->bridges.pb_holders[ i ].alc_pb->tcp_sockfd , buffer , ( size_t )bytes_received , 0 ) == -1 )
@@ -623,38 +648,7 @@ void * protocol_bridge_runner( void * src_pb )
 	//			}
 	//		}
 
-			//tnow = time( NULL );
-			//if ( difftime( tnow , _g->stat.t_begin_throughput_benchmark ) >= 1.0 )
-			//{
-			//	if ( _g->stat.t_begin_throughput_benchmark > 0 )
-			//	{
-			//		_g->stat.last_throughput_benchmark_sent_count = _g->stat.throughput_benchmark_sent_count;
-			//		_g->stat.last_throughput_benchmark_sent_bytes = _g->stat.throughput_benchmark_sent_bytes;
-			//	}
 
-			//	_g->stat.t_begin_throughput_benchmark = tnow;
-			//	_g->stat.throughput_benchmark_sent_count = 0;
-			//	_g->stat.throughput_benchmark_sent_bytes = 0;
-			//}
-
-	//		if ( ( sz = sendto( socketid , buffer , buf_size , 0 , ( struct sockaddr * )&server_addr , sizeof( server_addr ) ) ) < SENDTO_MIN_OK )
-	//		{
-	//			_g->stat.all_benchmarks_total_sent_fail_count++;
-	//		}
-	//		else
-	//		{
-	//			_g->stat.all_benchmarks_total_sent_count++;
-	//			_g->stat.all_benchmarks_total_sent_byte += sz;
-	//			_g->stat.throughput_benchmark_sent_count++;
-	//			_g->stat.throughput_benchmark_sent_bytes += sz;
-	//		}
-
-			//if ( pb->apcfg.m.m.maintained.iteration_delay_milisec > 0 )
-			//{
-				//sleep( pb->apcfg.m.m.maintained.iteration_delay_milisec / 1000 );
-	//			//struct timespec ts = { 0, pwave->cfg.m.m.maintained.iteration_delay_milisec * 1000000 };
-	//			//thrd_sleep( &ts , NULL );
-			//}
 			sleep(2);
 		} // loop while ( 1 )
 
@@ -1498,21 +1492,38 @@ void draw_table( struct App_Data * _g )
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
+
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp_recieve_count" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_udp_recieve_count , 2 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp_recieve_byte" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_udp_recieve_byte , 2 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "pps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_count , 4 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
 	////
-	//mvwprintw( MAIN_WIN , y , start_x , "|" );
-	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_count , 2 , "" ) );
-	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	////
-	//////
-	//mvwprintw( MAIN_WIN , y , start_x , "|" );
-	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_bytes , 2 , "b" ) );
-	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "bps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_bytes , 4 , "b" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	wattroff( MAIN_WIN , COLOR_PAIR( 2 ) );
 
