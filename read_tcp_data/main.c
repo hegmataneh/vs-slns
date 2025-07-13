@@ -6,13 +6,16 @@
 #include <pthread.h>
 #include <errno.h> // For errno
 #include <stdarg.h>
+#include <sys/select.h> // For select() and fd_set macros
+#include <sys/time.h>   // For timeval structure (optional, for timeout)
+#include <unistd.h>     // For file descriptor related functions
 
 #pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
 const char * __msg( char * msg_holder , ssize_t size_of_msg_holder , const char * msg , int line_number)
 {
-    snprintf(msg_holder, size_of_msg_holder, "%s: ln(%d)\n", msg , line_number);
+    snprintf(msg_holder, (size_t)size_of_msg_holder, "%s: ln(%d)\n", msg , line_number);
     return msg_holder;
 }
 
@@ -21,7 +24,7 @@ const char * __snprintf( char * msg_holder , ssize_t size_of_msg_holder , const 
     va_list args;
 
     va_start(args, format);
-    vsnprintf(msg_holder, size_of_msg_holder, format, args);
+    vsnprintf(msg_holder, (size_t)size_of_msg_holder, format, args);
     va_end(args);
 
     return msg_holder;
@@ -35,7 +38,7 @@ const char * __snprintf( char * msg_holder , ssize_t size_of_msg_holder , const 
 #define INCOME_CONNECTION_COUNT 1
 
 #define TCP_PORT_1 4321
-#define TCP_SERVER_IP_1 "192.168.1.60"
+#define TCP_SERVER_IP_1 "192.168.100.60"
 
 //#define TCP_PORT_2 4322
 //#define TCP_SERVER_IP_2 "192.168.1.60"
@@ -53,21 +56,21 @@ struct tcp_connection_data
 
 struct income_data
 {
-    tcp_connection_data tunnels_data[ INCOME_CONNECTION_COUNT ];
+    struct tcp_connection_data tunnels_data[ INCOME_CONNECTION_COUNT ];
     int tcp_connection_count;
 };
 
-void _close_socket( int & socket_id )
+void _close_socket( int * socket_id )
 {
-    close(socket_id);
-    socket_id = -1;
+    close(*socket_id);
+    *socket_id = -1;
 }
 
 void * thread_tcp_connection_proc( void * arg )
 {
     char custom_message[256];
 
-    income_data * pIncomeData = ( income_data * )arg;
+    struct income_data * pIncomeData = ( struct income_data * )arg;
 
     printf(_MSG("try to connect inbound tcp connection"));
 
@@ -109,7 +112,7 @@ void * thread_tcp_connection_proc( void * arg )
                 // Accept a new connection
                 int newfd = -1;
                 if ((newfd = accept(pIncomeData->tunnels_data[ iIncome ].tcp_server_sock, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
-                    _close_socket( pIncomeData->tunnels_data[ iIncome ].tcp_server_sock );
+                    _close_socket( &pIncomeData->tunnels_data[ iIncome ].tcp_server_sock );
                     _DETAIL_ERROR("accept failed");
                     continue; // Continue listening for other connections
                 }
@@ -136,7 +139,7 @@ void *income_handler(void *p_income_data)
 {
     
     char custom_message[256];
-    income_data * pIncomeData = ( income_data * )p_income_data;
+    struct income_data * pIncomeData = ( struct income_data * )p_income_data;
     char buffer[BUFFER_SIZE];
     ssize_t bytes_read;
 
@@ -242,7 +245,7 @@ void *income_handler(void *p_income_data)
 
 void * _echo_size( void * p_income_data )
 {
-    income_data * pIncomeData = ( income_data * )p_income_data;
+    struct income_data * pIncomeData = ( struct income_data * )p_income_data;
 
     while ( !pIncomeData->tcp_connection_count )
     {
@@ -269,7 +272,7 @@ int main()
 
     pthread_t thread_tcp_connection;
 
-    income_data tcps;
+    struct income_data tcps;
     memset( &tcps , 0 , sizeof(tcps) );
     tcps.tunnels_data[ 0 ].tcp_ip = TCP_SERVER_IP_1;
     tcps.tunnels_data[ 0 ].tcp_port_number = TCP_PORT_1;

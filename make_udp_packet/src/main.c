@@ -291,6 +291,7 @@ void * wave_runner( void * src_pwave )
 	}
 
 	int config_changes = 0;
+	pthread->base_config_change_applied = 0;
 	do
 	{
 		if ( pthread->do_close_thread )
@@ -312,6 +313,8 @@ void * wave_runner( void * src_pwave )
 		int buf_size = pwave->awcfg.m.m.maintained.packet_payload_size;
 		char * buffer = NEWBUF( char , buf_size );
 		MEMSET_ZERO( buffer , char , buf_size );
+		static int iii = 0;
+		__snprintf( buffer , buf_size , "a %d" , iii++ );
 
 		ssize_t sz = 0;
 
@@ -1037,9 +1040,6 @@ void * waves_manager( void * app_data )
 {
 	INIT_BREAKABLE_FXN();
 	struct App_Data * _g = ( struct App_Data * )app_data;
-
-	pthread_t trd_udp_connection , trd_tcp_connection;
-	pthread_t trd_protocol_bridge;
 
 	while ( !_g->appcfg._wave_psvcfg_count ) // load after any config loaded
 	{
