@@ -1,0 +1,14 @@
+
+#include "read_tcp_data.use"
+
+#include "general.h"
+
+#include "read_tcp_data.inc"
+
+#if !defined(__COMPILE) && defined(__PROJECT_NAME__) && __PROJECT_NAME__ == read_tcp_data // in each project must be at last  order
+
+#define __FORCE_INTELLISENSE_ASSIST
+#include <d:/My project/General projects/general/header/IntellisenseAssist.h> // should be at the end of any include to correct Intellisense bug
+
+#endif
+

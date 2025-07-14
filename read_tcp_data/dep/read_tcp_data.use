@@ -1,0 +1,7 @@
+
+#define Uses_M_showMsg
+
+#ifdef Uses_M_showMsg
+	#define __INC_msg
+#endif
+

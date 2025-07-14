@@ -223,6 +223,34 @@ struct App_Config // global config
 
 #define INPUT_MAX 256
 
+struct udp_stat
+{
+	__int64u total_udp_get_count;
+	__int64u total_udp_get_byte;
+
+	time_t t_udp_throughput;
+
+	__int64u calc_throughput_udp_get_count;
+	__int64u calc_throughput_udp_get_bytes;
+
+	__int64u udp_get_count_throughput;
+	__int64u udp_get_byte_throughput;
+};
+
+struct tcp_stat
+{
+	__int64u total_tcp_send_count;
+	__int64u total_tcp_send_byte;
+
+	time_t t_tcp_throughput;
+
+	__int64u calc_throughput_tcp_send_count;
+	__int64u calc_throughput_tcp_send_bytes;
+
+	__int64u tcp_send_count_throughput;
+	__int64u tcp_send_byte_throughput;
+};
+
 struct statistics
 {
 	// box & window
@@ -234,32 +262,13 @@ struct statistics
 	int pipefds[ 2 ]; // used for bypass stdout
 	char last_command[ INPUT_MAX ];
 	char input_buffer[ INPUT_MAX ];
-
-	//// to calc
-	time_t t_begin_throughput_benchmark;
-	__int64u throughput_benchmark_sent_count;
-	__int64u throughput_benchmark_sent_bytes;
-
-	//// stat
-	time_t stat_start_time;
-	//int sender_thread_count;
-	//__int64u all_benchmarks_total_sent_count;
-	//__int64u all_benchmarks_total_sent_byte;
-	__int64u all_benchmarks_total_udp_recieve_count;
-	__int64u all_benchmarks_total_udp_recieve_byte;
-
-
 	int udp_connection_count;
 	int tcp_connection_count;
-
-	//// err
 	//__int64u all_benchmarks_total_sent_fail_count;
 	__int64u syscal_err_count;
 
-	//// throughput
-	__int64u last_throughput_benchmark_sent_count;
-	__int64u last_throughput_benchmark_sent_bytes;
-	
+	struct udp_stat udp;
+	struct tcp_stat tcp;	
 };
 
 struct App_Data
@@ -431,6 +440,8 @@ void * bottleneck_thread_proc( void * src_pb )
 		fd_set readfds; // Set of socket descriptors
 		FD_ZERO( &readfds );
 
+		ssize_t sz;
+
 		int sockfd_max = -1; // for select compulsion
 		for ( int i = 0 ; i < _g->bridges.pb_holders_masks_count ; i++ )
 		{
@@ -484,17 +495,27 @@ void * bottleneck_thread_proc( void * src_pb )
 			}
 
 			tnow = time( NULL );
-			if ( difftime( tnow , _g->stat.t_begin_throughput_benchmark ) >= 1.0 )
+			if ( difftime( tnow , _g->stat.udp.t_udp_throughput ) >= 1.0 )
 			{
-				if ( _g->stat.t_begin_throughput_benchmark > 0 )
+				if ( _g->stat.udp.t_udp_throughput > 0 )
 				{
-					_g->stat.last_throughput_benchmark_sent_count = _g->stat.throughput_benchmark_sent_count;
-					_g->stat.last_throughput_benchmark_sent_bytes = _g->stat.throughput_benchmark_sent_bytes;
+					_g->stat.udp.udp_get_count_throughput = _g->stat.udp.calc_throughput_udp_get_count;
+					_g->stat.udp.udp_get_byte_throughput  = _g->stat.udp.calc_throughput_udp_get_bytes;
 				}
-
-				_g->stat.t_begin_throughput_benchmark = tnow;
-				_g->stat.throughput_benchmark_sent_count = 0;
-				_g->stat.throughput_benchmark_sent_bytes = 0;
+				_g->stat.udp.t_udp_throughput = tnow;
+				_g->stat.udp.calc_throughput_udp_get_count = 0;
+				_g->stat.udp.calc_throughput_udp_get_bytes = 0;
+			}
+			if ( difftime( tnow , _g->stat.tcp.t_tcp_throughput ) >= 1.0 )
+			{
+				if ( _g->stat.tcp.t_tcp_throughput > 0 )
+				{
+					_g->stat.tcp.tcp_send_count_throughput = _g->stat.tcp.calc_throughput_tcp_send_count;
+					_g->stat.tcp.tcp_send_byte_throughput  =  _g->stat.tcp.calc_throughput_tcp_send_bytes;
+				}
+				_g->stat.tcp.t_tcp_throughput = tnow;
+				_g->stat.tcp.calc_throughput_tcp_send_count = 0;
+				_g->stat.tcp.calc_throughput_tcp_send_bytes = 0;
 			}
 
 			for ( int i = 0 ; i < _g->bridges.pb_holders_masks_count ; i++ )
@@ -506,27 +527,33 @@ void * bottleneck_thread_proc( void * src_pb )
 						if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 						{
 							// good for udp data recieve
-							bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL ,
-													   ( struct sockaddr * )&client_addr , &client_len );
+							bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL , ( struct sockaddr * )&client_addr , &client_len );
 							if ( bytes_received < 0 )
 							{
 								_ECHO( "Error receiving UDP packet" );
 								continue;
 							}
-							buffer[ bytes_received ] = '\0'; // Null-terminate the received data
+							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
-							_g->stat.all_benchmarks_total_udp_recieve_count++;
-							_g->stat.all_benchmarks_total_udp_recieve_byte += bytes_received;
+							_g->stat.udp.total_udp_get_count++;
+							_g->stat.udp.total_udp_get_byte += bytes_received;
 
-							_g->stat.throughput_benchmark_sent_count++;
-							_g->stat.throughput_benchmark_sent_bytes += bytes_received;
+							_g->stat.udp.calc_throughput_udp_get_count++;
+							_g->stat.udp.calc_throughput_udp_get_bytes += bytes_received;
 
 							// Send data over TCP
-							if ( send( _g->bridges.pb_holders[ i ].alc_pb->tcp_sockfd , buffer , ( size_t )bytes_received , 0 ) == -1 )
+							if ( ( sz = send( _g->bridges.pb_holders[ i ].alc_pb->tcp_sockfd , buffer , ( size_t )bytes_received , 0 ) ) == -1 )
 							{
 								_ECHO( "Error sending data over TCP" );
 								continue;
 							}
+							
+							_g->stat.tcp.total_tcp_send_count++;
+							_g->stat.tcp.total_tcp_send_byte += sz;
+
+							_g->stat.tcp.calc_throughput_tcp_send_count++;
+							_g->stat.tcp.calc_throughput_tcp_send_bytes += sz;
+
 						}
 					}
 				}
@@ -636,18 +663,6 @@ void * protocol_bridge_runner( void * src_pb )
 			}
 
 			// at this moment one bridge conntected
-
-	//		if ( IF_VERBOSE_MODE_CONDITION() )
-	//		{
-	//			static time_t prev_time_log = 0;
-	//			if ( !prev_time_log ) prev_time_log = time( NULL );
-	//			if ( difftime( time( NULL ) , prev_time_log ) > HI_FREQUENT_LOG_INTERVAL )
-	//			{
-	//				_ECHO( "%s" , buffer );
-	//				prev_time_log = time( NULL );
-	//			}
-	//		}
-
 
 			sleep(2);
 		} // loop while ( 1 )
@@ -1406,7 +1421,7 @@ void draw_table( struct App_Data * _g )
 	// Header
 	wattron( MAIN_WIN , COLOR_PAIR( 1 ) );
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "Metric" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "PB Metric" );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , "Value" );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1430,61 +1445,24 @@ void draw_table( struct App_Data * _g )
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	//
+	//////////////
+	
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "wave_count" );
-	snprintf( buf , sizeof( buf ) , "%d" , _g->appcfg._protocol_bridge_psvcfg_count );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
-	////
-	//mvwprintw( MAIN_WIN , y , start_x , "|" );
-	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "sender_count" );
-	//snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().sender_thread_count , 1 , "" ) );
-	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
-	////
-	//mvwprintw( MAIN_WIN , y , start_x , "|" );
-	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "total_sent_count" );
-	//snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_sent_count , 2 , "" ) );
-	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
-	////
-	//mvwprintw( MAIN_WIN , y , start_x , "|" );
-	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "sent_fail_count" );
-	//snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_sent_fail_count , 2 , "" ) );
-	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	////
-	//mvwprintw( MAIN_WIN , y , start_x , "|" );
-	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "total_sent_byte" );
-	//snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_sent_byte , 2 , "b" ) );
-	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp_connections" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "UDP conn" );
 	snprintf( buf , sizeof( buf ) , "%d" , MAIN_STAT().udp_connection_count );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp_connections" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP conn" );
 	snprintf( buf , sizeof( buf ) , "%d" , MAIN_STAT().tcp_connection_count );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	////
+	///////////
+
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "failure_count" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().syscal_err_count , 2 , "" ) );
@@ -1492,38 +1470,69 @@ void draw_table( struct App_Data * _g )
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
+	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp_recieve_count" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_udp_recieve_count , 2 , "" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.total_udp_get_count , 2 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get byte" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.total_udp_get_byte , 2 , "B" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp pps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.udp_get_count_throughput , 4 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp bps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.udp_get_byte_throughput , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
+	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp_recieve_byte" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_udp_recieve_byte , 2 , "" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP put" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().tcp.total_tcp_send_count , 2 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP put byte" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().tcp.total_tcp_send_byte , 2 , "B" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP pps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().tcp.tcp_send_count_throughput , 4 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP bps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().tcp.tcp_send_byte_throughput , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_count , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	////
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().last_throughput_benchmark_sent_bytes , 4 , "b" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
 
 	wattroff( MAIN_WIN , COLOR_PAIR( 2 ) );
 

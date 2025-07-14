@@ -1,7 +1,8 @@
 ﻿#ifndef section_include
 
-#define Uses_thrd_sleep
 #define Uses_json
+#define Uses_fd_set
+#define Uses_thrd_sleep
 #define Uses_close
 #define Uses_socket
 #define Uses_pthread_t
@@ -16,11 +17,10 @@
 #define Uses_NEWSTR
 #define Uses_INIT_BREAKABLE_FXN
 #define Uses_ncurses
-#define Uses_fd_set
 #define Uses_fileno
 #define Uses_setlocale
 
-#include <make_udp_packet.dep>
+#include <read_tcp_data.dep>
 
 #pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wunused-variable"
@@ -89,96 +89,94 @@ struct Global_Config // finalizer
 
 #endif
 
-#ifndef section_wave_config
+#ifndef section_listener_config
 
-struct wave_cfg_id
+struct tcp_listener_cfg_id
 {
-	char wave_name[ 64 ];
-	char UDP_destination_ip[ 64 ];
-	int UDP_destination_port;
-	char UDP_destination_interface[ 128 ];
+	char tcp_listener_name[ 64 ];
+
+	char TCP_listen_ip[ 64 ];
+	int TCP_listen_port;
+	char TCP_listen_interface[ 128 ];
 };
 
-struct wave_maintained_parameter // stays in position
+struct tcp_listener_maintained_parameter // stays in position
 {
-	int limited_packets;
-	int packet_count;
-	int parallelism_count;
-
 	int enable;
-	int iteration_delay_milisec;
-	int packet_payload_size;
 };
 
-struct wave_momentary_parameter // popup automatically
+struct tcp_listener_momentary_parameter // popup automatically
 {
 	int reset_connections;
 };
 
-struct wave_temp_data
+struct tcp_listener_temp_data
 {
 	void * _g; // just point to the main g
-	int wcfg_changed; // in passive cfg and active cfg that in alive wave, in both it means something changed
+	int tcfg_changed; // in passive cfg and active cfg that in alive tcp_listener, in both it means something changed
 	//int wcfg_stabled; // after change happened in action thread cfg must be stablesh before doing any action
 };
 
-struct wave_cfg_0
+struct tcp_listener_cfg_0
 {
-	struct wave_cfg_id id; // must be uniq for each wave
-	struct wave_maintained_parameter maintained;
-	struct wave_momentary_parameter momentary;
-	struct wave_temp_data temp_data;
+	struct tcp_listener_cfg_id id; // must be uniq for each tcp_listener
+	struct tcp_listener_maintained_parameter maintained;
+	struct tcp_listener_momentary_parameter momentary;
+	struct tcp_listener_temp_data temp_data;
 };
 
-struct wave_cfg_n
+struct tcp_listener_cfg_n
 {
-	struct wave_cfg_0 m; // first member , n - 1
+	struct tcp_listener_cfg_0 m; // first member , n - 1
 };
 
-struct wave_cfg // finalizer
+struct tcp_listener_cfg // finalizer
 {
-	struct wave_cfg_n m; // be first member
+	struct tcp_listener_cfg_n m; // be first member
 };
 
 #endif
 
-#ifndef section_udp_wave
+#ifndef section_listeners
 
-struct wave_thread // هر موج یک دسته ترد دارد که هر کدام بر مبنای کانیگ مشترکی که دارند کار واحدی انجام می دهند
+struct tcp_listener_thread
 {
 	pthread_t trd_id;
 	int base_config_change_applied;
 	int do_close_thread; // command from outside to inside thread
 
-	struct udp_wave * pwave; // point to upper wave
+	struct tcp_listener * tl; // point to upper wave
 };
 
-struct wave_thread_holder
+struct tcp_listener_thread_holder
 {
-	struct wave_thread * alc_thread;
+	struct tcp_listener_thread * alc_thread;
 };
 
-struct udp_wave
+struct tcp_listener
 {
-	struct wave_cfg awcfg;  // copy of applied cfg . active wave config . یک دسته کامل از ترد ها یک کانفیگ را اعمال می کند
+	struct tcp_listener_cfg tlcfg;  // copy of applied cfg . active tcp_listener config . یک دسته کامل از ترد ها یک کانفیگ را اعمال می کند
 
-	int socket_id;
+	int tcp_server_listener_sockfd;
+	int tcp_client_connection_sockfd;
+	int tcp_connection_established; // tcp connection established
 
-	struct wave_thread_holder * wv_trds; // wave threads
-	int * wv_trds_masks;  // each int represent thread is valid
-	size_t wv_trds_masks_count;  // thread keeper count
+	struct tcp_listener_thread_holder * tl_trds; // tcp_listener threads . in protocol listener app must be one
+	int * tl_trds_masks;  // each int represent thread is valid
+	size_t tl_trds_masks_count;  // thread keeper count
 };
 
-struct udp_wave_holder // every elemnt at the reallocation array must have holder because reallocate change data values but with holder just pointer addr change
+struct tcp_listener_holder // every elemnt at the reallocation array must have holder because reallocate change data values but with holder just pointer addr change
 {
-	struct udp_wave * alc_wave; // allocated
+	struct tcp_listener * alc_tl; // allocated
 };
 
-struct wave_holders
+// TODO . IPv6
+struct tcp_listener_holders
 {
-	struct udp_wave_holder * wv_holders; // all the active waves
-	int * wv_holders_masks; // waves masks
-	size_t wv_holders_masks_count; // mask count
+	struct tcp_listener_holder * tl_holders; // all the active tcp_listener
+	int * tl_holders_masks; // tcp_listener masks
+	size_t tl_holders_masks_count; // mask count
 };
 
 #endif
@@ -196,28 +194,30 @@ struct App_Config // global config
 	struct Global_Config * _general_config;
 	int _general_config_changed;
 
-	// waves
-	struct wave_cfg * _pprev_wave_psvcfg; // maybe later in some condition we need to rollback to prev config
-	size_t _prev_wave_psvcfg_count;
-	struct wave_cfg * _pwave_psvcfg;
-	size_t _wave_psvcfg_count;
+	// tcp_listener 
+	struct tcp_listener_cfg * _pprev_tcp_listener_psvcfg; // maybe later in some condition we need to rollback to prev config
+	size_t _prev_tcp_listener_psvcfg_count;
+
+	struct tcp_listener_cfg * _ptcp_listener_psvcfg; // passive config
+	size_t _tcp_listener_psvcfg_count;
+
 	int _psvcfg_changed; // act like bool . something is changed
 };
 
 #define INPUT_MAX 256
 
-struct udp_stat
+struct tcp_stat
 {
-	__int64u total_udp_put_count;
-	__int64u total_udp_put_byte;
+	__int64u total_tcp_get_count;
+	__int64u total_tcp_get_byte;
 
-	time_t t_udp_throughput;
+	time_t t_tcp_throughput;
 
-	__int64u calc_throughput_udp_put_count;
-	__int64u calc_throughput_udp_put_bytes;
+	__int64u calc_throughput_tcp_get_count;
+	__int64u calc_throughput_tcp_get_bytes;
 
-	__int64u udp_put_count_throughput;
-	__int64u udp_put_byte_throughput;
+	__int64u tcp_get_count_throughput;
+	__int64u tcp_get_byte_throughput;
 };
 
 struct statistics
@@ -231,22 +231,16 @@ struct statistics
 	int pipefds[ 2 ]; // used for bypass stdout
 	char last_command[ INPUT_MAX ];
 	char input_buffer[ INPUT_MAX ];
-
-	// stat
-	time_t stat_start_time;
-	int sender_thread_count;
-	
-	// err
-	__int64u all_benchmarks_total_sent_fail_count;
+	//__int64u all_benchmarks_total_sent_fail_count;
 	__int64u syscal_err_count;
 
-	struct udp_stat udp;
+	struct tcp_stat tcp;
 };
 
 struct App_Data
 {
 	struct App_Config appcfg;
-	struct wave_holders waves;
+	struct tcp_listener_holders listeners;
 	struct statistics stat;
 };
 
@@ -254,26 +248,119 @@ struct App_Data
 
 #ifndef section_connection_functions
 
-void * wave_runner( void * src_pwave )
+#define PARALLELISM_COUNT 1
+
+int _connect_tcp( struct tcp_listener * src_tl )
 {
 	INIT_BREAKABLE_FXN();
 
-	struct udp_wave * pwave = ( struct udp_wave * )src_pwave;
-	struct App_Data * _g = pwave->awcfg.m.m.temp_data._g;
-	pthread_t tid = pthread_self();
-	int socketid = -1;
-	time_t tnow = 0;
-	struct wave_thread * pthread = NULL;
-	while ( socketid == -1 )
+	static int iii = 0;
+	if ( iii++ > 1 )
 	{
-		for ( int i = 0 ; i < pwave->wv_trds_masks_count ; i++ )
+		iii++;
+	}
+
+	struct App_Data * _g = ( struct App_Data * )src_tl->tlcfg.m.m.temp_data._g;
+
+	while ( 1 )
+	{
+		MM_BREAK_IF( ( src_tl->tcp_server_listener_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
+
+		struct sockaddr_in server_addr;
+		socklen_t addrlen = sizeof( server_addr );
+		memset( &server_addr , 0 , sizeof( server_addr ) );
+		server_addr.sin_family = AF_INET;
+		if ( strcmp( src_tl->tlcfg.m.m.id.TCP_listen_ip , "INADDR_ANY" ) == 0 )
 		{
-			if ( pwave->wv_trds_masks[ i ] )
+			server_addr.sin_addr.s_addr = INADDR_ANY;
+		}
+		else
+		{
+			server_addr.sin_addr.s_addr = inet_addr( src_tl->tlcfg.m.m.id.TCP_listen_ip ); // Specify the IP address to bind to
+		}
+		server_addr.sin_port = htons( src_tl->tlcfg.m.m.id.TCP_listen_port );
+
+		if ( bind( src_tl->tcp_server_listener_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR )
+		{
+			_VERBOSE_ECHO( "bind error" );
+			_close_socket( &src_tl->tcp_server_listener_sockfd );
+			sleep(1);
+			continue;
+		}
+
+		if ( listen( src_tl->tcp_server_listener_sockfd , 1 ) < 0 )
+		{
+			_VERBOSE_ECHO( "listen error" );
+			_close_socket( &src_tl->tcp_server_listener_sockfd );
+			sleep(1);
+			continue;
+		}
+
+		if ( ( src_tl->tcp_client_connection_sockfd = accept( src_tl->tcp_server_listener_sockfd , ( struct sockaddr * )&server_addr , ( socklen_t * )&addrlen ) ) < 0 )
+		{
+			_VERBOSE_ECHO( "accept error" );
+			_close_socket( &src_tl->tcp_server_listener_sockfd );
+			sleep(1);
+			continue;
+		}
+		src_tl->tcp_connection_established = 1;
+		return 1;
+	}
+
+	BEGIN_RET
+		case 3: {}
+		case 2: {}
+		case 1: {}
+	M_V_END_RET
+	return -1;
+}
+
+void * thread_tcp_connection_proc( void * src_tl )
+{
+	INIT_BREAKABLE_FXN();
+
+	struct tcp_listener * tl = ( struct tcp_listener * )src_tl;
+	struct App_Data * _g = ( struct App_Data * )tl->tlcfg.m.m.temp_data._g;
+
+	if ( IF_VERBOSE_MODE_CONDITION() )
+	{
+		_ECHO( "try to connect outbound tcp connection" );
+	}
+
+	if ( _connect_tcp( tl ) == 0 )
+	{
+
+	}
+	BREAK_OK( 0 ); // to just ignore gcc warning
+
+	BEGIN_RET
+		case 3: {}
+		case 2: {}
+		case 1: {}
+	M_V_END_RET
+	return NULL; // Threads can return a value, but this example returns NULL
+}
+
+#define BUFFER_SIZE 9999
+
+void * tcp_listener_runner( void * src_tl )
+{
+	INIT_BREAKABLE_FXN();
+
+	struct tcp_listener * tl = ( struct tcp_listener * )src_tl;
+	struct App_Data * _g = tl->tlcfg.m.m.temp_data._g;
+	pthread_t tid = pthread_self();
+	time_t tnow = 0;
+	struct tcp_listener_thread * pthread = NULL;
+	while ( pthread == NULL )
+	{
+		for ( int i = 0 ; i < tl->tl_trds_masks_count ; i++ )
+		{
+			if ( tl->tl_trds_masks[ i ] )
 			{
-				if ( pwave->wv_trds[ i ].alc_thread->trd_id == tid )
+				if ( tl->tl_trds[ i ].alc_thread->trd_id == tid )
 				{
-					socketid = pwave->socket_id;
-					pthread = pwave->wv_trds[ i ].alc_thread;
+					pthread = tl->tl_trds[ i ].alc_thread;
 					break;
 				}
 			}
@@ -284,15 +371,17 @@ void * wave_runner( void * src_pwave )
 		_g->stat.syscal_err_count++;
 		return NULL;
 	}
-	ASSERT( socketid >= 0 );
-	//ASSERT( pbase_config_change_applied != NULL );
 
-	_g->stat.sender_thread_count++;
+	//_g->stat.sender_thread_count++;
 
 	if ( IF_VERBOSE_MODE_CONDITION() )
 	{
 		_ECHO( "thread started" );
 	}
+
+	char buffer[ BUFFER_SIZE ];
+	ssize_t bytes_read;
+	fd_set readfds; // Set of socket descriptors
 
 	int config_changes = 0;
 	pthread->base_config_change_applied = 0;
@@ -304,23 +393,9 @@ void * wave_runner( void * src_pwave )
 		}
 
 		config_changes = 0;
-		struct sockaddr_in server_addr;
-		memset( &server_addr , 0 , sizeof( server_addr ) );
-		server_addr.sin_family = AF_INET;
-		server_addr.sin_port = htons( ( uint16_t )pwave->awcfg.m.m.id.UDP_destination_port );
-		if ( inet_pton( AF_INET , pwave->awcfg.m.m.id.UDP_destination_ip , &server_addr.sin_addr ) <= 0 )
-		{
-			_g->stat.syscal_err_count++;
-			_ECHO( "inet_pton failed" );
-		}
 
-		int buf_size = pwave->awcfg.m.m.maintained.packet_payload_size;
-		char * buffer = NEWBUF( char , buf_size );
-		MEMSET_ZERO( buffer , char , buf_size );
-		static int iii = 0;
-		__snprintf( buffer , buf_size , "a %d" , iii++ );
-
-		ssize_t sz = 0;
+		pthread_t trd_tcp_connection;
+		MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , tl ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 
 		while ( 1 )
 		{
@@ -334,131 +409,131 @@ void * wave_runner( void * src_pwave )
 				config_changes = 1;
 				break;
 			}
-
-			if ( IF_VERBOSE_MODE_CONDITION() )
+			if ( !tl->tcp_connection_established )
 			{
-				static time_t prev_time_log = 0;
-				if ( !prev_time_log ) prev_time_log = time( NULL );
-				if ( difftime( time( NULL ) , prev_time_log ) > HI_FREQUENT_LOG_INTERVAL )
-				{
-					_ECHO( "%s" , buffer );
-					prev_time_log = time( NULL );
-				}
+				sleep( 1 );
+				continue;
 			}
+
+			// Clear the socket set
+			FD_ZERO( &readfds );
+			FD_SET( tl->tcp_client_connection_sockfd , &readfds );
+
+
 
 			tnow = time( NULL );
-			if ( difftime( tnow , _g->stat.udp.t_udp_throughput ) >= 1.0 )
+			if ( difftime( tnow , _g->stat.tcp.t_tcp_throughput ) >= 1.0 )
 			{
-				if ( _g->stat.udp.t_udp_throughput > 0 )
+				if ( _g->stat.tcp.t_tcp_throughput > 0 )
 				{
-					_g->stat.udp.udp_put_count_throughput = _g->stat.udp.calc_throughput_udp_put_count;
-					_g->stat.udp.udp_put_byte_throughput = _g->stat.udp.calc_throughput_udp_put_bytes;
+					_g->stat.tcp.tcp_get_count_throughput = _g->stat.tcp.calc_throughput_tcp_get_count;
+					_g->stat.tcp.tcp_get_byte_throughput = _g->stat.tcp.calc_throughput_tcp_get_bytes;
 				}
-
-				_g->stat.udp.t_udp_throughput = tnow;
-				_g->stat.udp.calc_throughput_udp_put_count = 0;
-				_g->stat.udp.calc_throughput_udp_put_bytes = 0;
+				_g->stat.tcp.t_tcp_throughput = tnow;
+				_g->stat.tcp.calc_throughput_tcp_get_count = 0;
+				_g->stat.tcp.calc_throughput_tcp_get_bytes = 0;
 			}
 
-			if ( ( sz = sendto( socketid , buffer , buf_size , 0 , ( struct sockaddr * )&server_addr , sizeof( server_addr ) ) ) < SENDTO_MIN_OK )
+			struct timeval timeout; //// Set timeout (e.g., 5 seconds)
+			timeout.tv_sec = 1;
+			timeout.tv_usec = 0;
+			int activity = select( tl->tcp_client_connection_sockfd + 1 , &readfds , NULL , NULL , &timeout );
+
+			if ( ( activity < 0 ) && ( errno != EINTR ) )
 			{
-				_g->stat.all_benchmarks_total_sent_fail_count++;
+				continue;
 			}
-			else
+			if ( activity == 0 )
 			{
-				_g->stat.udp.total_udp_put_count++;
-				_g->stat.udp.total_udp_put_byte += sz;
-				_g->stat.udp.calc_throughput_udp_put_count++;
-				_g->stat.udp.calc_throughput_udp_put_bytes += sz;
+				continue;
 			}
 
-
-			if ( pwave->awcfg.m.m.maintained.iteration_delay_milisec > 0 )
+			if ( FD_ISSET( tl->tcp_client_connection_sockfd , &readfds ) )
 			{
-				//sleep( pwave->awcfg.m.m.maintained.iteration_delay_milisec / 1000 );
-				struct timespec ts = { 0, pwave->awcfg.m.m.maintained.iteration_delay_milisec * 1000000L };
-				thrd_sleep( &ts , NULL );
-			}
-		} // while ( 1 )
+				bytes_read = recv( tl->tcp_client_connection_sockfd , buffer , BUFFER_SIZE - 1 , 0 );
+				if ( bytes_read >= 0 )
+				{
+					_g->stat.tcp.total_tcp_get_count++;
+					_g->stat.tcp.total_tcp_get_byte += bytes_read;
 
-		DAC( buffer );
+					_g->stat.tcp.calc_throughput_tcp_get_count++;
+					_g->stat.tcp.calc_throughput_tcp_get_bytes += bytes_read;
+				}
+			}
+
+		} // loop while ( 1 )
+
+		//DAC( buffer );
 
 	} while ( config_changes );
 
-	_g->stat.sender_thread_count--;
-	
-	// delete mask
-	for ( int i = 0 ; i < pthread->pwave->wv_trds_masks_count ; i++ )
+	//_g->stat.sender_thread_count--;
+
+	//// delete mask
+	for ( int i = 0 ; i < pthread->tl->tl_trds_masks_count ; i++ )
 	{
-		if ( pthread->pwave->wv_trds_masks[ i ] && pthread->pwave->wv_trds[ i ].alc_thread->trd_id == tid )
+		if ( pthread->tl->tl_trds_masks[ i ] && pthread->tl->tl_trds[ i ].alc_thread->trd_id == tid )
 		{
-			pthread->pwave->wv_trds_masks[ i ] = 0;
+			pthread->tl->tl_trds_masks[ i ] = 0;
 			break;
 		}
 	}
-	
+
+	BEGIN_RET
+		case 3: {}
+		case 2: {}
+		case 1:
+		{
+			//_close_socket( &src_tl->tcp_sockfd );
+			_g->stat.syscal_err_count++;
+		}
+	M_V_END_RET
 	return NULL;
 }
 
-void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , struct wave_cfg * new_wcfg )
+void apply_new_tcp_listener_config( struct App_Data * _g , struct tcp_listener * tl , struct tcp_listener_cfg * new_tlcfg )
 {
 	INIT_BREAKABLE_FXN();
 
-	if ( !new_wcfg->m.m.maintained.enable )
+	if ( !new_tlcfg->m.m.maintained.enable )
 	{
-		for ( int i = 0 ; i < pwave->wv_trds_masks_count ; i++ )
+		for ( int i = 0 ; i < tl->tl_trds_masks_count ; i++ )
 		{
-			if ( pwave->wv_trds_masks[ i ] )
+			if ( tl->tl_trds_masks[ i ] )
 			{
-				pwave->wv_trds->alc_thread->do_close_thread = 1;
+				tl->tl_trds->alc_thread->do_close_thread = 1;
 			}
 		}
 		return;
 	}
 
-	int open_socket = 0;
-	if ( new_wcfg->m.m.maintained.parallelism_count > 0 && pwave->wv_trds == NULL )
-	{
-		open_socket = 1;
-	}
-
 	// make extra space for new one
-	if ( pwave->wv_trds_masks_count < new_wcfg->m.m.maintained.parallelism_count )
+	if ( tl->tl_trds_masks_count < PARALLELISM_COUNT )
 	{
-		int old_thread_count = pwave->wv_trds_masks_count;
-		int diff_count = ( new_wcfg->m.m.maintained.parallelism_count - pwave->wv_trds_masks_count );
+		int old_thread_count = tl->tl_trds_masks_count;
+		int diff_count = ( PARALLELISM_COUNT - tl->tl_trds_masks_count );
 		int new_thread_count = old_thread_count + diff_count;
 
-		M_BREAK_IF( ( pwave->wv_trds_masks = REALLOC( pwave->wv_trds_masks , new_thread_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
-		MEMSET_ZERO( pwave->wv_trds_masks + old_thread_count , int , diff_count );
+		M_BREAK_IF( ( tl->tl_trds_masks = REALLOC( tl->tl_trds_masks , new_thread_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
+		MEMSET_ZERO( tl->tl_trds_masks + old_thread_count , int , diff_count );
 
-		M_BREAK_IF( ( pwave->wv_trds = REALLOC( pwave->wv_trds , new_thread_count * sizeof( struct wave_thread_holder ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
-		MEMSET_ZERO( pwave->wv_trds + old_thread_count , struct wave_thread_holder , diff_count );
+		M_BREAK_IF( ( tl->tl_trds = REALLOC( tl->tl_trds , new_thread_count * sizeof( struct tcp_listener_thread_holder ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
+		MEMSET_ZERO( tl->tl_trds + old_thread_count , struct tcp_listener_thread_holder , diff_count );
 
-		pwave->wv_trds_masks_count = new_thread_count;
-	}
-
-	// 1. create socket first
-	if ( open_socket )
-	{
-		MM_BREAK_IF( ( pwave->socket_id = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
-		if ( IF_VERBOSE_MODE_CONDITION() )
-		{
-			_ECHO( "create socket %d" , pwave->socket_id );
-		}
+		tl->tl_trds_masks_count = new_thread_count;
 	}
 
 	// create extra needed thread and socket for each of them
 	int valid_thread_count = 0;
-	for ( int i = 0 ; i < pwave->wv_trds_masks_count ; i++ )
+	for ( int i = 0 ; i < tl->tl_trds_masks_count ; i++ )
 	{
-		if ( pwave->wv_trds_masks[ i ] ) valid_thread_count++;
+		if ( tl->tl_trds_masks[ i ] ) valid_thread_count++;
 	}
 	// must add new thread to active wave
-	if ( valid_thread_count < new_wcfg->m.m.maintained.parallelism_count )
+	if ( valid_thread_count < PARALLELISM_COUNT )
 	{
 		// run new one
-		int diff_new_thread_count = new_wcfg->m.m.maintained.parallelism_count - valid_thread_count;
+		int diff_new_thread_count = PARALLELISM_COUNT - valid_thread_count;
 
 		if ( IF_VERBOSE_MODE_CONDITION() )
 		{
@@ -466,25 +541,25 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 		}
 		while ( diff_new_thread_count > 0 )
 		{
-			for ( int i = 0 ; i < pwave->wv_trds_masks_count ; i++ )
+			for ( int i = 0 ; i < tl->tl_trds_masks_count ; i++ )
 			{
-				if ( !pwave->wv_trds_masks[ i ] )
+				if ( !tl->tl_trds_masks[ i ] )
 				{
 					// 2. set mask
-					pwave->wv_trds_masks[ i ] = 1; // order is matter
+					tl->tl_trds_masks[ i ] = 1; // order is matter
 
-					DAC( pwave->wv_trds[ i ].alc_thread );
-					M_BREAK_IF( ( pwave->wv_trds[ i ].alc_thread = NEW( struct wave_thread ) ) == NEW_ERR , errMemoryLow , 0 );
-					MEMSET_ZERO( pwave->wv_trds[ i ].alc_thread , struct wave_thread , 1 );
-					pwave->wv_trds[ i ].alc_thread->pwave = pwave;
+					DAC( tl->tl_trds[ i ].alc_thread );
+					M_BREAK_IF( ( tl->tl_trds[ i ].alc_thread = NEW( struct tcp_listener_thread ) ) == NEW_ERR , errMemoryLow , 0 );
+					MEMSET_ZERO( tl->tl_trds[ i ].alc_thread , struct tcp_listener_thread , 1 );
+					tl->tl_trds[ i ].alc_thread->tl = tl;
 
 					// 3. create thread also
-					MM_BREAK_IF( pthread_create( &pwave->wv_trds[ i ].alc_thread->trd_id , NULL , wave_runner , ( void * )pwave ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-					
+					MM_BREAK_IF( pthread_create( &tl->tl_trds[ i ].alc_thread->trd_id , NULL , tcp_listener_runner , ( void * )tl ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+
 					// 4. etc
 					if ( IF_VERBOSE_MODE_CONDITION() )
 					{
-						_ECHO( "create thread %lu" , pwave->wv_trds[ i ].alc_thread->trd_id );
+						_ECHO( "create thread %lu" , tl->tl_trds[ i ].alc_thread->trd_id );
 					}
 					//_g->stat.sender_thread_count++;
 					diff_new_thread_count--;
@@ -495,29 +570,29 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 	}
 
 	// retire extra thread
-	if ( valid_thread_count > new_wcfg->m.m.maintained.parallelism_count )
+	if ( valid_thread_count > PARALLELISM_COUNT )
 	{
 		// stop extra
-		int extra_count = valid_thread_count - new_wcfg->m.m.maintained.parallelism_count;
+		int extra_count = valid_thread_count - PARALLELISM_COUNT;
 		if ( IF_VERBOSE_MODE_CONDITION() )
 		{
 			_ECHO( "num retire extra thread %d" , extra_count );
 		}
 		while ( extra_count > 0 )
 		{
-			for ( int i = pwave->wv_trds_masks_count - 1 ; i >= 0 ; i-- ) // az yah hazf kon
+			for ( int i = tl->tl_trds_masks_count - 1 ; i >= 0 ; i-- ) // az yah hazf kon
 			{
-				if ( pwave->wv_trds_masks[ i ] && pwave->wv_trds[ i ].alc_thread->do_close_thread == 0 )
+				if ( tl->tl_trds_masks[ i ] && tl->tl_trds[ i ].alc_thread->do_close_thread == 0 )
 				{
-					pwave->wv_trds[ i ].alc_thread->do_close_thread = 1;
+					tl->tl_trds[ i ].alc_thread->do_close_thread = 1;
 
-					//if ( pthread_cancel( pwave->wv_trds[ i ].trd_id ) == 0 )
+					//if ( pthread_cancel( pwave->tl_trds[ i ].trd_id ) == 0 )
 					//{
-						//pwave->wv_trds[ i ].alc_thread->trd_id = 0;
-						//_close_socket( &pwave->wv_trds[ i ].socket_id );
-						
-						extra_count--;
-						//_g->stat.sender_thread_count--;
+					//	pwave->tl_trds[ i ].alc_thread->trd_id = 0;
+					//	_close_socket( &pwave->tl_trds[ i ].socket_id );
+
+					extra_count--;
+					//	_g->stat.sender_thread_count--;
 					//}
 					break;
 				}
@@ -525,17 +600,16 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 		}
 	}
 
-	
 	// when we arrive at this point we sure that somethings is changed
-	memcpy( &pwave->awcfg , new_wcfg , sizeof( struct wave_cfg ) );
+	memcpy( &tl->tlcfg , new_tlcfg , sizeof( struct tcp_listener_cfg ) );
 	//pwave->awcfg.m.m.temp_data.wcfg_stabled = 1;
-	new_wcfg->m.m.temp_data.wcfg_changed = 0;
+	new_tlcfg->m.m.temp_data.tcfg_changed = 0;
 	// Set every threads that their state must change
-	for ( int i = 0 ; i < pwave->wv_trds_masks_count ; i++ )
+	for ( int i = 0 ; i < tl->tl_trds_masks_count ; i++ )
 	{
-		if ( pwave->wv_trds_masks[ i ] )
+		if ( tl->tl_trds_masks[ i ] )
 		{
-			pwave->wv_trds[ i ].alc_thread->base_config_change_applied = 1;
+			tl->tl_trds[ i ].alc_thread->base_config_change_applied = 1;
 		}
 	}
 
@@ -551,7 +625,7 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 	M_V_END_RET
 }
 
-void stop_wave( struct App_Data * _g , struct udp_wave * pwave )
+void stop_tcp_listener( struct App_Data * _g , struct tcp_listener * tl )
 {
 	INIT_BREAKABLE_FXN();
 
@@ -560,13 +634,13 @@ void stop_wave( struct App_Data * _g , struct udp_wave * pwave )
 	//	_ECHO( "stop_wave" );
 	//}
 
-	pwave->awcfg.m.m.maintained.enable = 0;
-	pwave->awcfg.m.m.temp_data.wcfg_changed = 1;
-	apply_new_wave_config( _g , pwave , &pwave->awcfg );
+	tl->tlcfg.m.m.maintained.enable = 0;
+	tl->tlcfg.m.m.temp_data.tcfg_changed = 1;
+	apply_new_tcp_listener_config( _g , tl , &tl->tlcfg );
 	// TODO
 }
 
-void apply_wave_new_cfg_changes( struct App_Data * _g , struct wave_cfg * prev_wcfg , struct wave_cfg * new_wcfg )
+void apply_tcp_listener_new_cfg_changes( struct App_Data * _g , struct tcp_listener_cfg * prev_tlcfg , struct tcp_listener_cfg * new_tlcfg )
 {
 	INIT_BREAKABLE_FXN();
 
@@ -575,19 +649,19 @@ void apply_wave_new_cfg_changes( struct App_Data * _g , struct wave_cfg * prev_w
 	//	_ECHO( "apply_wave_new_cfg_changes" );
 	//}
 
-	for ( int i = 0 ; i < _g->waves.wv_holders_masks_count ; i++ )
+	for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
 	{
-		if ( _g->waves.wv_holders_masks[ i ] )
+		if ( _g->listeners.tl_holders_masks[ i ] )
 		{
-			if ( memcmp( &_g->waves.wv_holders[ i ].alc_wave->awcfg.m.m.id , &prev_wcfg->m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+			if ( memcmp( &_g->listeners.tl_holders[ i ].alc_tl->tlcfg.m.m.id , &prev_tlcfg->m.m.id , sizeof( struct tcp_listener_cfg_id ) ) == 0 )
 			{
-				apply_new_wave_config( _g , _g->waves.wv_holders[ i ].alc_wave , new_wcfg );
+				apply_new_tcp_listener_config( _g , _g->listeners.tl_holders[ i ].alc_tl , new_tlcfg );
 			}
 		}
 	}
 }
 
-void remove_wave( struct App_Data * _g , struct wave_cfg * wcfg )
+void remove_tcp_listener( struct App_Data * _g , struct tcp_listener_cfg * tlcfg )
 {
 	INIT_BREAKABLE_FXN();
 
@@ -596,15 +670,15 @@ void remove_wave( struct App_Data * _g , struct wave_cfg * wcfg )
 	//	_ECHO( "remove_wave" );
 	//}
 
-	for ( int i = 0 ; i < _g->waves.wv_holders_masks_count ; i++ )
+	for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
 	{
-		if ( _g->waves.wv_holders_masks[ i ] )
+		if ( _g->listeners.tl_holders_masks[ i ] )
 		{
-			if ( memcmp( &_g->waves.wv_holders[ i ].alc_wave->awcfg.m.m.id , &wcfg->m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+			if ( memcmp( &_g->listeners.tl_holders[ i ].alc_tl->tlcfg.m.m.id , &tlcfg->m.m.id , sizeof( struct tcp_listener_cfg_id ) ) == 0 )
 			{
-				stop_wave( _g , _g->waves.wv_holders[ i ].alc_wave );
-				_g->waves.wv_holders_masks[ i ] = 0;
-				DAC( _g->waves.wv_holders[ i ].alc_wave );
+				stop_tcp_listener( _g , _g->listeners.tl_holders[ i ].alc_tl );
+				_g->listeners.tl_holders_masks[ i ] = 0;
+				DAC( _g->listeners.tl_holders[ i ].alc_tl );
 			}
 		}
 	}
@@ -612,7 +686,7 @@ void remove_wave( struct App_Data * _g , struct wave_cfg * wcfg )
 
 #define PREALLOCAION_SIZE 10
 
-void add_new_wave( struct App_Data * _g , struct wave_cfg * new_wcfg )
+void add_new_tcp_listener( struct App_Data * _g , struct tcp_listener_cfg * new_tlcfg )
 {
 	INIT_BREAKABLE_FXN();
 
@@ -621,43 +695,43 @@ void add_new_wave( struct App_Data * _g , struct wave_cfg * new_wcfg )
 	//	_ECHO( "add_new_wave" );
 	//}
 
-	int new_wcfg_placement_index = -1;
-	while ( new_wcfg_placement_index < 0 ) // try to find one place for new wave
+	int new_tlcfg_placement_index = -1;
+	while ( new_tlcfg_placement_index < 0 ) // try to find one place for new wave
 	{
-		for ( int i = 0 ; i < _g->waves.wv_holders_masks_count ; i++ )
+		for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
 		{
-			if ( !_g->waves.wv_holders_masks[ i ] )
+			if ( !_g->listeners.tl_holders_masks[ i ] )
 			{
-				new_wcfg_placement_index = i;
+				new_tlcfg_placement_index = i;
 				break;
 			}
 		}
-		if ( new_wcfg_placement_index < 0 )
+		if ( new_tlcfg_placement_index < 0 )
 		{
-			int old_wv_holders_masks_count = _g->waves.wv_holders_masks_count;
-			int new_wv_holders_masks_count = old_wv_holders_masks_count + PREALLOCAION_SIZE;
+			int old_tl_holders_masks_count = _g->listeners.tl_holders_masks_count;
+			int new_tl_holders_masks_count = old_tl_holders_masks_count + PREALLOCAION_SIZE;
 
-			M_BREAK_IF( ( _g->waves.wv_holders_masks = REALLOC( _g->waves.wv_holders_masks , new_wv_holders_masks_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 2 );
-			MEMSET_ZERO( _g->waves.wv_holders_masks + old_wv_holders_masks_count , int , PREALLOCAION_SIZE );
+			M_BREAK_IF( ( _g->listeners.tl_holders_masks = REALLOC( _g->listeners.tl_holders_masks , new_tl_holders_masks_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 2 );
+			MEMSET_ZERO( _g->listeners.tl_holders_masks + old_tl_holders_masks_count , int , PREALLOCAION_SIZE );
 
-			M_BREAK_IF( ( _g->waves.wv_holders = REALLOC( _g->waves.wv_holders , new_wv_holders_masks_count * sizeof( struct udp_wave_holder ) ) ) == REALLOC_ERR , errMemoryLow , 1 );
-			MEMSET_ZERO( _g->waves.wv_holders + old_wv_holders_masks_count , struct udp_wave_holder , PREALLOCAION_SIZE );
+			M_BREAK_IF( ( _g->listeners.tl_holders = REALLOC( _g->listeners.tl_holders , new_tl_holders_masks_count * sizeof( struct tcp_listener_holder ) ) ) == REALLOC_ERR , errMemoryLow , 1 );
+			MEMSET_ZERO( _g->listeners.tl_holders + old_tl_holders_masks_count , struct tcp_listener_holder , PREALLOCAION_SIZE );
 
-			_g->waves.wv_holders_masks_count = new_wv_holders_masks_count;
+			_g->listeners.tl_holders_masks_count = new_tl_holders_masks_count;
 		}
 	}
 
-	ASSERT( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave == NULL );
-	M_BREAK_IF( ( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave = NEW( struct udp_wave ) ) == NEW_ERR , errMemoryLow , 0 );
-	MEMSET_ZERO( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave , struct udp_wave , 1 );
-	_g->waves.wv_holders_masks[ new_wcfg_placement_index ] = 1;
-	memcpy( &_g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave->awcfg , new_wcfg , sizeof( struct wave_cfg ) );
+	ASSERT( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl == NULL );
+	M_BREAK_IF( ( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl = NEW( struct tcp_listener ) ) == NEW_ERR , errMemoryLow , 0 );
+	MEMSET_ZERO( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl , struct tcp_listener , 1 );
+	_g->listeners.tl_holders_masks[ new_tlcfg_placement_index ] = 1;
+	memcpy( &_g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl->tlcfg , new_tlcfg , sizeof( struct tcp_listener_cfg ) );
 
-	apply_wave_new_cfg_changes( _g , new_wcfg , new_wcfg );
+	apply_tcp_listener_new_cfg_changes( _g , new_tlcfg , new_tlcfg );
 
 	BEGIN_RET
-		case 3: DAC( _g->waves.wv_holders );
-		case 2: DAC( _g->waves.wv_holders_masks );
+		case 3: DAC( _g->listeners.tl_holders );
+		case 2: DAC( _g->listeners.tl_holders_masks );
 		case 1: _g->stat.syscal_err_count++;
 	M_V_END_RET
 } // TODO . return value
@@ -666,7 +740,7 @@ void add_new_wave( struct App_Data * _g , struct wave_cfg * new_wcfg )
 
 #ifndef section_load_config
 
-#define CONFIG_ROOT_PATH "/home/my_projects/home-config/UDP_generator"
+#define CONFIG_ROOT_PATH "/home/my_projects/home-config/tcp_listener"
 
 // TODO . exit gracefully by auto mechanism
 // TODO . think about race condition
@@ -746,7 +820,7 @@ void * config_loader( void * app_data )
 		sleep( 1 );
 	}
 
-	typed( json_element ) el_UDP_generator_config;
+	typed( json_element ) el_tcp_listener_config;
 
 	while ( 1 )
 	{
@@ -759,21 +833,21 @@ void * config_loader( void * app_data )
 
 			struct Global_Config temp_config = { 0 };
 			struct Global_Config_0 * pGeneralConfiguration = ( struct Global_Config_0 * )&temp_config;
-			struct wave_cfg * pWaves = NULL;
-			size_t waves_count = 0;
+			struct tcp_listener_cfg * ptcp_listeners = NULL;
+			size_t tcp_listeners_count = 0;
 			{
-				const char * UDP_generator_config_file_content = read_file( CONFIG_ROOT_PATH "/UDP_generator_config.txt" , NULL );
-				MM_BREAK_IF( !UDP_generator_config_file_content , errGeneral , 0 , "cannot open config file" );
-				
-				result( json_element ) rs_UDP_generator_config = json_parse( UDP_generator_config_file_content );
-				free( ( void * )UDP_generator_config_file_content );
-				MM_BREAK_IF( catch_error( &rs_UDP_generator_config , "UDP_generator_config" ) , errGeneral , 0 , "cannot parse config file" );
-				el_UDP_generator_config = result_unwrap( json_element )( &rs_UDP_generator_config );
+				const char * tcp_listener_config_file_content = read_file( CONFIG_ROOT_PATH "/tcp_listener_config.txt" , NULL );
+				MM_BREAK_IF( !tcp_listener_config_file_content , errGeneral , 0 , "cannot open config file" );
+
+				result( json_element ) rs_tcp_listener_config = json_parse( tcp_listener_config_file_content );
+				free( ( void * )tcp_listener_config_file_content );
+				MM_BREAK_IF( catch_error( &rs_tcp_listener_config , "tcp_listener_config" ) , errGeneral , 0 , "cannot parse config file" );
+				el_tcp_listener_config = result_unwrap( json_element )( &rs_tcp_listener_config );
 
 				/*configurations*/
 				if ( _g->appcfg._ver->Major >= 1 ) // first version of config file structure
 				{
-					result( json_element ) re_configurations = json_object_find( el_UDP_generator_config.value.as_object , "configurations" );
+					result( json_element ) re_configurations = json_object_find( el_tcp_listener_config.value.as_object , "configurations" );
 					MM_BREAK_IF( catch_error( &re_configurations , "configurations" ) , errGeneral , 0 , "configurations" );
 					typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 
@@ -806,88 +880,84 @@ void * config_loader( void * app_data )
 					CFG_ELEM_I( hi_frequent_log_interval_sec );
 					CFG_ELEM_I( refresh_variable_from_scratch );
 					CFG_ELEM_I( stat_referesh_interval_sec );
-					
-					
 
 #undef CFG_ELEM_I
 #undef CFG_ELEM_STR
 				}
 
-				/*waves*/
+				/*tcp_listeners*/
 				{
-					result( json_element ) re_waves = json_object_find( el_UDP_generator_config.value.as_object , "waves" );
-					MM_BREAK_IF( catch_error( &re_waves , "waves" ) , errGeneral , 0 , "waves" );
-					typed( json_element ) el_waves = result_unwrap( json_element )( &re_waves );
+					result( json_element ) re_tcp_listeners = json_object_find( el_tcp_listener_config.value.as_object , "TCP_listeners" );
+					MM_BREAK_IF( catch_error( &re_tcp_listeners , "tcp_listeners" ) , errGeneral , 0 , "tcp_listeners" );
+					typed( json_element ) el_tcp_listeners = result_unwrap( json_element )( &re_tcp_listeners );
 
-					MM_BREAK_IF( ( waves_count = el_waves.value.as_object->count ) < 1 , errGeneral , 0 , "waves must be not zero" );
+					MM_BREAK_IF( ( tcp_listeners_count = el_tcp_listeners.value.as_object->count ) < 1 , errGeneral , 0 , "tcp_listeners must be not zero" );
 
-					M_BREAK_IF( !( pWaves = NEWBUF( struct wave_cfg , el_waves.value.as_object->count ) ) , errMemoryLow , 0 );
-					MEMSET_ZERO( pWaves , struct wave_cfg , el_waves.value.as_object->count );
-					
+					M_BREAK_IF( !( ptcp_listeners = NEWBUF( struct tcp_listener_cfg , el_tcp_listeners.value.as_object->count ) ) , errMemoryLow , 0 );
+					MEMSET_ZERO( ptcp_listeners , struct tcp_listener_cfg , el_tcp_listeners.value.as_object->count );
 
-					for ( int i = 0 ; i < el_waves.value.as_object->count ; i++ )
+
+					for ( int i = 0 ; i < el_tcp_listeners.value.as_object->count ; i++ )
 					{
-						((struct wave_cfg_0 *)(pWaves + i))->temp_data._g = ( void * )_g;
+						( ( struct tcp_listener_cfg_0 * )( ptcp_listeners + i ) )->temp_data._g = ( void * )_g;
 
-						char output_wave_name[ 32 ];
-						memset( output_wave_name , 0 , sizeof( output_wave_name ) );
-						sprintf( output_wave_name , "wave%d" , i + 1 );
+						char output_tcp_listener_name[ 32 ];
+						memset( output_tcp_listener_name , 0 , sizeof( output_tcp_listener_name ) );
+						sprintf( output_tcp_listener_name , "listener%d" , i + 1 );
 
-						result( json_element ) re_output_wave = json_object_find( el_waves.value.as_object , output_wave_name );
-						M_BREAK_IF( catch_error( &re_output_wave , output_wave_name ) , errGeneral , 0 );
-						typed( json_element ) el_output_wave = result_unwrap( json_element )( &re_output_wave );
+						result( json_element ) re_output_tcp_listener = json_object_find( el_tcp_listeners.value.as_object , output_tcp_listener_name );
+						M_BREAK_IF( catch_error( &re_output_tcp_listener , output_tcp_listener_name ) , errGeneral , 0 );
+						typed( json_element ) el_output_tcp_listener = result_unwrap( json_element )( &re_output_tcp_listener );
 
 #define CFG_ELEM_STR( name ) \
-							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
+							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
 							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-							strcpy(((struct wave_cfg_0 *)(pWaves + i))->name , el_##name.value.as_string );
+							strcpy(((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->name , el_##name.value.as_string );
 
 #define CFG_ID_ELEM_STR( name ) \
-							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
+							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
 							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-							strcpy(((struct wave_cfg_0 *)(pWaves + i))->id.name , el_##name.value.as_string );
+							strcpy(((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->id.name , el_##name.value.as_string );
 
 #define CFG_ELEM_I_maintained( name ) \
-							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
+							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
 							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-							((struct wave_cfg_0 *)(pWaves + i))->maintained.name = (int)el_##name.value.as_number.value.as_long;
+							((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->maintained.name = (int)el_##name.value.as_number.value.as_long;
 
 #define CFG_ELEM_I_momentary( name ) \
-							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
+							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
 							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-							((struct wave_cfg_0 *)(pWaves + i))->momentary.name = (int)el_##name.value.as_number.value.as_long;
+							((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->momentary.name = (int)el_##name.value.as_number.value.as_long;
 
 #define CFG_ID_ELEM_I( name ) \
-							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
+							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
 							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
-							((struct wave_cfg_0 *)(pWaves + i))->id.name = (int)el_##name.value.as_number.value.as_long;
+							((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->id.name = (int)el_##name.value.as_number.value.as_long;
 
-						strcpy( ( ( struct wave_cfg_0 * )( pWaves + i ) )->id.wave_name , output_wave_name );
+						strcpy( ( ( struct tcp_listener_cfg_0 * )( ptcp_listeners + i ) )->id.tcp_listener_name , output_tcp_listener_name );
 
-						CFG_ID_ELEM_STR( UDP_destination_ip );
-						CFG_ID_ELEM_I( UDP_destination_port );
-						CFG_ID_ELEM_STR( UDP_destination_interface );
-						CFG_ELEM_I_maintained( limited_packets );
-						CFG_ELEM_I_maintained( packet_count );
-						CFG_ELEM_I_maintained( parallelism_count );
-						CFG_ELEM_I_maintained( iteration_delay_milisec );
-						CFG_ELEM_I_maintained( packet_payload_size );
+						CFG_ID_ELEM_STR( TCP_listen_ip );
+						CFG_ID_ELEM_I( TCP_listen_port );
+						CFG_ID_ELEM_STR( TCP_listen_interface );
+
 						CFG_ELEM_I_maintained( enable );
 						CFG_ELEM_I_momentary( reset_connections );
+
+
 
 #undef CFG_ID_ELEM_I
 #undef CFG_ELEM_I
 #undef CFG_ID_ELEM_STR
 #undef CFG_ELEM_STR
 					}
-				}
 
-				json_free( &el_UDP_generator_config );
+					json_free( &el_tcp_listeners );
+				}
 			}
 
 			int initial_general_config = 0;
@@ -946,42 +1016,42 @@ void * config_loader( void * app_data )
 				}
 			}
 
-			if ( _g->appcfg._pwave_psvcfg )
+			if ( _g->appcfg._ptcp_listener_psvcfg )
 			{
-				DAC( _g->appcfg._pprev_wave_psvcfg );
-				_g->appcfg._prev_wave_psvcfg_count = 0;
-				_g->appcfg._pprev_wave_psvcfg = _g->appcfg._pwave_psvcfg;
-				_g->appcfg._prev_wave_psvcfg_count = _g->appcfg._wave_psvcfg_count;
+				DAC( _g->appcfg._pprev_tcp_listener_psvcfg );
+				_g->appcfg._prev_tcp_listener_psvcfg_count = 0;
+				_g->appcfg._pprev_tcp_listener_psvcfg = _g->appcfg._ptcp_listener_psvcfg;
+				_g->appcfg._prev_tcp_listener_psvcfg_count = _g->appcfg._tcp_listener_psvcfg_count;
 			}
-			_g->appcfg._pwave_psvcfg = pWaves;
-			_g->appcfg._wave_psvcfg_count = waves_count;
-			pWaves = NULL; // to not delete intentionally
-			waves_count = 0;
+			_g->appcfg._ptcp_listener_psvcfg = ptcp_listeners;
+			_g->appcfg._tcp_listener_psvcfg_count = tcp_listeners_count;
+			ptcp_listeners = NULL; // to not delete intentionally
+			tcp_listeners_count = 0;
 
-			if ( _g->appcfg._pprev_wave_psvcfg == NULL && _g->appcfg._pwave_psvcfg )
+			if ( _g->appcfg._pprev_tcp_listener_psvcfg == NULL && _g->appcfg._ptcp_listener_psvcfg )
 			{
 				// all new ones
 				_g->appcfg._psvcfg_changed = 1; // ham koli set mishavad change rokh dad
-				for ( int i = 0 ; i < _g->appcfg._wave_psvcfg_count ; i++ )
+				for ( int i = 0 ; i < _g->appcfg._tcp_listener_psvcfg_count ; i++ )
 				{
-					_g->appcfg._pwave_psvcfg[ i ].m.m.temp_data.wcfg_changed = 1; // ham joz e set mishavad
+					_g->appcfg._ptcp_listener_psvcfg[ i ].m.m.temp_data.tcfg_changed = 1; // ham joz e set mishavad
 				}
 			}
-			else if ( _g->appcfg._pprev_wave_psvcfg && _g->appcfg._pwave_psvcfg )
+			else if ( _g->appcfg._pprev_tcp_listener_psvcfg && _g->appcfg._ptcp_listener_psvcfg )
 			{
 				// from old perspective
-				for ( int i = 0 ; i < _g->appcfg._prev_wave_psvcfg_count ; i++ )
+				for ( int i = 0 ; i < _g->appcfg._prev_tcp_listener_psvcfg_count ; i++ )
 				{
 					int prev_exist = 0;
-					for ( int j = 0 ; j < _g->appcfg._wave_psvcfg_count ; j++ )
+					for ( int j = 0 ; j < _g->appcfg._tcp_listener_psvcfg_count ; j++ )
 					{
-						if ( memcmp( &_g->appcfg._pprev_wave_psvcfg[ i ].m.m.id , &_g->appcfg._pwave_psvcfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+						if ( memcmp( &_g->appcfg._pprev_tcp_listener_psvcfg[ i ].m.m.id , &_g->appcfg._ptcp_listener_psvcfg[ j ].m.m.id , sizeof( struct tcp_listener_cfg_id ) ) == 0 )
 						{
 							prev_exist = 1;
-							if ( memcmp( &_g->appcfg._pprev_wave_psvcfg[ i ].m.m.maintained , &_g->appcfg._pwave_psvcfg[ j ].m.m.maintained , sizeof( struct wave_maintained_parameter ) ) )
+							if ( memcmp( &_g->appcfg._pprev_tcp_listener_psvcfg[ i ].m.m.maintained , &_g->appcfg._ptcp_listener_psvcfg[ j ].m.m.maintained , sizeof( struct tcp_listener_maintained_parameter ) ) )
 							{
 								_g->appcfg._psvcfg_changed = 1;
-								_g->appcfg._pwave_psvcfg[ j ].m.m.temp_data.wcfg_changed = 1;
+								_g->appcfg._ptcp_listener_psvcfg[ j ].m.m.temp_data.tcfg_changed = 1;
 							}
 							break;
 						}
@@ -989,23 +1059,23 @@ void * config_loader( void * app_data )
 					if ( !prev_exist )
 					{
 						_g->appcfg._psvcfg_changed = 1;
-						_g->appcfg._pprev_wave_psvcfg[ i ].m.m.temp_data.wcfg_changed = 1;
+						_g->appcfg._pprev_tcp_listener_psvcfg[ i ].m.m.temp_data.tcfg_changed = 1;
 						break;
 					}
 				}
 				// from new perspective
-				for ( int j = 0 ; j < _g->appcfg._wave_psvcfg_count ; j++ )
+				for ( int j = 0 ; j < _g->appcfg._tcp_listener_psvcfg_count ; j++ )
 				{
 					int new_exist = 0;
-					for ( int i = 0 ; i < _g->appcfg._prev_wave_psvcfg_count ; i++ )
+					for ( int i = 0 ; i < _g->appcfg._prev_tcp_listener_psvcfg_count ; i++ )
 					{
-						if ( memcmp( &_g->appcfg._pprev_wave_psvcfg[ i ].m.m.id , &_g->appcfg._pwave_psvcfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+						if ( memcmp( &_g->appcfg._pprev_tcp_listener_psvcfg[ i ].m.m.id , &_g->appcfg._ptcp_listener_psvcfg[ j ].m.m.id , sizeof( struct tcp_listener_cfg_id ) ) == 0 )
 						{
 							new_exist = 1;
-							if ( memcmp( &_g->appcfg._pprev_wave_psvcfg[ i ].m.m.maintained , &_g->appcfg._pwave_psvcfg[ j ].m.m.maintained , sizeof( struct wave_maintained_parameter ) ) )
+							if ( memcmp( &_g->appcfg._pprev_tcp_listener_psvcfg[ i ].m.m.maintained , &_g->appcfg._ptcp_listener_psvcfg[ j ].m.m.maintained , sizeof( struct tcp_listener_maintained_parameter ) ) )
 							{
 								_g->appcfg._psvcfg_changed = 1;
-								_g->appcfg._pwave_psvcfg[ j ].m.m.temp_data.wcfg_changed = 1;
+								_g->appcfg._ptcp_listener_psvcfg[ j ].m.m.temp_data.tcfg_changed = 1;
 							}
 							break;
 						}
@@ -1013,7 +1083,7 @@ void * config_loader( void * app_data )
 					if ( !new_exist )
 					{
 						_g->appcfg._psvcfg_changed = 1;
-						_g->appcfg._pwave_psvcfg[ j ].m.m.temp_data.wcfg_changed = 1;
+						_g->appcfg._ptcp_listener_psvcfg[ j ].m.m.temp_data.tcfg_changed = 1;
 						break;
 					}
 				}
@@ -1023,30 +1093,25 @@ void * config_loader( void * app_data )
 
 			if ( _g->appcfg._psvcfg_changed && IF_VERBOSE_MODE_CONDITION() )
 			{
-				_ECHO( "wave config changed" );
+				_ECHO( "tcp_listener config changed" );
 			}
 		}
 		sleep( 2 );
 	}
 
 	BEGIN_RET
-		case 1:
-		{
-			json_free( &el_UDP_generator_config );
-			break;
-		}
+		case 1: {}
 	M_V_END_RET
-
 	return NULL;
 }
 
 // TODO . aware of concurrency in config read and act on it
-void * waves_manager( void * app_data )
+void * tcp_listener_manager( void * app_data )
 {
 	INIT_BREAKABLE_FXN();
 	struct App_Data * _g = ( struct App_Data * )app_data;
 
-	while ( !_g->appcfg._wave_psvcfg_count ) // load after any config loaded
+	while ( !_g->appcfg._tcp_listener_psvcfg_count ) // load after any config loaded
 	{
 		if ( CLOSE_APP_VAR() ) break;
 		sleep( 1 );
@@ -1056,10 +1121,10 @@ void * waves_manager( void * app_data )
 	{
 		if ( CLOSE_APP_VAR() )
 		{
-			for ( int j = 0 ; j < _g->appcfg._wave_psvcfg_count ; j++ )
+			for ( int j = 0 ; j < _g->appcfg._tcp_listener_psvcfg_count ; j++ )
 			{
-				_g->appcfg._pwave_psvcfg[ j ].m.m.maintained.enable = 0;
-				apply_wave_new_cfg_changes( _g , &_g->appcfg._pwave_psvcfg[ j ] , &_g->appcfg._pwave_psvcfg[ j ] );
+				_g->appcfg._ptcp_listener_psvcfg[ j ].m.m.maintained.enable = 0;
+				apply_tcp_listener_new_cfg_changes( _g , &_g->appcfg._ptcp_listener_psvcfg[ j ] , &_g->appcfg._ptcp_listener_psvcfg[ j ] );
 			}
 			break;
 		}
@@ -1070,31 +1135,31 @@ void * waves_manager( void * app_data )
 
 		if ( _g->appcfg._psvcfg_changed )
 		{
-			for ( int i = 0 ; i < _g->appcfg._prev_wave_psvcfg_count ; i++ )
+			for ( int i = 0 ; i < _g->appcfg._prev_tcp_listener_psvcfg_count ; i++ )
 			{
 				int exist = 0;
-				for ( int j = 0 ; j < _g->appcfg._wave_psvcfg_count ; j++ )
+				for ( int j = 0 ; j < _g->appcfg._tcp_listener_psvcfg_count ; j++ )
 				{
 					if ( exist ) break;
-					if ( memcmp( &_g->appcfg._pprev_wave_psvcfg[ i ].m.m.id , &_g->appcfg._pwave_psvcfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 && _g->appcfg._pwave_psvcfg[ j ].m.m.temp_data.wcfg_changed )
+					if ( memcmp( &_g->appcfg._pprev_tcp_listener_psvcfg[ i ].m.m.id , &_g->appcfg._ptcp_listener_psvcfg[ j ].m.m.id , sizeof( struct tcp_listener_cfg_id ) ) == 0 && _g->appcfg._ptcp_listener_psvcfg[ j ].m.m.temp_data.tcfg_changed )
 					{
 						// existed cfg changed
-						apply_wave_new_cfg_changes( _g , &_g->appcfg._pprev_wave_psvcfg[ i ] , &_g->appcfg._pwave_psvcfg[ j ] );
+						apply_tcp_listener_new_cfg_changes( _g , &_g->appcfg._pprev_tcp_listener_psvcfg[ i ] , &_g->appcfg._ptcp_listener_psvcfg[ j ] );
 						exist = 1;
 					}
 				}
 				if ( !exist )
 				{
 					// remove removed one
-					remove_wave( _g , &_g->appcfg._pprev_wave_psvcfg[ i ] );
+					remove_tcp_listener( _g , &_g->appcfg._pprev_tcp_listener_psvcfg[ i ] );
 				}
 			}
-			for ( int i = 0 ; i < _g->appcfg._wave_psvcfg_count ; i++ )
+			for ( int i = 0 ; i < _g->appcfg._tcp_listener_psvcfg_count ; i++ )
 			{
 				int exist = 0;
-				for ( int j = 0 ; j < _g->appcfg._prev_wave_psvcfg_count ; j++ )
+				for ( int j = 0 ; j < _g->appcfg._prev_tcp_listener_psvcfg_count ; j++ )
 				{
-					if ( memcmp( &_g->appcfg._pwave_psvcfg[ i ].m.m.id , &_g->appcfg._pprev_wave_psvcfg[ j ].m.m.id , sizeof( struct wave_cfg_id ) ) == 0 )
+					if ( memcmp( &_g->appcfg._ptcp_listener_psvcfg[ i ].m.m.id , &_g->appcfg._pprev_tcp_listener_psvcfg[ j ].m.m.id , sizeof( struct tcp_listener_cfg_id ) ) == 0 )
 					{
 						exist = 1;
 						break;
@@ -1103,7 +1168,7 @@ void * waves_manager( void * app_data )
 				if ( !exist )
 				{
 					// start new cfg
-					add_new_wave( _g , &_g->appcfg._pwave_psvcfg[ i ] );
+					add_new_tcp_listener( _g , &_g->appcfg._ptcp_listener_psvcfg[ i ] );
 				}
 			}
 			_g->appcfg._psvcfg_changed = 0; // changes applied
@@ -1146,7 +1211,7 @@ void draw_table( struct App_Data * _g )
 	// Header
 	wattron( MAIN_WIN , COLOR_PAIR( 1 ) );
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "MU Metric" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TL Metric" );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , "Value" );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1159,8 +1224,8 @@ void draw_table( struct App_Data * _g )
 	wattron( MAIN_WIN , COLOR_PAIR( 2 ) );
 	char buf[ 64 ];
 	char buf2[ 64 ];
-	
-	setlocale(LC_NUMERIC, "en_US.UTF-8");
+
+	setlocale( LC_NUMERIC , "en_US.UTF-8" );
 
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
@@ -1170,34 +1235,11 @@ void draw_table( struct App_Data * _g )
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "wave_count" );
-	snprintf( buf , sizeof( buf ) , "%d" , _g->appcfg._wave_psvcfg_count );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	///////////
 
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "sender_count" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().sender_thread_count , 1 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "sent_fail_count" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().all_benchmarks_total_sent_fail_count , 2 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	
-	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "failure_count" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().syscal_err_count , 2 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().syscal_err_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1206,33 +1248,33 @@ void draw_table( struct App_Data * _g )
 
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp put" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.total_udp_put_count , 2 , "" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP get" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().tcp.total_tcp_get_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp put byte" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.total_udp_put_byte , 2 , "B" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP get byte" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().tcp.total_tcp_get_byte , 2 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.udp_put_count_throughput , 4 , "" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP pps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().tcp.tcp_get_count_throughput , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.udp_put_byte_throughput , 4 , "B" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP bps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().tcp.tcp_get_byte_throughput , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	
+
 	wattroff( MAIN_WIN , COLOR_PAIR( 2 ) );
 
 	// Mid border
@@ -1364,9 +1406,9 @@ void * stdout_bypass_thread( void * pdata )
 		{
 			int n = read( _g->stat.pipefds[ 0 ] , buffer , BUF_SIZE - 1 );
 			buffer[ n ] = EOS;
-			#pragma GCC diagnostic ignored "-Wstringop-truncation"
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
 			strncpy( _g->stat.last_command , buffer , sizeof( _g->stat.last_command ) - 1 );
-			#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 		}
 	}
 	return NULL;
@@ -1378,7 +1420,9 @@ void init_bypass_stdout( struct App_Data * _g )
 	//memset( pipefd , 0 , sizeof( pipefd ) );
 
 	// Make pipe
-	if ( pipe( _g->stat.pipefds ) == -1 ) {}
+	if ( pipe( _g->stat.pipefds ) == -1 )
+	{
+	}
 
 	// Redirect stdout
 	//fflush( stdout );
@@ -1390,7 +1434,7 @@ void init_bypass_stdout( struct App_Data * _g )
 
 struct App_Data * __g;
 
-void M_showMsg( const char * msg ) 
+void M_showMsg( const char * msg )
 {
 	if ( __g ) strcpy( __g->stat.last_command , msg );
 }
@@ -1433,10 +1477,10 @@ int main()
 	pthread_t trd_config_loader;
 	MM_BREAK_IF( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
-	pthread_t trd_waves_manager;
-	MM_BREAK_IF( pthread_create( &trd_waves_manager , NULL , waves_manager , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
+	pthread_t trd_tcp_listener_manager;
+	MM_BREAK_IF( pthread_create( &trd_tcp_listener_manager , NULL , tcp_listener_manager , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
-	M_BREAK_IF( pthread_join( trd_waves_manager , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
+	M_BREAK_IF( pthread_join( trd_tcp_listener_manager , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
 
 	return 0;
 	BEGIN_RET
