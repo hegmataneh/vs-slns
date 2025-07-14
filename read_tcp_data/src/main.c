@@ -37,6 +37,8 @@
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
 #define CLOSE_APP_VAR() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.close_app : CLOSE_APP_VAR_DEFAULT )
 
+#define SYS_ALIVE_CHECK() do { _g->stat.last_line_meet = __LINE__; _g->stat.alive_check_counter = ( _g->stat.alive_check_counter + 1 ) % 10; } while(0)
+
 #endif
 
 #ifndef section_global_config
@@ -208,6 +210,8 @@ struct App_Config // global config
 
 struct tcp_stat
 {
+	int tcp_connection_count;
+
 	__int64u total_tcp_get_count;
 	__int64u total_tcp_get_byte;
 
@@ -231,6 +235,9 @@ struct statistics
 	int pipefds[ 2 ]; // used for bypass stdout
 	char last_command[ INPUT_MAX ];
 	char input_buffer[ INPUT_MAX ];
+	int last_line_meet;
+	int alive_check_counter;
+	
 	//__int64u all_benchmarks_total_sent_fail_count;
 	__int64u syscal_err_count;
 
@@ -254,17 +261,32 @@ int _connect_tcp( struct tcp_listener * src_tl )
 {
 	INIT_BREAKABLE_FXN();
 
-	static int iii = 0;
-	if ( iii++ > 1 )
-	{
-		iii++;
-	}
-
 	struct App_Data * _g = ( struct App_Data * )src_tl->tlcfg.m.m.temp_data._g;
 
 	while ( 1 )
 	{
+		SYS_ALIVE_CHECK();
+		if ( src_tl->tl_trds->alc_thread->do_close_thread )
+		{
+			break;
+		}
+
 		MM_BREAK_IF( ( src_tl->tcp_server_listener_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
+
+		int opt = 1;
+		if (setsockopt(src_tl->tcp_server_listener_sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+			_VERBOSE_ECHO( "setsockopt error" );
+			_close_socket( &src_tl->tcp_server_listener_sockfd );
+			sleep(1);
+			continue;
+		}
+		//int opt = 1;
+		if (setsockopt(src_tl->tcp_server_listener_sockfd, SOL_SOCKET, 15, &opt, sizeof(opt)) < 0) {
+			_VERBOSE_ECHO( "setsockopt error" );
+			_close_socket( &src_tl->tcp_server_listener_sockfd );
+			sleep(1);
+			continue;
+		}
 
 		struct sockaddr_in server_addr;
 		socklen_t addrlen = sizeof( server_addr );
@@ -296,6 +318,35 @@ int _connect_tcp( struct tcp_listener * src_tl )
 			continue;
 		}
 
+		//do
+		//{
+		//	if ( src_tl->tl_trds->alc_thread->do_close_thread )
+		//	{
+		//		break;
+		//	}
+		//	fd_set readfds;
+		//	FD_ZERO( &readfds );
+		//	FD_SET( src_tl->tcp_server_listener_sockfd , &readfds );
+
+		//	struct timeval tv;
+		//	tv.tv_sec = 1;
+		//	tv.tv_usec = 0;
+
+		//	int ret = select( src_tl->tcp_server_listener_sockfd + 1 , &readfds , NULL , NULL , &tv );
+		//	if ( ret <= 0 )
+		//	{
+		//		continue;
+		//	}
+		//	else
+		//	{
+		//		break;
+		//	}
+		//} while( 1 );
+		//if ( src_tl->tl_trds->alc_thread->do_close_thread )
+		//{
+		//	break;
+		//}
+
 		if ( ( src_tl->tcp_client_connection_sockfd = accept( src_tl->tcp_server_listener_sockfd , ( struct sockaddr * )&server_addr , ( socklen_t * )&addrlen ) ) < 0 )
 		{
 			_VERBOSE_ECHO( "accept error" );
@@ -304,6 +355,9 @@ int _connect_tcp( struct tcp_listener * src_tl )
 			continue;
 		}
 		src_tl->tcp_connection_established = 1;
+		( ( struct App_Data * )src_tl->tlcfg.m.m.temp_data._g )->stat.tcp.tcp_connection_count++;
+		SYS_ALIVE_CHECK();
+
 		return 1;
 	}
 
@@ -346,9 +400,10 @@ void * thread_tcp_connection_proc( void * src_tl )
 void * tcp_listener_runner( void * src_tl )
 {
 	INIT_BREAKABLE_FXN();
-
 	struct tcp_listener * tl = ( struct tcp_listener * )src_tl;
 	struct App_Data * _g = tl->tlcfg.m.m.temp_data._g;
+	SYS_ALIVE_CHECK();
+
 	pthread_t tid = pthread_self();
 	time_t tnow = 0;
 	struct tcp_listener_thread * pthread = NULL;
@@ -387,6 +442,7 @@ void * tcp_listener_runner( void * src_tl )
 	pthread->base_config_change_applied = 0;
 	do
 	{
+		SYS_ALIVE_CHECK();
 		if ( pthread->do_close_thread )
 		{
 			break;
@@ -399,6 +455,7 @@ void * tcp_listener_runner( void * src_tl )
 
 		while ( 1 )
 		{
+			SYS_ALIVE_CHECK();
 			if ( pthread->do_close_thread )
 			{
 				break;
@@ -419,8 +476,6 @@ void * tcp_listener_runner( void * src_tl )
 			FD_ZERO( &readfds );
 			FD_SET( tl->tcp_client_connection_sockfd , &readfds );
 
-
-
 			tnow = time( NULL );
 			if ( difftime( tnow , _g->stat.tcp.t_tcp_throughput ) >= 1.0 )
 			{
@@ -437,7 +492,9 @@ void * tcp_listener_runner( void * src_tl )
 			struct timeval timeout; //// Set timeout (e.g., 5 seconds)
 			timeout.tv_sec = 1;
 			timeout.tv_usec = 0;
+			SYS_ALIVE_CHECK();
 			int activity = select( tl->tcp_client_connection_sockfd + 1 , &readfds , NULL , NULL , &timeout );
+			SYS_ALIVE_CHECK();
 
 			if ( ( activity < 0 ) && ( errno != EINTR ) )
 			{
@@ -451,7 +508,7 @@ void * tcp_listener_runner( void * src_tl )
 			if ( FD_ISSET( tl->tcp_client_connection_sockfd , &readfds ) )
 			{
 				bytes_read = recv( tl->tcp_client_connection_sockfd , buffer , BUFFER_SIZE - 1 , 0 );
-				if ( bytes_read >= 0 )
+				if ( bytes_read > 0 )
 				{
 					_g->stat.tcp.total_tcp_get_count++;
 					_g->stat.tcp.total_tcp_get_byte += bytes_read;
@@ -478,6 +535,8 @@ void * tcp_listener_runner( void * src_tl )
 			break;
 		}
 	}
+
+	SYS_ALIVE_CHECK();
 
 	BEGIN_RET
 		case 3: {}
@@ -1235,6 +1294,14 @@ void draw_table( struct App_Data * _g )
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "alive" );
+	snprintf( buf , sizeof( buf ) , "%d%.*s" , MAIN_STAT().last_line_meet , MAIN_STAT().alive_check_counter , "-+-+-+-+-+-+-+-+" );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
 	///////////
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
@@ -1243,6 +1310,15 @@ void draw_table( struct App_Data * _g )
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp conn count" );
+	snprintf( buf , sizeof( buf ) , "%d" , MAIN_STAT().tcp.tcp_connection_count );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	
 
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
@@ -1301,7 +1377,7 @@ void * stats_thread( void * pdata )
 	struct App_Data * _g = ( struct App_Data * )pdata;
 	while ( 1 )
 	{
-		if ( CLOSE_APP_VAR() ) break;
+		//if ( CLOSE_APP_VAR() ) break; // keep track changes until app is down
 
 		pthread_mutex_lock( &data_lock );
 

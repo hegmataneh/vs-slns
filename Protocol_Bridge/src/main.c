@@ -1,5 +1,6 @@
 ﻿#ifndef section_include
 
+#define Uses_PacketQueue
 #define Uses_json
 #define Uses_fd_set
 #define Uses_thrd_sleep
@@ -36,6 +37,12 @@
 
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
 #define CLOSE_APP_VAR() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.close_app : CLOSE_APP_VAR_DEFAULT )
+
+int __FXN_HIT[10000] = {0};
+
+#define SYS_ALIVE_CHECK() do {\
+	int __function_line = __LINE__; _g->stat.last_line_meet = __LINE__; _g->stat.alive_check_counter = ( _g->stat.alive_check_counter + 1 ) % 10; __FXN_HIT[__function_line]++; } while(0)
+
 
 #endif
 
@@ -177,7 +184,7 @@ struct protocol_bridge_holder // every elemnt at the reallocation array must hav
 	struct protocol_bridge * alc_pb; // allocated
 };
 
-struct bridges_bottleneck_thread
+struct bridges_bottleneck_thread // 
 {
 	pthread_t trd_id;
 	int thread_is_Created;
@@ -257,6 +264,8 @@ struct statistics
 	int scr_height , scr_width;
 	WINDOW * main_win;
 	WINDOW * input_win;
+	int last_line_meet;
+	int alive_check_counter;
 
 	// cmd
 	int pipefds[ 2 ]; // used for bypass stdout
@@ -276,6 +285,7 @@ struct App_Data
 	struct App_Config appcfg;
 	struct protocol_bridge_holders bridges;
 	struct statistics stat;
+	struct PacketQueue queue;
 };
 
 #endif
@@ -290,6 +300,7 @@ void * thread_udp_connection_proc( void * src_pb )
 
 	struct protocol_bridge * pb = ( struct protocol_bridge * )src_pb;
 	struct App_Data * _g = ( struct App_Data * )pb->apcfg.m.m.temp_data._g;
+	SYS_ALIVE_CHECK();
 
 	if ( IF_VERBOSE_MODE_CONDITION() )
 	{
@@ -298,6 +309,9 @@ void * thread_udp_connection_proc( void * src_pb )
 
 	MM_BREAK_IF( ( pb->udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
 				
+	int opt = 1;
+	MM_BREAK_IF( setsockopt(pb->udp_sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0 , errGeneral , 1 , "setsockopt error" );
+
 	struct sockaddr_in server_addr;
 	memset( &server_addr , 0 , sizeof( server_addr ) );
 	server_addr.sin_family = AF_INET; // IPv4
@@ -315,6 +329,7 @@ void * thread_udp_connection_proc( void * src_pb )
 	{
 		_ECHO( "inbound udp connected" );
 	}
+	SYS_ALIVE_CHECK();
 
 	BEGIN_RET
 		case 3: {}
@@ -330,17 +345,12 @@ void * thread_udp_connection_proc( void * src_pb )
 int _connect_tcp( struct protocol_bridge * src_pb )
 {
 	INIT_BREAKABLE_FXN();
-
-	static int iii = 0;
-	if ( iii++ > 1 )
-	{
-		iii++;
-	}
-
 	struct App_Data * _g = ( struct App_Data * )src_pb->apcfg.m.m.temp_data._g;
 
 	while ( 1 )
 	{
+		SYS_ALIVE_CHECK();
+
 		// try to create TCP socket
 		MM_BREAK_IF( ( src_pb->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
 
@@ -368,6 +378,7 @@ int _connect_tcp( struct protocol_bridge * src_pb )
 			{
 				_ECHO( "outbound tcp connected" );
 			}
+			SYS_ALIVE_CHECK();
 			return 0;
 		}
 	}
@@ -424,6 +435,7 @@ void * bottleneck_thread_proc( void * src_pb )
 	int config_changes = 0;
 	do
 	{
+		SYS_ALIVE_CHECK();
 		if ( _g->bridges.bottleneck_thread.do_close_thread )
 		{
 			break;
@@ -466,6 +478,7 @@ void * bottleneck_thread_proc( void * src_pb )
 
 		while ( 1 )
 		{
+			SYS_ALIVE_CHECK();
 			if ( _g->bridges.bottleneck_thread.do_close_thread )
 			{
 				break;
@@ -481,18 +494,32 @@ void * bottleneck_thread_proc( void * src_pb )
 			timeout.tv_usec = 0;
 
 			// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-			int activity = select( 127 , &readfds , NULL , NULL ,  &timeout );
+			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL ,  &timeout );
 
-			if ( ( activity < 0 ) && ( errno != EINTR ) )
+			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 			{
-				_ECHO( "select error" );
+				SYS_ALIVE_CHECK();
+				
+				int error = 0;
+				socklen_t errlen = sizeof(error);
+				getsockopt(sockfd_max, SOL_SOCKET, SO_ERROR, &error, &errlen);
+				_ECHO("Socket error: %d\n", error);
+
 				continue;
 			}
 			if ( activity == 0 )
 			{
-				//_DETAIL_ERROR("timed out");
+				SYS_ALIVE_CHECK();
+				
+				int error = 0;
+				socklen_t errlen = sizeof(error);
+				getsockopt(sockfd_max, SOL_SOCKET, SO_ERROR, &error, &errlen);
+				_ECHO("Socket error: %d\n", error);
+
 				continue;
 			}
+
+			SYS_ALIVE_CHECK();
 
 			tnow = time( NULL );
 			if ( difftime( tnow , _g->stat.udp.t_udp_throughput ) >= 1.0 )
@@ -526,8 +553,8 @@ void * bottleneck_thread_proc( void * src_pb )
 					{
 						if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 						{
-							// good for udp data recieve
-							bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL , ( struct sockaddr * )&client_addr , &client_len );
+							SYS_ALIVE_CHECK();							
+							bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
 							if ( bytes_received < 0 )
 							{
 								_ECHO( "Error receiving UDP packet" );
@@ -553,15 +580,17 @@ void * bottleneck_thread_proc( void * src_pb )
 
 							_g->stat.tcp.calc_throughput_tcp_send_count++;
 							_g->stat.tcp.calc_throughput_tcp_send_bytes += sz;
+							SYS_ALIVE_CHECK();
 
 						}
 					}
 				}
 			}
+			SYS_ALIVE_CHECK();
 		}
 
 	} while( config_changes );
-
+	SYS_ALIVE_CHECK();
 	BREAK_OK(0); // to just ignore gcc warning
 
 	BEGIN_RET
@@ -601,6 +630,7 @@ void * protocol_bridge_runner( void * src_pb )
 			}
 		}
 	}
+	SYS_ALIVE_CHECK();
 	if ( pthread == NULL )
 	{
 		_g->stat.syscal_err_count++;
@@ -619,6 +649,7 @@ void * protocol_bridge_runner( void * src_pb )
 	int new_udp_listen = 0;
 	do
 	{
+		SYS_ALIVE_CHECK();
 		if ( pthread->do_close_thread )
 		{
 			break;
@@ -633,6 +664,7 @@ void * protocol_bridge_runner( void * src_pb )
 
 		while ( 1 )
 		{
+			SYS_ALIVE_CHECK();
 			if ( pthread->do_close_thread )
 			{
 				break;
@@ -668,6 +700,7 @@ void * protocol_bridge_runner( void * src_pb )
 		} // loop while ( 1 )
 
 		//DAC( buffer );
+		SYS_ALIVE_CHECK();
 
 	} while ( config_changes );
 
@@ -682,6 +715,8 @@ void * protocol_bridge_runner( void * src_pb )
 			break;
 		}
 	}
+
+	SYS_ALIVE_CHECK();
 	
 	BEGIN_RET
 		case 3: {}
@@ -1445,6 +1480,14 @@ void draw_table( struct App_Data * _g )
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "alive" );
+	snprintf( buf , sizeof( buf ) , "%d%.*s" , MAIN_STAT().last_line_meet , MAIN_STAT().alive_check_counter , "-+-+-+-+-+-+-+-+" );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
 	//////////////
 	
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
@@ -1461,6 +1504,25 @@ void draw_table( struct App_Data * _g )
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
+	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+
+	int j = 0;
+	for ( int i = 0 ; i < sizeof( __FXN_HIT ) / sizeof( __FXN_HIT[ 0 ] ) ; i++ )
+	{
+		if ( __FXN_HIT[i] > 0 )
+		{
+			mvwprintw( MAIN_WIN , y , start_x , "|" );
+			snprintf( buf , sizeof( buf ) , "%d" , i );
+			print_cell( MAIN_WIN , y , start_x + 1 , cell_w , buf );
+			snprintf( buf , sizeof( buf ) , "%d" , __FXN_HIT[i] );
+			mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+			print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+			mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+		}
+	}
+	
+	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+
 	///////////
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
@@ -1473,19 +1535,19 @@ void draw_table( struct App_Data * _g )
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
 	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.total_udp_get_count , 2 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get byte" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.total_udp_get_byte , 2 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get" );
+	//snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.total_udp_get_count , 2 , "" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get byte" );
+	//snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().udp.total_udp_get_byte , 2 , "B" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp pps" );
@@ -1504,19 +1566,19 @@ void draw_table( struct App_Data * _g )
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
 	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP put" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().tcp.total_tcp_send_count , 2 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP put byte" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().tcp.total_tcp_send_byte , 2 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP put" );
+	//snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().tcp.total_tcp_send_count , 2 , "" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP put byte" );
+	//snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().tcp.total_tcp_send_byte , 2 , "B" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP pps" );
@@ -1531,8 +1593,6 @@ void draw_table( struct App_Data * _g )
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
-
 
 	wattroff( MAIN_WIN , COLOR_PAIR( 2 ) );
 
@@ -1554,13 +1614,13 @@ void draw_table( struct App_Data * _g )
 
 #undef MAIN_WIN
 
-// Stats update thread
 void * stats_thread( void * pdata )
 {
 	struct App_Data * _g = ( struct App_Data * )pdata;
+
 	while ( 1 )
 	{
-		if ( CLOSE_APP_VAR() ) break;
+		//if ( CLOSE_APP_VAR() ) break; // keep track changes until app is down
 
 		pthread_mutex_lock( &data_lock );
 
@@ -1576,7 +1636,6 @@ void * stats_thread( void * pdata )
 	return NULL;
 }
 
-// Input thread
 void * input_thread( void * pdata )
 {
 	struct App_Data * _g = ( struct App_Data * )pdata;
@@ -1703,8 +1762,9 @@ void M_showMsg( const char * msg )
 int main()
 {
 	INIT_BREAKABLE_FXN();
-	struct App_Data _g = { 0 };
-	__g = &_g;
+	struct App_Data g = { 0 };
+	struct App_Data * _g = &g;
+	__g = _g;
 
 	// Initialize curses
 	initscr();
@@ -1718,27 +1778,30 @@ int main()
 	init_pair( 3 , COLOR_YELLOW , COLOR_BLACK ); // Last Command
 
 	pthread_mutex_init( &data_lock , NULL );
-	pthread_mutex_init( &_g.bridges.bottleneck_thread.creation_cuncurrency_lock , NULL );
+	pthread_mutex_init( &_g->bridges.bottleneck_thread.creation_cuncurrency_lock , NULL );
+	queue_init( &_g->queue );
 
 	// Initial window creation
-	init_windows( &_g );
+	init_windows( _g );
 
-	init_bypass_stdout( &_g );
+	init_bypass_stdout( _g );
 
 	pthread_t tid_stats , tid_input;
-	pthread_create( &tid_stats , NULL , stats_thread , ( void * )&_g );
-	pthread_create( &tid_input , NULL , input_thread , ( void * )&_g );
+	pthread_create( &tid_stats , NULL , stats_thread , ( void * )_g );
+	pthread_create( &tid_input , NULL , input_thread , ( void * )_g );
 
 	pthread_t trd_version_checker;
-	MM_BREAK_IF( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
+	MM_BREAK_IF( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	pthread_t trd_config_loader;
-	MM_BREAK_IF( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
+	MM_BREAK_IF( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	pthread_t trd_protocol_bridge_manager;
-	MM_BREAK_IF( pthread_create( &trd_protocol_bridge_manager , NULL , protocol_bridge_manager , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
+	MM_BREAK_IF( pthread_create( &trd_protocol_bridge_manager , NULL , protocol_bridge_manager , ( void * )_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	M_BREAK_IF( pthread_join( trd_protocol_bridge_manager , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
+
+	SYS_ALIVE_CHECK();
 
 	return 0;
 	BEGIN_RET

@@ -37,6 +37,8 @@
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
 #define CLOSE_APP_VAR() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.close_app : CLOSE_APP_VAR_DEFAULT )
 
+#define SYS_ALIVE_CHECK() do { _g->stat.last_line_meet = __LINE__; _g->stat.alive_check_counter = ( _g->stat.alive_check_counter + 1 ) % 10; } while(0)
+
 #endif
 
 #ifndef section_global_config
@@ -231,6 +233,8 @@ struct statistics
 	int pipefds[ 2 ]; // used for bypass stdout
 	char last_command[ INPUT_MAX ];
 	char input_buffer[ INPUT_MAX ];
+	int last_line_meet;
+	int alive_check_counter;
 
 	// stat
 	time_t stat_start_time;
@@ -260,6 +264,8 @@ void * wave_runner( void * src_pwave )
 
 	struct udp_wave * pwave = ( struct udp_wave * )src_pwave;
 	struct App_Data * _g = pwave->awcfg.m.m.temp_data._g;
+	SYS_ALIVE_CHECK();
+
 	pthread_t tid = pthread_self();
 	int socketid = -1;
 	time_t tnow = 0;
@@ -298,6 +304,7 @@ void * wave_runner( void * src_pwave )
 	pthread->base_config_change_applied = 0;
 	do
 	{
+		SYS_ALIVE_CHECK();
 		if ( pthread->do_close_thread )
 		{
 			break;
@@ -324,6 +331,7 @@ void * wave_runner( void * src_pwave )
 
 		while ( 1 )
 		{
+			SYS_ALIVE_CHECK();
 			if ( pthread->do_close_thread )
 			{
 				break;
@@ -372,6 +380,7 @@ void * wave_runner( void * src_pwave )
 				_g->stat.udp.calc_throughput_udp_put_bytes += sz;
 			}
 
+			SYS_ALIVE_CHECK();
 
 			if ( pwave->awcfg.m.m.maintained.iteration_delay_milisec > 0 )
 			{
@@ -379,11 +388,15 @@ void * wave_runner( void * src_pwave )
 				struct timespec ts = { 0, pwave->awcfg.m.m.maintained.iteration_delay_milisec * 1000000L };
 				thrd_sleep( &ts , NULL );
 			}
+
+			SYS_ALIVE_CHECK();
+
 		} // while ( 1 )
 
 		DAC( buffer );
 
 	} while ( config_changes );
+	SYS_ALIVE_CHECK();
 
 	_g->stat.sender_thread_count--;
 	
@@ -397,6 +410,7 @@ void * wave_runner( void * src_pwave )
 		}
 	}
 	
+	SYS_ALIVE_CHECK();
 	return NULL;
 }
 
@@ -1172,6 +1186,14 @@ void draw_table( struct App_Data * _g )
 
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "alive" );
+	snprintf( buf , sizeof( buf ) , "%d%.*s" , MAIN_STAT().last_line_meet , MAIN_STAT().alive_check_counter , "-+-+-+-+-+-+-+-+" );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "wave_count" );
 	snprintf( buf , sizeof( buf ) , "%d" , _g->appcfg._wave_psvcfg_count );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
@@ -1259,7 +1281,7 @@ void * stats_thread( void * pdata )
 	struct App_Data * _g = ( struct App_Data * )pdata;
 	while ( 1 )
 	{
-		if ( CLOSE_APP_VAR() ) break;
+		//if ( CLOSE_APP_VAR() ) break; // keep track changes until app is down
 
 		pthread_mutex_lock( &data_lock );
 
@@ -1402,8 +1424,9 @@ void M_showMsg( const char * msg )
 int main()
 {
 	INIT_BREAKABLE_FXN();
-	struct App_Data _g = { 0 };
-	__g = &_g;
+	struct App_Data g = { 0 };
+	struct App_Data * _g = &g;
+	__g = _g;
 
 	// Initialize curses
 	initscr();
@@ -1419,24 +1442,25 @@ int main()
 	pthread_mutex_init( &data_lock , NULL );
 
 	// Initial window creation
-	init_windows( &_g );
+	init_windows( _g );
 
-	init_bypass_stdout( &_g );
+	init_bypass_stdout( _g );
 
 	pthread_t tid_stats , tid_input;
-	pthread_create( &tid_stats , NULL , stats_thread , ( void * )&_g );
-	pthread_create( &tid_input , NULL , input_thread , ( void * )&_g );
+	pthread_create( &tid_stats , NULL , stats_thread , ( void * )_g );
+	pthread_create( &tid_input , NULL , input_thread , ( void * )_g );
 
 	pthread_t trd_version_checker;
-	MM_BREAK_IF( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
+	MM_BREAK_IF( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	pthread_t trd_config_loader;
-	MM_BREAK_IF( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
+	MM_BREAK_IF( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	pthread_t trd_waves_manager;
-	MM_BREAK_IF( pthread_create( &trd_waves_manager , NULL , waves_manager , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
+	MM_BREAK_IF( pthread_create( &trd_waves_manager , NULL , waves_manager , ( void * )_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	M_BREAK_IF( pthread_join( trd_waves_manager , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
+	SYS_ALIVE_CHECK();
 
 	return 0;
 	BEGIN_RET
