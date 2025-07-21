@@ -34,13 +34,12 @@
 #define VERBOSE_MODE_DEFAULT 0
 #define HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT 5
 #define STAT_REFERESH_INTERVAL_SEC_DEFUALT 1
-#define CLOSE_APP_VAR_DEFAULT 0
 
 #define IF_VERBOSE_MODE_CONDITION() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.verbose_mode : VERBOSE_MODE_DEFAULT )
 #define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
 
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
-#define CLOSE_APP_VAR() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.close_app : CLOSE_APP_VAR_DEFAULT )
+#define CLOSE_APP_VAR() ( _g->cmd.quit_app )
 
 int __FXN_HIT[10000] = {0};
 
@@ -87,8 +86,6 @@ struct Global_Config_0
 
 	int synchronization_min_wait;
 	int synchronization_max_roundup;
-
-	int close_app;
 };
 
 struct Global_Config_n
@@ -169,7 +166,7 @@ struct protocol_bridge_thread
 
 struct protocol_bridge_thread_holder
 {
-	struct protocol_bridge_thread * alc_thread;
+	struct protocol_bridge_thread * alc_thread; // one
 };
 
 struct protocol_bridge
@@ -182,6 +179,8 @@ struct protocol_bridge
 	int tcp_sockfd;
 	int tcp_connection_established; // tcp connection established
 
+	int retry_to_connect;
+
 	struct protocol_bridge_thread_holder * pb_trds; // protocol_bridge threads . in protocol bridge app must be one
 	int * pb_trds_masks;  // each int represent thread is valid
 	size_t pb_trds_masks_count;  // thread keeper count
@@ -192,33 +191,35 @@ struct protocol_bridge_holder // every elemnt at the reallocation array must hav
 	struct protocol_bridge * alc_pb; // allocated
 };
 
+struct bridges_thread_base
+{
+	int thread_is_created;
+	int do_close_thread; // command from outside to inside thread
+	pthread_mutex_t creation_cuncurrency_lock; // prevent multi bridge create thread concurrently
+};
+
 struct bridges_bottleneck_thread // one thread for send and receive
 {
+	struct bridges_thread_base base;
+
 	pthread_t trd_id;
-	int thread_is_created;
-	pthread_mutex_t creation_cuncurrency_lock;
-	int socket_to_listen_changed;
-	int do_close_thread; // command from outside to inside thread
 };
 
 struct bridges_bidirection_thread // one thread for each direction
 {
+	struct bridges_thread_base base;
+
 	pthread_t income_trd_id;
 	pthread_t outgoing_trd_id;
-	int threads_is_created;
-	pthread_mutex_t trd_creation_cuncurrency_lock;
+
 	struct PacketQueue queue;
-	int socket_to_listen_changed;
-	int do_close_thread; // command from outside to inside thread
 };
 
 struct bridges_justIncoming_thread // one thread for send and receive
 {
+	struct bridges_thread_base base;
+
 	pthread_t trd_id;
-	int thread_is_created;
-	pthread_mutex_t creation_cuncurrency_lock;
-	int socket_to_listen_changed;
-	int do_close_thread; // command from outside to inside thread
 };
 
 // TODO . IPv6
@@ -227,6 +228,8 @@ struct protocol_bridge_holders
 	struct protocol_bridge_holder * pb_holders; // all the active protocol_bridge
 	int * pb_holders_masks; // protocol_bridge masks
 	size_t pb_holders_masks_count; // mask count
+
+	int under_listen_udp_sockets_group_changed;
 
 	struct bridges_bottleneck_thread * bottleneck_thread;
 	struct bridges_bidirection_thread * bidirection_thread;
@@ -391,12 +394,18 @@ struct synchronization_data
 	int reset_static_after_lock;
 };
 
+struct app_cmd
+{
+	int quit_app;
+};
+
 struct App_Data
 {
 	struct App_Config appcfg;
 	struct protocol_bridge_holders bridges;
 	struct statistics stat;
 	struct synchronization_data sync;
+	struct app_cmd cmd;
 };
 
 #endif
@@ -405,6 +414,7 @@ struct App_Data
 
 #define PARALLELISM_COUNT 1
 
+// TODO . close connection after change in config
 void * thread_udp_connection_proc( void * src_pb )
 {
 	INIT_BREAKABLE_FXN();
@@ -418,10 +428,17 @@ void * thread_udp_connection_proc( void * src_pb )
 		_ECHO( "try to connect inbound udp connection" );
 	}
 
+	if ( pb->udp_connection_established )
+	{
+		_close_socket( &pb->udp_sockfd );
+		pb->udp_connection_established = 0;
+		_g->stat.udp_connection_count--;
+	}
+
 	MM_BREAK_IF( ( pb->udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
-				
+
 	int opt = 1;
-	MM_BREAK_IF( setsockopt(pb->udp_sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0 , errGeneral , 1 , "setsockopt error" );
+	MM_BREAK_IF( setsockopt( pb->udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &opt , sizeof( opt ) ) < 0 , errGeneral , 1 , "setsockopt error" );
 
 	struct sockaddr_in server_addr;
 	memset( &server_addr , 0 , sizeof( server_addr ) );
@@ -434,6 +451,8 @@ void * thread_udp_connection_proc( void * src_pb )
 	pb->udp_connection_established = 1;
 
 	_g->stat.udp_connection_count++;
+
+	_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
 
 	//_g->bridges.pbs[ i ].counterpart_connection_establishment_count++; // one side connection established
 	if ( IF_VERBOSE_MODE_CONDITION() )
@@ -458,6 +477,8 @@ int _connect_tcp( struct protocol_bridge * src_pb )
 	while ( 1 )
 	{
 		SYS_ALIVE_CHECK();
+
+		// TODO . close open socket first
 
 		// try to create TCP socket
 		MM_BREAK_IF( ( src_pb->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
@@ -515,6 +536,8 @@ void * thread_tcp_connection_proc( void * src_pb )
 		_ECHO( "try to connect outbound tcp connection" );
 	}
 
+	// TODO . close open socket first
+
 	if ( _connect_tcp( pb ) == 0 )
 	{
 
@@ -546,17 +569,18 @@ void * bottleneck_thread_proc( void * src_g )
 
 	time_t tnow = 0;
 
+	int socket_error_tolerance_count = 0; // restart socket after many error accur
+
 	int config_changes = 0;
 	do
 	{
 		SYS_ALIVE_CHECK();
-		if ( _g->bridges.bottleneck_thread->do_close_thread )
+		if ( _g->bridges.bottleneck_thread->base.do_close_thread )
 		{
 			break;
 		}
 
 		config_changes = 0;
-		_g->bridges.bottleneck_thread->socket_to_listen_changed--; // if any udp socket change then fdset must be reinitialized
 
 		char buffer[ BUFFER_SIZE ]; // Define a buffer to store received data
 		struct sockaddr_in client_addr;
@@ -584,6 +608,7 @@ void * bottleneck_thread_proc( void * src_g )
 				}
 			}
 		}
+		_g->bridges.under_listen_udp_sockets_group_changed = 0; // if any udp socket change then fdset must be reinitialized
 
 		if ( sockfd_max <= 1 )
 		{
@@ -609,11 +634,11 @@ void * bottleneck_thread_proc( void * src_g )
 				memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 			}
 
-			if ( _g->bridges.bottleneck_thread->do_close_thread )
+			if ( _g->bridges.bottleneck_thread->base.do_close_thread )
 			{
 				break;
 			}
-			if ( _g->bridges.bottleneck_thread->socket_to_listen_changed )
+			if ( _g->bridges.under_listen_udp_sockets_group_changed )
 			{
 				config_changes = 1;
 				break;
@@ -645,6 +670,25 @@ void * bottleneck_thread_proc( void * src_g )
 				socklen_t errlen = sizeof( error );
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
 				_ECHO( "Socket error: %d\n" , error );
+
+				if ( ++socket_error_tolerance_count > 3 )
+				{
+					socket_error_tolerance_count = 0;
+					for ( int i = 0 ; i < _g->bridges.pb_holders_masks_count ; i++ )
+					{
+						if ( _g->bridges.pb_holders_masks[ i ] )
+						{
+							if ( _g->bridges.pb_holders[ i ].alc_pb->udp_connection_established )  // all the connected udp stoped or die so restart them
+							{
+								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+								{
+									_g->bridges.pb_holders[ i ].alc_pb->retry_to_connect = 1;
+									break;
+								}
+							}
+						}
+					}
+				}
 
 				continue;
 			}
@@ -802,17 +846,18 @@ void * income_thread_proc( void * src_g )
 
 	time_t tnow = 0;
 
+	int socket_error_tolerance_count = 0; // restart socket after many error accur
+
 	int config_changes = 0;
 	do
 	{
 		SYS_ALIVE_CHECK();
-		if ( _g->bridges.bidirection_thread->do_close_thread )
+		if ( _g->bridges.bidirection_thread->base.do_close_thread )
 		{
 			break;
 		}
 
 		config_changes = 0;
-		_g->bridges.bidirection_thread->socket_to_listen_changed--; // if any udp socket change then fdset must be reinitialized
 
 		char buffer[ BUFFER_SIZE ]; // Define a buffer to store received data
 		struct sockaddr_in client_addr;
@@ -839,6 +884,7 @@ void * income_thread_proc( void * src_g )
 				}
 			}
 		}
+		_g->bridges.under_listen_udp_sockets_group_changed = 0; // if any udp socket change then fdset must be reinitialized
 
 		if ( sockfd_max <= 1 )
 		{
@@ -869,11 +915,11 @@ void * income_thread_proc( void * src_g )
 				pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
 			}
 
-			if ( _g->bridges.bidirection_thread->do_close_thread )
+			if ( _g->bridges.bidirection_thread->base.do_close_thread )
 			{
 				break;
 			}
-			if ( _g->bridges.bidirection_thread->socket_to_listen_changed )
+			if ( _g->bridges.under_listen_udp_sockets_group_changed )
 			{
 				config_changes = 1;
 				break;
@@ -905,6 +951,25 @@ void * income_thread_proc( void * src_g )
 				socklen_t errlen = sizeof( error );
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
 				_ECHO( "Socket error: %d\n" , error );
+
+				if ( ++socket_error_tolerance_count > 3 )
+				{
+					socket_error_tolerance_count = 0;
+					for ( int i = 0 ; i < _g->bridges.pb_holders_masks_count ; i++ )
+					{
+						if ( _g->bridges.pb_holders_masks[ i ] )
+						{
+							if ( _g->bridges.pb_holders[ i ].alc_pb->udp_connection_established ) // all the connected udp stoped or die so restart them
+							{
+								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+								{
+									_g->bridges.pb_holders[ i ].alc_pb->retry_to_connect = 1;
+									break;
+								}
+							}
+						}
+					}
+				}
 
 				continue;
 			}
@@ -1032,7 +1097,7 @@ void * outgoing_thread_proc( void * src_g )
 			memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 		}
 
-		if ( _g->bridges.bottleneck_thread->do_close_thread )
+		if ( _g->bridges.bottleneck_thread->base.do_close_thread )
 		{
 			break;
 		}
@@ -1130,17 +1195,18 @@ void * justIncoming_thread_proc( void * src_g )
 
 	time_t tnow = 0;
 
+	int socket_error_tolerance_count = 0; // restart socket after many error accur
+
 	int config_changes = 0;
 	do
 	{
 		SYS_ALIVE_CHECK();
-		if ( _g->bridges.justIncoming_thread->do_close_thread )
+		if ( _g->bridges.justIncoming_thread->base.do_close_thread )
 		{
 			break;
 		}
 
 		config_changes = 0;
-		_g->bridges.justIncoming_thread->socket_to_listen_changed--; // if any udp socket change then fdset must be reinitialized
 
 		char buffer[ BUFFER_SIZE ]; // Define a buffer to store received data
 		struct sockaddr_in client_addr;
@@ -1167,8 +1233,9 @@ void * justIncoming_thread_proc( void * src_g )
 				}
 			}
 		}
+		_g->bridges.under_listen_udp_sockets_group_changed = 0; // if any udp socket change then fdset must be reinitialized
 
-		if ( sockfd_max <= 1 )
+		if ( sockfd_max < 0 )
 		{
 			sleep( 1 );
 			continue;
@@ -1192,43 +1259,84 @@ void * justIncoming_thread_proc( void * src_g )
 				memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 			}
 
-			if ( _g->bridges.justIncoming_thread->do_close_thread )
+			if ( _g->bridges.justIncoming_thread->base.do_close_thread )
 			{
 				break;
 			}
-			if ( _g->bridges.justIncoming_thread->socket_to_listen_changed )
+			if ( _g->bridges.under_listen_udp_sockets_group_changed )
 			{
 				config_changes = 1;
 				break;
 			}
 
 			struct timeval timeout; // Set timeout (e.g., 5 seconds)
-			timeout.tv_sec = 5;
+			timeout.tv_sec = ( socket_error_tolerance_count + 1 ) * 2;
 			timeout.tv_usec = 0;
 
 			// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL ,  &timeout );
+			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , &timeout );
 
 			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 			{
 				SYS_ALIVE_CHECK();
-				
+
 				int error = 0;
-				socklen_t errlen = sizeof(error);
-				getsockopt(sockfd_max, SOL_SOCKET, SO_ERROR, &error, &errlen);
-				_ECHO("Socket error: %d\n", error);
+				socklen_t errlen = sizeof( error );
+				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
+				_VERBOSE_ECHO( "Socket error: %d\n" , error );
+
+				if ( ++socket_error_tolerance_count > 3 )
+				{
+					socket_error_tolerance_count = 0;
+					for ( int i = 0 ; i < _g->bridges.pb_holders_masks_count ; i++ )
+					{
+						if ( _g->bridges.pb_holders_masks[ i ] )
+						{
+							if ( _g->bridges.pb_holders[ i ].alc_pb->udp_connection_established ) // all the connected udp stoped or die so restart them
+							{
+								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+								{
+									_g->bridges.pb_holders[ i ].alc_pb->retry_to_connect = 1;
+									break;
+								}
+							}
+						}
+					}
+				}
 
 				continue;
 			}
-			if ( activity == 0 )
+			if ( activity == 0 ) // timed out
 			{
 				SYS_ALIVE_CHECK();
-				
-				int error = 0;
-				socklen_t errlen = sizeof(error);
-				getsockopt(sockfd_max, SOL_SOCKET, SO_ERROR, &error, &errlen);
-				_ECHO("Socket error: %d\n", error);
 
+				int error = 0;
+				socklen_t errlen = sizeof( error );
+				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
+				if ( error == 0 )
+				{
+					if ( ++socket_error_tolerance_count > 3 )
+					{
+						socket_error_tolerance_count = 0;
+						for ( int i = 0 ; i < _g->bridges.pb_holders_masks_count ; i++ )
+						{
+							if ( _g->bridges.pb_holders_masks[ i ] )
+							{
+								if ( _g->bridges.pb_holders[ i ].alc_pb->udp_connection_established ) // all the connected udp stoped or die so restart them
+								{
+									//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+									{
+										_g->bridges.pb_holders[ i ].alc_pb->retry_to_connect = 1;
+										break;
+									}
+								}
+							}
+						}
+					}
+					continue;
+				}
+				_VERBOSE_ECHO( "Socket error: %d\n" , error );
+				
 				continue;
 			}
 
@@ -1279,7 +1387,7 @@ void * justIncoming_thread_proc( void * src_g )
 					{
 						if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 						{
-							SYS_ALIVE_CHECK();							
+							SYS_ALIVE_CHECK();
 							bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
 							if ( bytes_received < 0 )
 							{
@@ -1305,9 +1413,9 @@ void * justIncoming_thread_proc( void * src_g )
 			SYS_ALIVE_CHECK();
 		}
 
-	} while( config_changes );
+	} while ( config_changes );
 	SYS_ALIVE_CHECK();
-	BREAK_OK(0); // to just ignore gcc warning
+	BREAK_OK( 0 ); // to just ignore gcc warning
 
 	BEGIN_RET
 		case 3: {}
@@ -1354,16 +1462,57 @@ void * protocol_bridge_runner( void * src_pb )
 		return NULL;
 	}
 
-	//_g->stat.sender_thread_count++;
-
 	if ( IF_VERBOSE_MODE_CONDITION() )
 	{
 		_ECHO( "thread started" );
 	}
 
-	int config_changes = 0;
+	if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "buttleneck" ) == 0 )
+	{
+		if ( _g->bridges.bottleneck_thread != NULL )
+		{
+			pthread_mutex_lock( &_g->bridges.bottleneck_thread->base.creation_cuncurrency_lock );
+			if ( !_g->bridges.bottleneck_thread->base.thread_is_created )
+			{
+				MM_BREAK_IF( pthread_create( &_g->bridges.bottleneck_thread->trd_id , NULL , bottleneck_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				_g->bridges.bottleneck_thread->base.thread_is_created = 1;
+			}
+			pthread_mutex_unlock( &_g->bridges.bottleneck_thread->base.creation_cuncurrency_lock );
+		}
+	}
+
+	if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "bidirection" ) == 0 )
+	{
+		if ( _g->bridges.bidirection_thread != NULL )
+		{
+			pthread_mutex_lock( &_g->bridges.bidirection_thread->base.creation_cuncurrency_lock );
+			if ( !_g->bridges.bidirection_thread->base.thread_is_created )
+			{
+				MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->income_trd_id , NULL , income_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->outgoing_trd_id , NULL , outgoing_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+
+				_g->bridges.bidirection_thread->base.thread_is_created = 1;
+			}
+			pthread_mutex_unlock( &_g->bridges.bidirection_thread->base.creation_cuncurrency_lock );
+		}
+	}
+
+	if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "justIncoming" ) == 0 )
+	{
+		if ( _g->bridges.justIncoming_thread != NULL )
+		{
+			pthread_mutex_lock( &_g->bridges.justIncoming_thread->base.creation_cuncurrency_lock );
+			if ( !_g->bridges.justIncoming_thread->base.thread_is_created )
+			{
+				MM_BREAK_IF( pthread_create( &_g->bridges.justIncoming_thread->trd_id , NULL , justIncoming_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				_g->bridges.justIncoming_thread->base.thread_is_created = 1;
+			}
+			pthread_mutex_unlock( &_g->bridges.justIncoming_thread->base.creation_cuncurrency_lock );
+		}
+	}
+
+	int try_to_connect_port = 1; // for the first time
 	pthread->base_config_change_applied = 0;
-	int new_udp_listen = 0;
 	do
 	{
 		SYS_ALIVE_CHECK();
@@ -1372,18 +1521,36 @@ void * protocol_bridge_runner( void * src_pb )
 			break;
 		}
 
-		config_changes = 0;
+		if ( pthread->base_config_change_applied ) // config change cause reconnect
+		{
+			pthread->base_config_change_applied = 0;
+			try_to_connect_port = 1;
+		}
+		if ( pb->retry_to_connect ) // retry from socket err cause reconnect
+		{
+			pb->retry_to_connect = 0;
+			try_to_connect_port = 1;
+		}
+		if ( !try_to_connect_port )
+		{
+			sleep(2);
+			continue;
+		}
+		try_to_connect_port = 0;
 
 		if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "buttleneck" ) == 0 )
 		{
-			pthread_t trd_udp_connection , trd_tcp_connection;
+			// first close then reconnect
+			pthread_t trd_udp_connection;
 			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , thread_udp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+			pthread_t trd_tcp_connection;
 			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 		}
 		else if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "bidirection" ) == 0 )
 		{
-			pthread_t trd_udp_connection , trd_tcp_connection;
+			pthread_t trd_udp_connection;
 			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , thread_udp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+			pthread_t trd_tcp_connection;
 			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 		}
 		else if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "justIncoming" ) == 0 )
@@ -1391,99 +1558,12 @@ void * protocol_bridge_runner( void * src_pb )
 			pthread_t trd_udp_connection;
 			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , thread_udp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 		}
-		new_udp_listen = 1;
-
-		while ( 1 )
-		{
-			SYS_ALIVE_CHECK();
-			if ( pthread->do_close_thread )
-			{
-				break;
-			}
-			if ( pthread->base_config_change_applied )
-			{
-				pthread->base_config_change_applied = 0;
-				config_changes = 1;
-				break;
-			}
-
-			if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "buttleneck" ) == 0 )
-			{
-				if ( !pb->udp_connection_established || !pb->tcp_connection_established )
-				{
-					sleep( 1 );
-					continue;
-				}
-			}
-			else if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "bidirection" ) == 0 )
-			{
-				if ( !pb->udp_connection_established || !pb->tcp_connection_established )
-				{
-					sleep( 1 );
-					continue;
-				}
-			}
-			else if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "justIncoming" ) == 0 )
-			{
-				if ( !pb->udp_connection_established )
-				{
-					sleep( 1 );
-					continue;
-				}
-			}
-			
-			if ( new_udp_listen )
-			{
-				new_udp_listen = 0;
-				if ( _g->bridges.bottleneck_thread != NULL )
-				{
-					_g->bridges.bottleneck_thread->socket_to_listen_changed++; // if any udp socket change then fdset must be reinitialized
-					pthread_mutex_lock( &_g->bridges.bottleneck_thread->creation_cuncurrency_lock );
-					if ( !_g->bridges.bottleneck_thread->thread_is_created )
-					{
-						MM_BREAK_IF( pthread_create( &_g->bridges.bottleneck_thread->trd_id , NULL , bottleneck_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-						_g->bridges.bottleneck_thread->thread_is_created = 1;
-					}
-					pthread_mutex_unlock( &_g->bridges.bottleneck_thread->creation_cuncurrency_lock );
-				}
-				else if ( _g->bridges.bidirection_thread != NULL )
-				{
-					_g->bridges.bidirection_thread->socket_to_listen_changed++; // if any udp socket change then fdset must be reinitialized
-					pthread_mutex_lock( &_g->bridges.bidirection_thread->trd_creation_cuncurrency_lock );
-					if ( !_g->bridges.bidirection_thread->threads_is_created )
-					{
-						MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->income_trd_id , NULL , income_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-						MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->outgoing_trd_id , NULL , outgoing_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-						
-						_g->bridges.bidirection_thread->threads_is_created = 1;
-					}
-					pthread_mutex_unlock( &_g->bridges.bidirection_thread->trd_creation_cuncurrency_lock );
-				}
-				else if ( _g->bridges.justIncoming_thread != NULL )
-				{
-					_g->bridges.justIncoming_thread->socket_to_listen_changed++; // if any udp socket change then fdset must be reinitialized
-					pthread_mutex_lock( &_g->bridges.justIncoming_thread->creation_cuncurrency_lock );
-					if ( !_g->bridges.justIncoming_thread->thread_is_created )
-					{
-						MM_BREAK_IF( pthread_create( &_g->bridges.justIncoming_thread->trd_id , NULL , justIncoming_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-						_g->bridges.justIncoming_thread->thread_is_created = 1;
-					}
-					pthread_mutex_unlock( &_g->bridges.justIncoming_thread->creation_cuncurrency_lock );
-				}
-			}
-
-			// at this moment one bridge conntected
-
-			sleep(2);
-		} // loop while ( 1 )
-
-		//DAC( buffer );
+		
 		SYS_ALIVE_CHECK();
 
-	} while ( config_changes );
+	} while ( 1 );
 
-	//_g->stat.sender_thread_count--;
-	
+
 	//// delete mask
 	for ( int i = 0 ; i < pthread->pb->pb_trds_masks_count ; i++ )
 	{
@@ -1583,7 +1663,6 @@ void apply_new_protocol_bridge_config( struct App_Data * _g , struct protocol_br
 					{
 						_ECHO( "create thread %lu" , pb->pb_trds[ i ].alc_thread->trd_id );
 					}
-					//_g->stat.sender_thread_count++;
 					diff_new_thread_count--;
 					break;
 				}
@@ -1614,7 +1693,6 @@ void apply_new_protocol_bridge_config( struct App_Data * _g , struct protocol_br
 					//	_close_socket( &pwave->pb_trds[ i ].socket_id );
 						
 						extra_count--;
-					//	_g->stat.sender_thread_count--;
 					//}
 					break;
 				}
@@ -2159,17 +2237,20 @@ void * protocol_bridge_manager( void * app_data )
 	if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "buttleneck" ) == 0 )
 	{
 		_g->bridges.bottleneck_thread = NEW( struct bridges_bottleneck_thread );
-		pthread_mutex_init( &_g->bridges.bottleneck_thread->creation_cuncurrency_lock , NULL );
+		MEMSET_ZERO( _g->bridges.bottleneck_thread , struct bridges_bottleneck_thread , 1 );
+		pthread_mutex_init( &_g->bridges.bottleneck_thread->base.creation_cuncurrency_lock , NULL );
 	}
 	else if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "bidirection" ) == 0 )
 	{
 		_g->bridges.bidirection_thread = NEW( struct bridges_bidirection_thread );
+		MEMSET_ZERO( _g->bridges.bidirection_thread , struct bridges_bidirection_thread , 1 );
 		queue_init( &_g->bridges.bidirection_thread->queue );
 	}
 	else if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "justIncoming" ) == 0 )
 	{
 		_g->bridges.justIncoming_thread = NEW( struct bridges_justIncoming_thread );
-		pthread_mutex_init( &_g->bridges.justIncoming_thread->creation_cuncurrency_lock , NULL );
+		MEMSET_ZERO( _g->bridges.justIncoming_thread , struct bridges_justIncoming_thread , 1 );
+		pthread_mutex_init( &_g->bridges.justIncoming_thread->base.creation_cuncurrency_lock , NULL );
 	}
 
 	while ( 1 )
@@ -2229,6 +2310,103 @@ void * protocol_bridge_manager( void * app_data )
 			_g->appcfg._psvcfg_changed = 0; // changes applied
 		}
 		sleep( 5 );
+	}
+	return NULL;
+}
+
+#endif
+
+#ifndef section_staff_thread
+
+void * sync_thread( void * pdata ) // pause app until moment other app exist
+{
+	INIT_BREAKABLE_FXN();
+	struct App_Data * _g = ( struct App_Data * )pdata;
+	if ( _g->sync.lock_in_progress ) return NULL;
+
+	struct timespec now , next_round_time;
+	clock_gettime( CLOCK_REALTIME , &now );
+
+	pthread_mutex_lock( &_g->sync.mutex );
+	round_up_to_next_interval( &now , _g->appcfg._general_config->c.c.synchronization_min_wait , _g->appcfg._general_config->c.c.synchronization_max_roundup , &next_round_time );
+	_g->sync.lock_in_progress = 1;
+	pthread_mutex_unlock( &_g->sync.mutex );
+
+	format_clock_time( &next_round_time , __custom_message , sizeof( __custom_message ) );
+	_DIRECT_ECHO( "Will wake at %s" , __custom_message );
+
+	////pthread_mutex_lock(&_g->sync.mutex);
+	//// First thread sets the global target time
+	////if (next_round_time.tv_sec == 0) {
+	////	next_round_time = target;
+	////}
+	////pthread_mutex_unlock(&_g->sync.mutex);
+
+	// Sleep until that global target time
+	clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
+
+	pthread_mutex_lock( &_g->sync.mutex );
+	_g->sync.lock_in_progress = 0;
+	_g->sync.reset_static_after_lock = 1;
+	pthread_cond_signal( &_g->sync.cond );
+	//pthread_cond_broadcast( &_g->sync.cond );
+	pthread_mutex_unlock( &_g->sync.mutex );
+
+	//clock_gettime( CLOCK_REALTIME , &now );
+	_DIRECT_ECHO( "waked up" );
+	_DIRECT_ECHO( "" );
+
+	return NULL;
+}
+
+void * input_thread( void * pdata )
+{
+	INIT_BREAKABLE_FXN();
+	struct App_Data * _g = ( struct App_Data * )pdata;
+	while ( 1 )
+	{
+		pthread_mutex_lock( &_g->stat.lock_data.lock );
+
+		werase( _g->stat.input_win );
+		box( _g->stat.input_win , 0 , 0 );
+
+		pthread_mutex_unlock( &_g->stat.lock_data.lock );
+
+		// Enable echo and get input
+		echo();
+		curs_set( 1 );
+		wmove( _g->stat.input_win , 1 , 1 );
+		wprintw( _g->stat.input_win , "cmd(quit,sync): " );
+		wrefresh( _g->stat.input_win );
+		wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
+		noecho();
+		curs_set( 0 );
+
+		pthread_mutex_lock( &_g->stat.lock_data.lock );
+		bool boutput_command = 1;
+
+		if ( stricmp( _g->stat.input_buffer , "quit" ) == 0 )
+		{
+			_g->cmd.quit_app = 1;
+			break;
+		}
+		else if ( stricmp( _g->stat.input_buffer , "sync" ) == 0 )
+		{
+			boutput_command = 0;
+			pthread_t thread;
+			if ( pthread_create( &thread , NULL , sync_thread , pdata ) != 0 )
+			{
+				_ECHO( "pthread_create" );
+			}
+			//break;
+		}
+		if ( boutput_command )
+		{
+			strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
+			_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
+		}
+
+		pthread_mutex_unlock( &_g->stat.lock_data.lock );
 	}
 	return NULL;
 }
@@ -2515,99 +2693,6 @@ void * stats_thread( void * pdata )
 	return NULL;
 }
 
-void * sync_thread( void * pdata )
-{
-	INIT_BREAKABLE_FXN();
-	struct App_Data * _g = ( struct App_Data * )pdata;
-	if ( _g->sync.lock_in_progress ) return NULL;
-
-	struct timespec now , next_round_time;
-	clock_gettime( CLOCK_REALTIME , &now );
-
-	pthread_mutex_lock( &_g->sync.mutex );
-	round_up_to_next_interval( &now , _g->appcfg._general_config->c.c.synchronization_min_wait , _g->appcfg._general_config->c.c.synchronization_max_roundup , &next_round_time );
-	_g->sync.lock_in_progress = 1;
-	pthread_mutex_unlock( &_g->sync.mutex );
-
-	format_clock_time( &next_round_time , __custom_message , sizeof( __custom_message ) );
-	_DIRECT_ECHO( "Will wake at %s" , __custom_message );
-
-	////pthread_mutex_lock(&_g->sync.mutex);
-	//// First thread sets the global target time
-	////if (next_round_time.tv_sec == 0) {
-	////	next_round_time = target;
-	////}
-	////pthread_mutex_unlock(&_g->sync.mutex);
-
-	// Sleep until that global target time
-	clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
-
-	pthread_mutex_lock( &_g->sync.mutex );
-	_g->sync.lock_in_progress = 0;
-	_g->sync.reset_static_after_lock = 1;
-	pthread_cond_signal( &_g->sync.cond );
-	//pthread_cond_broadcast( &_g->sync.cond );
-	pthread_mutex_unlock( &_g->sync.mutex );
-
-	//clock_gettime( CLOCK_REALTIME , &now );
-	_DIRECT_ECHO( "waked up" );
-	_DIRECT_ECHO( "" );
-	
-	return NULL;
-}
-
-void * input_thread( void * pdata )
-{
-	INIT_BREAKABLE_FXN();
-	struct App_Data * _g = ( struct App_Data * )pdata;
-	while ( 1 )
-	{
-		pthread_mutex_lock( &_g->stat.lock_data.lock );
-
-		werase( _g->stat.input_win );
-		box( _g->stat.input_win , 0 , 0 );
-
-		pthread_mutex_unlock( &_g->stat.lock_data.lock );
-
-		// Enable echo and get input
-		echo();
-		curs_set( 1 );
-		wmove( _g->stat.input_win , 1 , 1 );
-		wprintw( _g->stat.input_win , "cmd(quit,sync): " );
-		wrefresh( _g->stat.input_win );
-		wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
-		noecho();
-		curs_set( 0 );
-
-		pthread_mutex_lock( &_g->stat.lock_data.lock );
-		bool boutput_command = 1;
-
-		if ( stricmp( _g->stat.input_buffer , "quit" ) == 0 )
-		{
-			_g->appcfg._general_config->c.c.close_app = 1;
-			break;
-		}
-		else if ( stricmp( _g->stat.input_buffer , "sync" ) == 0 )
-		{
-			boutput_command = 0;
-			pthread_t thread;
-			if ( pthread_create( &thread , NULL , sync_thread , pdata ) != 0 )
-			{
-				_ECHO( "pthread_create" );
-			}
-			//break;
-		}
-		if ( boutput_command )
-		{
-			strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
-			_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
-		}
-
-		pthread_mutex_unlock( &_g->stat.lock_data.lock );
-	}
-	return NULL;
-}
-
 void init_windows( struct App_Data * _g )
 {
 	//int maxy, maxx;
@@ -2639,7 +2724,7 @@ void init_windows( struct App_Data * _g )
 
 #endif
 
-#ifndef section_stderr
+#ifndef section_err
 
 #define BUF_SIZE 2048
 
