@@ -11,4 +11,3 @@
 #include <d:/My project/General projects/general/header/IntellisenseAssist.h> // should be at the end of any include to correct Intellisense bug
 
 #endif
-

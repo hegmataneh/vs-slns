@@ -21,6 +21,8 @@
 #define Uses_fileno
 #define Uses_setlocale
 
+#define DIRECT_ECHO_BUF _g->stat.last_command
+
 #include <make_udp_packet.dep>
 
 #pragma GCC diagnostic ignored "-Wconversion"
@@ -293,8 +295,8 @@ struct statistics
 
 struct synchronization_data
 {
-	//pthread_mutex_t mutex;
-	//pthread_cond_t cond;
+	pthread_mutex_t mutex;
+	pthread_cond_t cond;
 	int lock_in_progress;
 	int reset_static_after_lock;
 };
@@ -386,12 +388,14 @@ void * wave_runner( void * src_pwave )
 		{
 			SYS_ALIVE_CHECK();
 
+			pthread_mutex_lock( &_g->sync.mutex );
 			while ( _g->sync.lock_in_progress )
 			{
-				struct timespec ts = { 0, 10L };
-				thrd_sleep( &ts , NULL );
-				//pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
+				////struct timespec ts = { 0, 10L };
+				////thrd_sleep( &ts , NULL );
+				pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
 			}
+			pthread_mutex_unlock( &_g->sync.mutex );
 			if ( _g->sync.reset_static_after_lock )
 			{
 				_g->sync.reset_static_after_lock = 0;
@@ -1251,7 +1255,7 @@ void print_cell( WINDOW * win , int y , int x , int width , const char * text )
 // Drawing the full table
 void draw_table( struct App_Data * _g )
 {
-	char * header_border = "+----------+--------------------+";
+	char * header_border = "+----------+----------------------------------------+";
 
 	int cell_w = strlen( header_border ) / 2;
 	int start_x = 2;
@@ -1260,10 +1264,17 @@ void draw_table( struct App_Data * _g )
 	// Top border
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
+	char buf[ 64 ];
+	char buf2[ 64 ];
+	struct timespec now;
+	clock_gettime( CLOCK_REALTIME , &now );
+	format_clock_time( &now , buf , sizeof( buf ) );
+	snprintf( buf2 , sizeof( buf2 ) , "MU Metric-%s" , buf );
+
 	// Header
 	wattron( MAIN_WIN , COLOR_PAIR( 1 ) );
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "MU Metric" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , buf2 );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , "Value" );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1274,8 +1285,6 @@ void draw_table( struct App_Data * _g )
 
 	// Data rows
 	wattron( MAIN_WIN , COLOR_PAIR( 2 ) );
-	char buf[ 64 ];
-	char buf2[ 64 ];
 	
 	setlocale(LC_NUMERIC, "en_US.UTF-8");
 
@@ -1431,14 +1440,6 @@ void * stats_thread( void * pdata )
 	return NULL;
 }
 
-void round_up_to_next_interval( struct timespec * now , int min_val , int interval , struct timespec * result )
-{
-	result->tv_sec = ( ( ( now->tv_sec + min_val ) / interval ) + 1 ) * interval;
-	result->tv_nsec = 0;
-}
-
-#define _ECHO2(s,...) do { __snprintf(_g->stat.last_command , sizeof(_g->stat.last_command),s,##__VA_ARGS__); } while(0)
-
 void * sync_thread( void * pdata )
 {
 	INIT_BREAKABLE_FXN();
@@ -1449,14 +1450,13 @@ void * sync_thread( void * pdata )
 	struct timespec now , next_round_time;
 	clock_gettime( CLOCK_REALTIME , &now );
 
-	//pthread_mutex_lock( &_g->sync.mutex );
+	pthread_mutex_lock( &_g->sync.mutex );
 	round_up_to_next_interval( &now , _g->appcfg._general_config->c.c.synchronization_min_wait , _g->appcfg._general_config->c.c.synchronization_max_roundup , &next_round_time );
 	_g->sync.lock_in_progress = 1;
-	//pthread_mutex_unlock( &_g->sync.mutex );
+	pthread_mutex_unlock( &_g->sync.mutex );
 
-	_g->sync.reset_static_after_lock = 1;
-
-	_ECHO2( "Will wake %ld in sec" , next_round_time.tv_sec - now.tv_sec );
+	format_clock_time( &next_round_time , __custom_message , sizeof( __custom_message ) );
+	_DIRECT_ECHO( "Will wake at %s" , __custom_message );
 
 	////pthread_mutex_lock(&_g->sync.mutex);
 	//// First thread sets the global target time
@@ -1468,15 +1468,16 @@ void * sync_thread( void * pdata )
 	// Sleep until that global target time
 	clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
 
-	//pthread_mutex_lock( &_g->sync.mutex );
+	pthread_mutex_lock( &_g->sync.mutex );
 	_g->sync.lock_in_progress = 0;
-	//pthread_cond_signal( &_g->sync.cond );
+	_g->sync.reset_static_after_lock = 1;
+	pthread_cond_signal( &_g->sync.cond );
 	//pthread_cond_broadcast( &_g->sync.cond );
-	//pthread_mutex_unlock( &_g->sync.mutex );
+	pthread_mutex_unlock( &_g->sync.mutex );
 
 	//clock_gettime( CLOCK_REALTIME , &now );
-	_ECHO2( "waked up" );
-	_ECHO2("");
+	_DIRECT_ECHO( "waked up" );
+	_DIRECT_ECHO("");
 
 	return NULL;
 }
@@ -1512,7 +1513,7 @@ void * input_thread( void * pdata )
 		if ( stricmp( _g->stat.input_buffer , "quit" ) == 0 )
 		{
 			_g->appcfg._general_config->c.c.close_app = 1;
-			//break;
+			break;
 		}
 		else if ( stricmp( _g->stat.input_buffer , "sync" ) == 0 )
 		{
@@ -1639,8 +1640,8 @@ void init( struct App_Data * _g )
 	init_windows( _g );
 	init_bypass_stdout( _g );
 
-	//pthread_mutex_init( &_g->sync.mutex , NULL );
-	//pthread_cond_init( &_g->sync.cond , NULL );
+	pthread_mutex_init( &_g->sync.mutex , NULL );
+	pthread_cond_init( &_g->sync.cond , NULL );
 }
 
 int main()
