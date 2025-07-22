@@ -41,10 +41,15 @@
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
 #define CLOSE_APP_VAR() ( _g->cmd.quit_app )
 
-int __FXN_HIT[10000] = {0};
+#define FXN_HIT_COUNT 5000
+#define PC_COUNT 10 // first for hit count and last alwayz zero
+
+int __FXN_HIT[FXN_HIT_COUNT][PC_COUNT] = {0}; // max size is about number of code lines
+static int _pc = 1; // step of each call globally
 
 #define SYS_ALIVE_CHECK() do {\
-	int __function_line = __LINE__; _g->stat.last_line_meet = __LINE__; _g->stat.alive_check_counter = ( _g->stat.alive_check_counter + 1 ) % 10; __FXN_HIT[__function_line]++; } while(0)
+	int __function_line = __LINE__; _g->stat.last_line_meet = __LINE__; _g->stat.alive_check_counter = ( _g->stat.alive_check_counter + 1 ) % 10; __FXN_HIT[__function_line][0]++; static int pc = 0;/*each line hit*/ if ( pc <= PC_COUNT-1 ) __FXN_HIT[__function_line][1+pc++] = _pc++; \
+	} while(0)
 
 
 #endif
@@ -86,6 +91,7 @@ struct Global_Config_0
 
 	int synchronization_min_wait;
 	int synchronization_max_roundup;
+	int show_line_hit;
 };
 
 struct Global_Config_n
@@ -196,6 +202,7 @@ struct bridges_thread_base
 	int thread_is_created;
 	int do_close_thread; // command from outside to inside thread
 	pthread_mutex_t creation_cuncurrency_lock; // prevent multi bridge create thread concurrently
+	int start_working; // because udp port may start after thread started
 };
 
 struct bridges_bottleneck_thread // one thread for send and receive
@@ -300,6 +307,8 @@ struct udp_stat
 {
 	__int64u total_udp_get_count;
 	__int64u total_udp_get_byte;
+
+	__int64u continuously_unsuccessful_select_on_open_port_count; // that canot get find data
 };
 
 struct tcp_stat_1_sec
@@ -382,16 +391,18 @@ struct statistics
 
 	int udp_connection_count;
 	int tcp_connection_count;
+	int total_retry_udp_connection_count;
+	int total_retry_tcp_connection_count;
 
 	struct BenchmarkRound round;
 };
 
 struct synchronization_data
 {
-	pthread_mutex_t mutex;
-	pthread_cond_t cond;
-	int lock_in_progress;
-	int reset_static_after_lock;
+	//pthread_mutex_t mutex;
+	//pthread_cond_t cond;
+	//int lock_in_progress;
+	//int reset_static_after_lock;
 };
 
 struct app_cmd
@@ -421,7 +432,7 @@ void * thread_udp_connection_proc( void * src_pb )
 
 	struct protocol_bridge * pb = ( struct protocol_bridge * )src_pb;
 	struct App_Data * _g = ( struct App_Data * )pb->apcfg.m.m.temp_data._g;
-	SYS_ALIVE_CHECK();
+	//SYS_ALIVE_CHECK();
 
 	if ( IF_VERBOSE_MODE_CONDITION() )
 	{
@@ -430,6 +441,7 @@ void * thread_udp_connection_proc( void * src_pb )
 
 	if ( pb->udp_connection_established )
 	{
+		SYS_ALIVE_CHECK();
 		_close_socket( &pb->udp_sockfd );
 		pb->udp_connection_established = 0;
 		_g->stat.udp_connection_count--;
@@ -451,15 +463,32 @@ void * thread_udp_connection_proc( void * src_pb )
 	pb->udp_connection_established = 1;
 
 	_g->stat.udp_connection_count++;
+	_g->stat.total_retry_udp_connection_count++;
 
 	_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
+
+	if ( _g->bridges.bidirection_thread )
+	{
+		_g->bridges.bidirection_thread->base.start_working = 1;
+		SYS_ALIVE_CHECK();
+	}
+	if ( _g->bridges.bottleneck_thread )
+	{
+		_g->bridges.bottleneck_thread->base.start_working = 1;
+		SYS_ALIVE_CHECK();
+	}
+	if ( _g->bridges.justIncoming_thread )
+	{
+		_g->bridges.justIncoming_thread->base.start_working = 1;
+		//SYS_ALIVE_CHECK();
+	}
 
 	//_g->bridges.pbs[ i ].counterpart_connection_establishment_count++; // one side connection established
 	if ( IF_VERBOSE_MODE_CONDITION() )
 	{
 		_ECHO( "inbound udp connected" );
 	}
-	SYS_ALIVE_CHECK();
+	//SYS_ALIVE_CHECK();
 
 	BEGIN_RET
 		case 3: {}
@@ -503,6 +532,7 @@ int _connect_tcp( struct protocol_bridge * src_pb )
 		{
 			src_pb->tcp_connection_established = 1;
 			_g->stat.tcp_connection_count++;
+			_g->stat.total_retry_tcp_connection_count++;
 			if ( IF_VERBOSE_MODE_CONDITION() )
 			{
 				_ECHO( "outbound tcp connected" );
@@ -620,19 +650,19 @@ void * bottleneck_thread_proc( void * src_g )
 		{
 			SYS_ALIVE_CHECK();
 
-			pthread_mutex_lock( &_g->sync.mutex );
-			while ( _g->sync.lock_in_progress )
-			{
-				////struct timespec ts = { 0, 10L };
-				////thrd_sleep( &ts , NULL );
-				pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
-			}
-			pthread_mutex_unlock( &_g->sync.mutex );
-			if ( _g->sync.reset_static_after_lock )
-			{
-				_g->sync.reset_static_after_lock = 0;
-				memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
-			}
+			//pthread_mutex_lock( &_g->sync.mutex );
+			//while ( _g->sync.lock_in_progress )
+			//{
+			//	////struct timespec ts = { 0, 10L };
+			//	////thrd_sleep( &ts , NULL );
+			//	pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
+			//}
+			//pthread_mutex_unlock( &_g->sync.mutex );
+			//if ( _g->sync.reset_static_after_lock )
+			//{
+			//	_g->sync.reset_static_after_lock = 0;
+			//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+			//}
 
 			if ( _g->bridges.bottleneck_thread->base.do_close_thread )
 			{
@@ -644,6 +674,8 @@ void * bottleneck_thread_proc( void * src_g )
 				break;
 			}
 
+			SYS_ALIVE_CHECK();
+
 			struct timeval timeout; // Set timeout (e.g., 5 seconds)
 			timeout.tv_sec = 5;
 			timeout.tv_usec = 0;
@@ -653,7 +685,7 @@ void * bottleneck_thread_proc( void * src_g )
 
 			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 			{
-				SYS_ALIVE_CHECK();
+				//SYS_ALIVE_CHECK();
 
 				int error = 0;
 				socklen_t errlen = sizeof( error );
@@ -664,7 +696,7 @@ void * bottleneck_thread_proc( void * src_g )
 			}
 			if ( activity == 0 )
 			{
-				SYS_ALIVE_CHECK();
+				//SYS_ALIVE_CHECK();
 
 				int error = 0;
 				socklen_t errlen = sizeof( error );
@@ -693,7 +725,7 @@ void * bottleneck_thread_proc( void * src_g )
 				continue;
 			}
 
-			SYS_ALIVE_CHECK();
+			//SYS_ALIVE_CHECK();
 
 			tnow = time( NULL );
 			// udp
@@ -773,7 +805,7 @@ void * bottleneck_thread_proc( void * src_g )
 					{
 						if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 						{
-							SYS_ALIVE_CHECK();
+							//SYS_ALIVE_CHECK();
 							bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
 							if ( bytes_received < 0 )
 							{
@@ -807,17 +839,17 @@ void * bottleneck_thread_proc( void * src_g )
 							_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_count++;
 							_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_bytes += sz;
 
-							SYS_ALIVE_CHECK();
+							//SYS_ALIVE_CHECK();
 
 						}
 					}
 				}
 			}
-			SYS_ALIVE_CHECK();
+			//SYS_ALIVE_CHECK();
 		}
 
 	} while ( config_changes );
-	SYS_ALIVE_CHECK();
+	//SYS_ALIVE_CHECK();
 	BREAK_OK( 0 ); // to just ignore gcc warning
 
 	BEGIN_RET
@@ -896,24 +928,19 @@ void * income_thread_proc( void * src_g )
 		{
 			SYS_ALIVE_CHECK();
 
-			pthread_mutex_lock( &_g->sync.mutex );
-			while ( _g->sync.lock_in_progress )
-			{
-				////struct timespec ts = { 0, 10L };
-				////thrd_sleep( &ts , NULL );
-				pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
-			}
-			pthread_mutex_unlock( &_g->sync.mutex );
-			if ( _g->sync.reset_static_after_lock )
-			{
-				_g->sync.reset_static_after_lock = 0;
-				memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
-			}
-
-			while ( !_g->sync.lock_in_progress )
-			{
-				pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
-			}
+			//pthread_mutex_lock( &_g->sync.mutex );
+			//while ( _g->sync.lock_in_progress )
+			//{
+			//	////struct timespec ts = { 0, 10L };
+			//	////thrd_sleep( &ts , NULL );
+			//	pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
+			//}
+			//pthread_mutex_unlock( &_g->sync.mutex );
+			//if ( _g->sync.reset_static_after_lock )
+			//{
+			//	_g->sync.reset_static_after_lock = 0;
+			//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+			//}
 
 			if ( _g->bridges.bidirection_thread->base.do_close_thread )
 			{
@@ -1083,19 +1110,19 @@ void * outgoing_thread_proc( void * src_g )
 	{
 		SYS_ALIVE_CHECK();
 
-		pthread_mutex_lock( &_g->sync.mutex );
-		while ( _g->sync.lock_in_progress )
-		{
-			////struct timespec ts = { 0, 10L };
-			////thrd_sleep( &ts , NULL );
-			pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
-		}
-		pthread_mutex_unlock( &_g->sync.mutex );
-		if ( _g->sync.reset_static_after_lock )
-		{
-			_g->sync.reset_static_after_lock = 0;
-			memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
-		}
+		//pthread_mutex_lock( &_g->sync.mutex );
+		//while ( _g->sync.lock_in_progress )
+		//{
+		//	////struct timespec ts = { 0, 10L };
+		//	////thrd_sleep( &ts , NULL );
+		//	pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
+		//}
+		//pthread_mutex_unlock( &_g->sync.mutex );
+		//if ( _g->sync.reset_static_after_lock )
+		//{
+		//	_g->sync.reset_static_after_lock = 0;
+		//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+		//}
 
 		if ( _g->bridges.bottleneck_thread->base.do_close_thread )
 		{
@@ -1193,6 +1220,19 @@ void * justIncoming_thread_proc( void * src_g )
 	//struct protocol_bridge * pb = ( struct protocol_bridge * )src_pb;
 	struct App_Data * _g = ( struct App_Data * )src_g;
 
+	//SYS_ALIVE_CHECK();
+
+	while ( !_g->bridges.justIncoming_thread->base.start_working )
+	{
+		if ( _g->bridges.justIncoming_thread->base.do_close_thread )
+		{
+			break;
+		}
+		sleep(1);
+	}
+
+	SYS_ALIVE_CHECK();
+
 	time_t tnow = 0;
 
 	int socket_error_tolerance_count = 0; // restart socket after many error accur
@@ -1200,12 +1240,12 @@ void * justIncoming_thread_proc( void * src_g )
 	int config_changes = 0;
 	do
 	{
-		SYS_ALIVE_CHECK();
+		//SYS_ALIVE_CHECK();
 		if ( _g->bridges.justIncoming_thread->base.do_close_thread )
 		{
 			break;
 		}
-
+		//SYS_ALIVE_CHECK();
 		config_changes = 0;
 
 		char buffer[ BUFFER_SIZE ]; // Define a buffer to store received data
@@ -1223,18 +1263,22 @@ void * justIncoming_thread_proc( void * src_g )
 		{
 			if ( _g->bridges.pb_holders_masks[ i ] )
 			{
+				//SYS_ALIVE_CHECK();
 				if ( _g->bridges.pb_holders[ i ].alc_pb->udp_connection_established /* && _g->bridges.pb_holders[i].alc_pb->tcp_connection_established*/ )
 				{
+					SYS_ALIVE_CHECK();
 					FD_SET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds );
+					//SYS_ALIVE_CHECK();
 					if ( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd > sockfd_max )
 					{
+						//SYS_ALIVE_CHECK();
 						sockfd_max = _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd;
 					}
 				}
 			}
 		}
 		_g->bridges.under_listen_udp_sockets_group_changed = 0; // if any udp socket change then fdset must be reinitialized
-
+		//SYS_ALIVE_CHECK();
 		if ( sockfd_max < 0 )
 		{
 			sleep( 1 );
@@ -1243,21 +1287,23 @@ void * justIncoming_thread_proc( void * src_g )
 
 		while ( 1 )
 		{
-			SYS_ALIVE_CHECK();
+			//SYS_ALIVE_CHECK();
 
-			pthread_mutex_lock( &_g->sync.mutex );
-			while ( _g->sync.lock_in_progress )
-			{
-				////struct timespec ts = { 0, 10L };
-				////thrd_sleep( &ts , NULL );
-				pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
-			}
-			pthread_mutex_unlock( &_g->sync.mutex );
-			if ( _g->sync.reset_static_after_lock )
-			{
-				_g->sync.reset_static_after_lock = 0;
-				memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
-			}
+			//pthread_mutex_lock( &_g->sync.mutex );
+			//while ( _g->sync.lock_in_progress )
+			//{
+			//	////struct timespec ts = { 0, 10L };
+			//	////thrd_sleep( &ts , NULL );
+			//	pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
+			//}
+			//pthread_mutex_unlock( &_g->sync.mutex );
+			//if ( _g->sync.reset_static_after_lock )
+			//{
+			//	_g->sync.reset_static_after_lock = 0;
+			//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+			//}
+
+			//SYS_ALIVE_CHECK();
 
 			if ( _g->bridges.justIncoming_thread->base.do_close_thread )
 			{
@@ -1278,7 +1324,7 @@ void * justIncoming_thread_proc( void * src_g )
 
 			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 			{
-				SYS_ALIVE_CHECK();
+				//SYS_ALIVE_CHECK();
 
 				int error = 0;
 				socklen_t errlen = sizeof( error );
@@ -1308,13 +1354,14 @@ void * justIncoming_thread_proc( void * src_g )
 			}
 			if ( activity == 0 ) // timed out
 			{
-				SYS_ALIVE_CHECK();
+				//SYS_ALIVE_CHECK();
 
 				int error = 0;
 				socklen_t errlen = sizeof( error );
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
 				if ( error == 0 )
 				{
+					_g->stat.round.udp.continuously_unsuccessful_select_on_open_port_count++;
 					if ( ++socket_error_tolerance_count > 3 )
 					{
 						socket_error_tolerance_count = 0;
@@ -1340,7 +1387,9 @@ void * justIncoming_thread_proc( void * src_g )
 				continue;
 			}
 
-			SYS_ALIVE_CHECK();
+			_g->stat.round.udp.continuously_unsuccessful_select_on_open_port_count = 0;
+
+			//SYS_ALIVE_CHECK();
 
 			tnow = time( NULL );
 			// udp
@@ -1387,7 +1436,7 @@ void * justIncoming_thread_proc( void * src_g )
 					{
 						if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 						{
-							SYS_ALIVE_CHECK();
+							//SYS_ALIVE_CHECK();
 							bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
 							if ( bytes_received < 0 )
 							{
@@ -1405,16 +1454,16 @@ void * justIncoming_thread_proc( void * src_g )
 							_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
 							_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
 
-							SYS_ALIVE_CHECK();
+							//SYS_ALIVE_CHECK();
 						}
 					}
 				}
 			}
-			SYS_ALIVE_CHECK();
+			//SYS_ALIVE_CHECK();
 		}
 
 	} while ( config_changes );
-	SYS_ALIVE_CHECK();
+	//SYS_ALIVE_CHECK();
 	BREAK_OK( 0 ); // to just ignore gcc warning
 
 	BEGIN_RET
@@ -1455,7 +1504,7 @@ void * protocol_bridge_runner( void * src_pb )
 			}
 		}
 	}
-	SYS_ALIVE_CHECK();
+	//SYS_ALIVE_CHECK();
 	if ( pthread == NULL )
 	{
 		_g->stat.round.syscal_err_count++;
@@ -1515,7 +1564,7 @@ void * protocol_bridge_runner( void * src_pb )
 	pthread->base_config_change_applied = 0;
 	do
 	{
-		SYS_ALIVE_CHECK();
+		//SYS_ALIVE_CHECK();
 		if ( pthread->do_close_thread )
 		{
 			break;
@@ -1559,7 +1608,7 @@ void * protocol_bridge_runner( void * src_pb )
 			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , thread_udp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 		}
 		
-		SYS_ALIVE_CHECK();
+		//SYS_ALIVE_CHECK();
 
 	} while ( 1 );
 
@@ -1574,7 +1623,7 @@ void * protocol_bridge_runner( void * src_pb )
 		}
 	}
 
-	SYS_ALIVE_CHECK();
+	//SYS_ALIVE_CHECK();
 	
 	BEGIN_RET
 		case 3: {}
@@ -1779,6 +1828,7 @@ void remove_protocol_bridge( struct App_Data * _g , struct protocol_bridge_cfg *
 			{
 				stop_protocol_bridge( _g , _g->bridges.pb_holders[ i ].alc_pb );
 				_g->bridges.pb_holders_masks[ i ] = 0;
+				SYS_ALIVE_CHECK();
 				DAC( _g->bridges.pb_holders[ i ].alc_pb );
 			}
 		}
@@ -1825,6 +1875,7 @@ void add_new_protocol_bridge( struct App_Data * _g , struct protocol_bridge_cfg 
 	ASSERT( _g->bridges.pb_holders[ new_pcfg_placement_index ].alc_pb == NULL );
 	M_BREAK_IF( ( _g->bridges.pb_holders[ new_pcfg_placement_index ].alc_pb = NEW( struct protocol_bridge ) ) == NEW_ERR , errMemoryLow , 0 );
 	MEMSET_ZERO( _g->bridges.pb_holders[ new_pcfg_placement_index ].alc_pb , struct protocol_bridge , 1 );
+	////SYS_ALIVE_CHECK();
 	_g->bridges.pb_holders_masks[ new_pcfg_placement_index ] = 1;
 	memcpy( &_g->bridges.pb_holders[ new_pcfg_placement_index ].alc_pb->apcfg , new_pcfg , sizeof( struct protocol_bridge_cfg ) );
 
@@ -1985,7 +2036,7 @@ void * config_loader( void * app_data )
 					
 					CFG_ELEM_I( synchronization_min_wait );
 					CFG_ELEM_I( synchronization_max_roundup );
-					
+					CFG_ELEM_I( show_line_hit );
 					
 					
 #undef CFG_ELEM_I
@@ -2119,6 +2170,10 @@ void * config_loader( void * app_data )
 
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_min_wait == _g->appcfg._prev_general_config->c.c.synchronization_min_wait );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_max_roundup == _g->appcfg._prev_general_config->c.c.synchronization_max_roundup );
+
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.show_line_hit == _g->appcfg._prev_general_config->c.c.show_line_hit );
+
+					
 					
 				}
 			}
@@ -2322,15 +2377,17 @@ void * sync_thread( void * pdata ) // pause app until moment other app exist
 {
 	INIT_BREAKABLE_FXN();
 	struct App_Data * _g = ( struct App_Data * )pdata;
-	if ( _g->sync.lock_in_progress ) return NULL;
+	//if ( _g->sync.lock_in_progress ) return NULL;
 
 	struct timespec now , next_round_time;
 	clock_gettime( CLOCK_REALTIME , &now );
 
-	pthread_mutex_lock( &_g->sync.mutex );
+	//pthread_mutex_lock( &_g->sync.mutex );
 	round_up_to_next_interval( &now , _g->appcfg._general_config->c.c.synchronization_min_wait , _g->appcfg._general_config->c.c.synchronization_max_roundup , &next_round_time );
-	_g->sync.lock_in_progress = 1;
-	pthread_mutex_unlock( &_g->sync.mutex );
+	//_g->sync.lock_in_progress = 1;
+	//pthread_mutex_unlock( &_g->sync.mutex );
+
+	//next_round_time.tv_sec += 5; // bridge start later
 
 	format_clock_time( &next_round_time , __custom_message , sizeof( __custom_message ) );
 	_DIRECT_ECHO( "Will wake at %s" , __custom_message );
@@ -2344,13 +2401,14 @@ void * sync_thread( void * pdata ) // pause app until moment other app exist
 
 	// Sleep until that global target time
 	clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
+	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 
-	pthread_mutex_lock( &_g->sync.mutex );
-	_g->sync.lock_in_progress = 0;
-	_g->sync.reset_static_after_lock = 1;
-	pthread_cond_signal( &_g->sync.cond );
-	//pthread_cond_broadcast( &_g->sync.cond );
-	pthread_mutex_unlock( &_g->sync.mutex );
+	//pthread_mutex_lock( &_g->sync.mutex );
+	//_g->sync.lock_in_progress = 0;
+	//_g->sync.reset_static_after_lock = 1;
+	//pthread_cond_signal( &_g->sync.cond );
+	////pthread_cond_broadcast( &_g->sync.cond );
+	//pthread_mutex_unlock( &_g->sync.mutex );
 
 	//clock_gettime( CLOCK_REALTIME , &now );
 	_DIRECT_ECHO( "waked up" );
@@ -2400,6 +2458,12 @@ void * input_thread( void * pdata )
 			}
 			//break;
 		}
+		else if ( stricmp( _g->stat.input_buffer , "resetstack" ) == 0 )
+		{
+			//break;
+		}
+		
+
 		if ( boutput_command )
 		{
 			strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
@@ -2430,7 +2494,7 @@ void print_cell( WINDOW * win , int y , int x , int width , const char * text )
 // Drawing the full table
 void draw_table( struct App_Data * _g )
 {
-	char * header_border = "+----------+----------------------------------------+";
+	char * header_border = "+----------+--------------------------------------------------------------------------------+";
 
 	int cell_w = strlen( header_border ) / 2;
 	int start_x = 2;
@@ -2439,7 +2503,7 @@ void draw_table( struct App_Data * _g )
 	// Top border
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
-	char buf[ 64 ];
+	char buf[ 640 ];
 	char buf2[ 64 ];
 	struct timespec now;
 	clock_gettime( CLOCK_REALTIME , &now );
@@ -2483,36 +2547,49 @@ void draw_table( struct App_Data * _g )
 	
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "UDP conn" );
-	snprintf( buf , sizeof( buf ) , "%d" , MAIN_STAT().udp_connection_count );
+	snprintf( buf , sizeof( buf ) , "%d Σ%d" , MAIN_STAT().udp_connection_count , MAIN_STAT().total_retry_udp_connection_count );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP conn" );
-	snprintf( buf , sizeof( buf ) , "%d" , MAIN_STAT().tcp_connection_count );
+	snprintf( buf , sizeof( buf ) , "%d Σ%d" , MAIN_STAT().tcp_connection_count , MAIN_STAT().total_retry_tcp_connection_count );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	//mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
-	//int j = 0;
-	//for ( int i = 0 ; i < sizeof( __FXN_HIT ) / sizeof( __FXN_HIT[ 0 ] ) ; i++ )
-	//{
-	//	if ( __FXN_HIT[i] > 0 )
-	//	{
-	//		mvwprintw( MAIN_WIN , y , start_x , "|" );
-	//		snprintf( buf , sizeof( buf ) , "%d" , i );
-	//		print_cell( MAIN_WIN , y , start_x + 1 , cell_w , buf );
-	//		snprintf( buf , sizeof( buf ) , "%d" , __FXN_HIT[i] );
-	//		mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	//		print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	//		mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//	}
-	//}
-	
-	//mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+	if ( _g->appcfg._general_config && _g->appcfg._general_config->c.c.show_line_hit )
+	{
+		for ( int i = 0 ; i < FXN_HIT_COUNT ; i++ )
+		{
+			if ( __FXN_HIT[ i ][0] > 0 )
+			{
+				mvwprintw( MAIN_WIN , y , start_x , "|" );
+				snprintf( buf , sizeof( buf ) , "%d" , i ); // line
+				print_cell( MAIN_WIN , y , start_x + 1 , cell_w , buf ); // line
+				snprintf( buf , sizeof( buf ) , "%d " , __FXN_HIT[ i ][0] ); // hit count
+
+				for ( int k = 1 ; k < PC_COUNT ; k++ )
+				{
+					if ( __FXN_HIT[ i ][ k ] == 0 )
+					{
+						break;
+					}
+					snprintf( buf2 , sizeof( buf2 ) , ",%d" , __FXN_HIT[ i ][ k ] );
+					strcat( buf , buf2 );
+				}
+			
+				mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+				print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+				mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+			}
+		}
+
+		mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+	}
 
 	///////////
 
@@ -2528,15 +2605,22 @@ void draw_table( struct App_Data * _g )
 	
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp put" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.udp.total_udp_get_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp put byte" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get byte" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.udp.total_udp_get_byte , 2 , "B" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "contnu unsuces slct udp" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.udp.continuously_unsuccessful_select_on_open_port_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -2591,14 +2675,14 @@ void draw_table( struct App_Data * _g )
 
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp put" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp put" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp.total_tcp_put_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp put byte" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp put byte" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp.total_tcp_put_byte , 2 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
@@ -2606,14 +2690,14 @@ void draw_table( struct App_Data * _g )
 
 	// 1 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s udp pps" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s tcp pps" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_1_sec.tcp_put_count_throughput , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s udp bps" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s tcp bps" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_1_sec.tcp_put_byte_throughput , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
@@ -2621,14 +2705,14 @@ void draw_table( struct App_Data * _g )
 
 	// 10 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s udp pps" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp pps" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_10_sec.tcp_put_count_throughput / 10 , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s udp bps" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp bps" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_10_sec.tcp_put_byte_throughput / 10 , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
@@ -2636,14 +2720,14 @@ void draw_table( struct App_Data * _g )
 
 	// 40 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udp pps" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp pps" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_40_sec.tcp_put_count_throughput / 40 , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udp bps" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp bps" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_40_sec.tcp_put_byte_throughput / 40 , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
@@ -2668,8 +2752,6 @@ void draw_table( struct App_Data * _g )
 	// Bottom border
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 }
-
-#undef MAIN_WIN
 
 void * stats_thread( void * pdata )
 {
@@ -2799,8 +2881,8 @@ void init( struct App_Data * _g )
 	init_windows( _g );
 	init_bypass_stdout( _g );
 
-	pthread_mutex_init( &_g->sync.mutex , NULL );
-	pthread_cond_init( &_g->sync.cond , NULL );
+	//pthread_mutex_init( &_g->sync.mutex , NULL );
+	//pthread_cond_init( &_g->sync.cond , NULL );
 }
 
 int main()

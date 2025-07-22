@@ -295,10 +295,10 @@ struct statistics
 
 struct synchronization_data
 {
-	pthread_mutex_t mutex;
-	pthread_cond_t cond;
-	int lock_in_progress;
-	int reset_static_after_lock;
+	//pthread_mutex_t mutex;
+	//pthread_cond_t cond;
+	//int lock_in_progress;
+	//int reset_static_after_lock;
 };
 
 struct App_Data
@@ -388,19 +388,19 @@ void * wave_runner( void * src_pwave )
 		{
 			SYS_ALIVE_CHECK();
 
-			pthread_mutex_lock( &_g->sync.mutex );
-			while ( _g->sync.lock_in_progress )
-			{
-				////struct timespec ts = { 0, 10L };
-				////thrd_sleep( &ts , NULL );
-				pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
-			}
-			pthread_mutex_unlock( &_g->sync.mutex );
-			if ( _g->sync.reset_static_after_lock )
-			{
-				_g->sync.reset_static_after_lock = 0;
-				memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
-			}
+			//pthread_mutex_lock( &_g->sync.mutex );
+			//while ( _g->sync.lock_in_progress )
+			//{
+			//	////struct timespec ts = { 0, 10L };
+			//	////thrd_sleep( &ts , NULL );
+			//	pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
+			//}
+			//pthread_mutex_unlock( &_g->sync.mutex );
+			//if ( _g->sync.reset_static_after_lock )
+			//{
+			//	_g->sync.reset_static_after_lock = 0;
+			//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+			//}
 
 			if ( pthread->do_close_thread )
 			{
@@ -921,9 +921,6 @@ void * config_loader( void * app_data )
 					
 					CFG_ELEM_I( synchronization_min_wait );
 					CFG_ELEM_I( synchronization_max_roundup );
-					
-					
-					
 
 #undef CFG_ELEM_I
 #undef CFG_ELEM_STR
@@ -1055,8 +1052,6 @@ void * config_loader( void * app_data )
 					
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_min_wait == _g->appcfg._prev_general_config->c.c.synchronization_min_wait );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_max_roundup == _g->appcfg._prev_general_config->c.c.synchronization_max_roundup );
-
-					
 
 				}
 			}
@@ -1392,8 +1387,23 @@ void draw_table( struct App_Data * _g )
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.stat_40_sec.calc_throughput_udp_put_count , 4 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udp bps" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.stat_40_sec.udp_put_byte_throughput / 40 , 4 , "B" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udps size" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.stat_40_sec.calc_throughput_udp_put_bytes , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1445,15 +1455,15 @@ void * sync_thread( void * pdata )
 	INIT_BREAKABLE_FXN();
 
 	struct App_Data * _g = ( struct App_Data * )pdata;
-	if ( _g->sync.lock_in_progress ) return NULL;
+	//if ( _g->sync.lock_in_progress ) return NULL;
 
 	struct timespec now , next_round_time;
 	clock_gettime( CLOCK_REALTIME , &now );
 
-	pthread_mutex_lock( &_g->sync.mutex );
+	//pthread_mutex_lock( &_g->sync.mutex );
 	round_up_to_next_interval( &now , _g->appcfg._general_config->c.c.synchronization_min_wait , _g->appcfg._general_config->c.c.synchronization_max_roundup , &next_round_time );
-	_g->sync.lock_in_progress = 1;
-	pthread_mutex_unlock( &_g->sync.mutex );
+	//_g->sync.lock_in_progress = 1;
+	//pthread_mutex_unlock( &_g->sync.mutex );
 
 	format_clock_time( &next_round_time , __custom_message , sizeof( __custom_message ) );
 	_DIRECT_ECHO( "Will wake at %s" , __custom_message );
@@ -1468,12 +1478,14 @@ void * sync_thread( void * pdata )
 	// Sleep until that global target time
 	clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
 
-	pthread_mutex_lock( &_g->sync.mutex );
-	_g->sync.lock_in_progress = 0;
-	_g->sync.reset_static_after_lock = 1;
-	pthread_cond_signal( &_g->sync.cond );
+	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+
+	//pthread_mutex_lock( &_g->sync.mutex );
+	//_g->sync.lock_in_progress = 0;
+	//_g->sync.reset_static_after_lock = 1;
+	//pthread_cond_signal( &_g->sync.cond );
 	//pthread_cond_broadcast( &_g->sync.cond );
-	pthread_mutex_unlock( &_g->sync.mutex );
+	//pthread_mutex_unlock( &_g->sync.mutex );
 
 	//clock_gettime( CLOCK_REALTIME , &now );
 	_DIRECT_ECHO( "waked up" );
@@ -1524,6 +1536,7 @@ void * input_thread( void * pdata )
 			}
 			//break;
 		}
+		
 		if ( boutput_command )
 		{
 			strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
@@ -1640,8 +1653,8 @@ void init( struct App_Data * _g )
 	init_windows( _g );
 	init_bypass_stdout( _g );
 
-	pthread_mutex_init( &_g->sync.mutex , NULL );
-	pthread_cond_init( &_g->sync.cond , NULL );
+	//pthread_mutex_init( &_g->sync.mutex , NULL );
+	//pthread_cond_init( &_g->sync.cond , NULL );
 }
 
 int main()
