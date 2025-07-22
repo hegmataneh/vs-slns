@@ -34,6 +34,7 @@
 #define VERBOSE_MODE_DEFAULT 0
 #define HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT 5
 #define STAT_REFERESH_INTERVAL_SEC_DEFUALT 1
+#define CLOSE_APP_VAR_DEFAULT 0
 
 #define IF_VERBOSE_MODE_CONDITION() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.verbose_mode : VERBOSE_MODE_DEFAULT )
 #define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
@@ -208,7 +209,7 @@ struct bridges_thread_base
 struct bridges_bottleneck_thread // one thread for send and receive
 {
 	struct bridges_thread_base base;
-
+	
 	pthread_t trd_id;
 };
 
@@ -599,6 +600,15 @@ void * bottleneck_thread_proc( void * src_g )
 
 	time_t tnow = 0;
 
+	while ( !_g->bridges.justIncoming_thread->base.start_working )
+	{
+		if ( _g->bridges.justIncoming_thread->base.do_close_thread )
+		{
+			break;
+		}
+		sleep( 1 );
+	}
+
 	int socket_error_tolerance_count = 0; // restart socket after many error accur
 
 	int config_changes = 0;
@@ -692,6 +702,25 @@ void * bottleneck_thread_proc( void * src_g )
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
 				_ECHO( "Socket error: %d\n" , error );
 
+				if ( ++socket_error_tolerance_count > 3 )
+				{
+					socket_error_tolerance_count = 0;
+					for ( int i = 0 ; i < _g->bridges.pb_holders_masks_count ; i++ )
+					{
+						if ( _g->bridges.pb_holders_masks[ i ] )
+						{
+							if ( _g->bridges.pb_holders[ i ].alc_pb->udp_connection_established )  // all the connected udp stoped or die so restart them
+							{
+								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+								{
+									_g->bridges.pb_holders[ i ].alc_pb->retry_to_connect = 1;
+									break;
+								}
+							}
+						}
+					}
+				}
+
 				continue;
 			}
 			if ( activity == 0 )
@@ -774,7 +803,7 @@ void * bottleneck_thread_proc( void * src_g )
 				_g->stat.round.tcp_1_sec.calc_throughput_tcp_put_count = 0;
 				_g->stat.round.tcp_1_sec.calc_throughput_tcp_put_bytes = 0;
 			}
-			if ( difftime( tnow , _g->stat.round.tcp_10_sec.t_tcp_throughput ) >= 1.0 )
+			if ( difftime( tnow , _g->stat.round.tcp_10_sec.t_tcp_throughput ) >= 10.0 )
 			{
 				if ( _g->stat.round.tcp_10_sec.t_tcp_throughput > 0 )
 				{
@@ -785,7 +814,7 @@ void * bottleneck_thread_proc( void * src_g )
 				_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_count = 0;
 				_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_bytes = 0;
 			}
-			if ( difftime( tnow , _g->stat.round.tcp_40_sec.t_tcp_throughput ) >= 1.0 )
+			if ( difftime( tnow , _g->stat.round.tcp_40_sec.t_tcp_throughput ) >= 40.0 )
 			{
 				if ( _g->stat.round.tcp_40_sec.t_tcp_throughput > 0 )
 				{
@@ -2170,10 +2199,7 @@ void * config_loader( void * app_data )
 
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_min_wait == _g->appcfg._prev_general_config->c.c.synchronization_min_wait );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_max_roundup == _g->appcfg._prev_general_config->c.c.synchronization_max_roundup );
-
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.show_line_hit == _g->appcfg._prev_general_config->c.c.show_line_hit );
-
-					
 					
 				}
 			}
@@ -2456,10 +2482,6 @@ void * input_thread( void * pdata )
 			{
 				_ECHO( "pthread_create" );
 			}
-			//break;
-		}
-		else if ( stricmp( _g->stat.input_buffer , "resetstack" ) == 0 )
-		{
 			//break;
 		}
 		

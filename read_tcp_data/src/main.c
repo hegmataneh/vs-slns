@@ -20,6 +20,8 @@
 #define Uses_fileno
 #define Uses_setlocale
 
+#define DIRECT_ECHO_BUF _g->stat.last_command
+
 #include <read_tcp_data.dep>
 
 #pragma GCC diagnostic ignored "-Wconversion"
@@ -35,9 +37,17 @@
 #define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
 
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
-#define CLOSE_APP_VAR() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.close_app : CLOSE_APP_VAR_DEFAULT )
+#define CLOSE_APP_VAR() ( _g->cmd.quit_app )
 
-#define SYS_ALIVE_CHECK() do { _g->stat.last_line_meet = __LINE__; _g->stat.alive_check_counter = ( _g->stat.alive_check_counter + 1 ) % 10; } while(0)
+#define FXN_HIT_COUNT 5000
+#define PC_COUNT 10 // first for hit count and last alwayz zero
+
+int __FXN_HIT[ FXN_HIT_COUNT ][ PC_COUNT ] = { 0 }; // max size is about number of code lines
+static int _pc = 1; // step of each call globally
+
+#define SYS_ALIVE_CHECK() do {\
+	int __function_line = __LINE__; _g->stat.last_line_meet = __LINE__; _g->stat.alive_check_counter = ( _g->stat.alive_check_counter + 1 ) % 10; __FXN_HIT[__function_line][0]++; static int pc = 0;/*each line hit*/ if ( pc <= PC_COUNT-1 ) __FXN_HIT[__function_line][1+pc++] = _pc++; \
+	} while(0)
 
 #endif
 
@@ -75,7 +85,9 @@ struct Global_Config_0
 	int refresh_variable_from_scratch;
 	int stat_referesh_interval_sec;
 
-	int close_app;
+	int synchronization_min_wait;
+	int synchronization_max_roundup;
+	int show_line_hit;
 };
 
 struct Global_Config_n
@@ -163,6 +175,8 @@ struct tcp_listener
 	int tcp_client_connection_sockfd;
 	int tcp_connection_established; // tcp connection established
 
+	int retry_to_connect;
+
 	struct tcp_listener_thread_holder * tl_trds; // tcp_listener threads . in protocol listener app must be one
 	int * tl_trds_masks;  // each int represent thread is valid
 	size_t tl_trds_masks_count;  // thread keeper count
@@ -208,13 +222,8 @@ struct App_Config // global config
 
 #define INPUT_MAX 256
 
-struct tcp_stat
+struct tcp_stat_1_sec
 {
-	int tcp_connection_count;
-
-	__int64u total_tcp_get_count;
-	__int64u total_tcp_get_byte;
-
 	time_t t_tcp_throughput;
 
 	__int64u calc_throughput_tcp_get_count;
@@ -222,6 +231,54 @@ struct tcp_stat
 
 	__int64u tcp_get_count_throughput;
 	__int64u tcp_get_byte_throughput;
+};
+
+struct tcp_stat_10_sec
+{
+	time_t t_tcp_throughput;
+
+	__int64u calc_throughput_tcp_get_count;
+	__int64u calc_throughput_tcp_get_bytes;
+
+	__int64u tcp_get_count_throughput;
+	__int64u tcp_get_byte_throughput;
+};
+
+struct tcp_stat_40_sec
+{
+	time_t t_tcp_throughput;
+
+	__int64u calc_throughput_tcp_get_count;
+	__int64u calc_throughput_tcp_get_bytes;
+
+	__int64u tcp_get_count_throughput;
+	__int64u tcp_get_byte_throughput;
+};
+
+struct tcp_stat
+{
+	__int64u total_tcp_get_count;
+	__int64u total_tcp_get_byte;
+
+	__int64u continuously_unsuccessful_select_on_open_port_count; // that canot get find data
+};
+
+struct statistics_lock_data
+{
+	pthread_mutex_t lock;
+};
+
+struct BenchmarkRound
+{
+	// err
+	__int64u all_benchmarks_total_fail_count;
+	__int64u syscal_err_count;
+
+	struct tcp_stat_1_sec tcp_1_sec;
+	struct tcp_stat_10_sec tcp_10_sec;
+	struct tcp_stat_40_sec tcp_40_sec;
+
+	struct tcp_stat tcp;
 };
 
 struct statistics
@@ -237,11 +294,25 @@ struct statistics
 	char input_buffer[ INPUT_MAX ];
 	int last_line_meet;
 	int alive_check_counter;
+	struct statistics_lock_data lock_data;
 	
-	//__int64u all_benchmarks_total_sent_fail_count;
-	__int64u syscal_err_count;
+	int tcp_connection_count;
+	int total_retry_tcp_connection_count;
 
-	struct tcp_stat tcp;
+	struct BenchmarkRound round;
+};
+
+struct synchronization_data
+{
+	//pthread_mutex_t mutex;
+	//pthread_cond_t cond;
+	//int lock_in_progress;
+	//int reset_static_after_lock;
+};
+
+struct app_cmd
+{
+	int quit_app;
 };
 
 struct App_Data
@@ -249,6 +320,8 @@ struct App_Data
 	struct App_Config appcfg;
 	struct tcp_listener_holders listeners;
 	struct statistics stat;
+	struct synchronization_data sync;
+	struct app_cmd cmd;
 };
 
 #endif
@@ -355,7 +428,8 @@ int _connect_tcp( struct tcp_listener * src_tl )
 			continue;
 		}
 		src_tl->tcp_connection_established = 1;
-		( ( struct App_Data * )src_tl->tlcfg.m.m.temp_data._g )->stat.tcp.tcp_connection_count++;
+
+		_g->stat.tcp_connection_count++;
 		SYS_ALIVE_CHECK();
 
 		return 1;
@@ -423,7 +497,7 @@ void * tcp_listener_runner( void * src_tl )
 	}
 	if ( pthread == NULL )
 	{
-		_g->stat.syscal_err_count++;
+		_g->stat.round.syscal_err_count++;
 		return NULL;
 	}
 
@@ -435,7 +509,7 @@ void * tcp_listener_runner( void * src_tl )
 	}
 
 	char buffer[ BUFFER_SIZE ];
-	ssize_t bytes_read;
+	ssize_t bytes_received;
 	fd_set readfds; // Set of socket descriptors
 
 	int config_changes = 0;
@@ -477,16 +551,40 @@ void * tcp_listener_runner( void * src_tl )
 			FD_SET( tl->tcp_client_connection_sockfd , &readfds );
 
 			tnow = time( NULL );
-			if ( difftime( tnow , _g->stat.tcp.t_tcp_throughput ) >= 1.0 )
+
+			// tcp
+			if ( difftime( tnow , _g->stat.round.tcp_1_sec.t_tcp_throughput ) >= 1.0 )
 			{
-				if ( _g->stat.tcp.t_tcp_throughput > 0 )
+				if ( _g->stat.round.tcp_1_sec.t_tcp_throughput > 0 )
 				{
-					_g->stat.tcp.tcp_get_count_throughput = _g->stat.tcp.calc_throughput_tcp_get_count;
-					_g->stat.tcp.tcp_get_byte_throughput = _g->stat.tcp.calc_throughput_tcp_get_bytes;
+					_g->stat.round.tcp_1_sec.tcp_get_count_throughput = _g->stat.round.tcp_1_sec.calc_throughput_tcp_get_count;
+					_g->stat.round.tcp_1_sec.tcp_get_byte_throughput = _g->stat.round.tcp_1_sec.calc_throughput_tcp_get_bytes;
 				}
-				_g->stat.tcp.t_tcp_throughput = tnow;
-				_g->stat.tcp.calc_throughput_tcp_get_count = 0;
-				_g->stat.tcp.calc_throughput_tcp_get_bytes = 0;
+				_g->stat.round.tcp_1_sec.t_tcp_throughput = tnow;
+				_g->stat.round.tcp_1_sec.calc_throughput_tcp_get_count = 0;
+				_g->stat.round.tcp_1_sec.calc_throughput_tcp_get_bytes = 0;
+			}
+			if ( difftime( tnow , _g->stat.round.tcp_10_sec.t_tcp_throughput ) >= 10.0 )
+			{
+				if ( _g->stat.round.tcp_10_sec.t_tcp_throughput > 0 )
+				{
+					_g->stat.round.tcp_10_sec.tcp_get_count_throughput = _g->stat.round.tcp_10_sec.calc_throughput_tcp_get_count;
+					_g->stat.round.tcp_10_sec.tcp_get_byte_throughput = _g->stat.round.tcp_10_sec.calc_throughput_tcp_get_bytes;
+				}
+				_g->stat.round.tcp_10_sec.t_tcp_throughput = tnow;
+				_g->stat.round.tcp_10_sec.calc_throughput_tcp_get_count = 0;
+				_g->stat.round.tcp_10_sec.calc_throughput_tcp_get_bytes = 0;
+			}
+			if ( difftime( tnow , _g->stat.round.tcp_40_sec.t_tcp_throughput ) >= 40.0 )
+			{
+				if ( _g->stat.round.tcp_40_sec.t_tcp_throughput > 0 )
+				{
+					_g->stat.round.tcp_40_sec.tcp_get_count_throughput = _g->stat.round.tcp_40_sec.calc_throughput_tcp_get_count;
+					_g->stat.round.tcp_40_sec.tcp_get_byte_throughput = _g->stat.round.tcp_40_sec.calc_throughput_tcp_get_bytes;
+				}
+				_g->stat.round.tcp_40_sec.t_tcp_throughput = tnow;
+				_g->stat.round.tcp_40_sec.calc_throughput_tcp_get_count = 0;
+				_g->stat.round.tcp_40_sec.calc_throughput_tcp_get_bytes = 0;
 			}
 
 			struct timeval timeout; //// Set timeout (e.g., 5 seconds)
@@ -507,14 +605,17 @@ void * tcp_listener_runner( void * src_tl )
 
 			if ( FD_ISSET( tl->tcp_client_connection_sockfd , &readfds ) )
 			{
-				bytes_read = recv( tl->tcp_client_connection_sockfd , buffer , BUFFER_SIZE - 1 , 0 );
-				if ( bytes_read > 0 )
+				bytes_received = recv( tl->tcp_client_connection_sockfd , buffer , BUFFER_SIZE - 1 , 0 );
+				if ( bytes_received > 0 )
 				{
-					_g->stat.tcp.total_tcp_get_count++;
-					_g->stat.tcp.total_tcp_get_byte += bytes_read;
-
-					_g->stat.tcp.calc_throughput_tcp_get_count++;
-					_g->stat.tcp.calc_throughput_tcp_get_bytes += bytes_read;
+					_g->stat.round.tcp.total_tcp_get_count++;
+					_g->stat.round.tcp.total_tcp_get_byte += bytes_received;
+					_g->stat.round.tcp_1_sec.calc_throughput_tcp_get_count++;
+					_g->stat.round.tcp_1_sec.calc_throughput_tcp_get_bytes += bytes_received;
+					_g->stat.round.tcp_10_sec.calc_throughput_tcp_get_count++;
+					_g->stat.round.tcp_10_sec.calc_throughput_tcp_get_bytes += bytes_received;
+					_g->stat.round.tcp_40_sec.calc_throughput_tcp_get_count++;
+					_g->stat.round.tcp_40_sec.calc_throughput_tcp_get_bytes += bytes_received;
 				}
 			}
 
@@ -544,7 +645,7 @@ void * tcp_listener_runner( void * src_tl )
 		case 1:
 		{
 			//_close_socket( &src_tl->tcp_sockfd );
-			_g->stat.syscal_err_count++;
+			_g->stat.round.syscal_err_count++;
 		}
 	M_V_END_RET
 	return NULL;
@@ -679,7 +780,7 @@ void apply_new_tcp_listener_config( struct App_Data * _g , struct tcp_listener *
 		case 2: {}
 		case 1:
 		{
-			_g->stat.syscal_err_count++;
+			_g->stat.round.syscal_err_count++;
 		}
 	M_V_END_RET
 }
@@ -791,7 +892,7 @@ void add_new_tcp_listener( struct App_Data * _g , struct tcp_listener_cfg * new_
 	BEGIN_RET
 		case 3: DAC( _g->listeners.tl_holders );
 		case 2: DAC( _g->listeners.tl_holders_masks );
-		case 1: _g->stat.syscal_err_count++;
+		case 1: _g->stat.round.syscal_err_count++;
 	M_V_END_RET
 } // TODO . return value
 
@@ -859,7 +960,7 @@ void * version_checker( void * app_data )
 	BEGIN_RET
 		case 3: {}
 		case 2: {}
-		case 1: _g->stat.syscal_err_count++;
+		case 1: _g->stat.round.syscal_err_count++;
 	M_V_END_RET
 	return VOID_RET;
 }
@@ -939,6 +1040,10 @@ void * config_loader( void * app_data )
 					CFG_ELEM_I( hi_frequent_log_interval_sec );
 					CFG_ELEM_I( refresh_variable_from_scratch );
 					CFG_ELEM_I( stat_referesh_interval_sec );
+
+					CFG_ELEM_I( synchronization_min_wait );
+					CFG_ELEM_I( synchronization_max_roundup );
+					CFG_ELEM_I( show_line_hit );
 
 #undef CFG_ELEM_I
 #undef CFG_ELEM_STR
@@ -1064,6 +1169,10 @@ void * config_loader( void * app_data )
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.hi_frequent_log_interval_sec == _g->appcfg._prev_general_config->c.c.hi_frequent_log_interval_sec );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.refresh_variable_from_scratch == _g->appcfg._prev_general_config->c.c.refresh_variable_from_scratch );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.stat_referesh_interval_sec == _g->appcfg._prev_general_config->c.c.stat_referesh_interval_sec );
+
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_min_wait == _g->appcfg._prev_general_config->c.c.synchronization_min_wait );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_max_roundup == _g->appcfg._prev_general_config->c.c.synchronization_max_roundup );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.show_line_hit == _g->appcfg._prev_general_config->c.c.show_line_hit );
 				}
 			}
 
@@ -1239,9 +1348,109 @@ void * tcp_listener_manager( void * app_data )
 
 #endif
 
-#ifndef section_stat
+#ifndef section_staff_thread
 
-pthread_mutex_t data_lock;
+void * sync_thread( void * pdata ) // pause app until moment other app exist
+{
+	INIT_BREAKABLE_FXN();
+	struct App_Data * _g = ( struct App_Data * )pdata;
+	//if ( _g->sync.lock_in_progress ) return NULL;
+
+	struct timespec now , next_round_time;
+	clock_gettime( CLOCK_REALTIME , &now );
+
+	//pthread_mutex_lock( &_g->sync.mutex );
+	round_up_to_next_interval( &now , _g->appcfg._general_config->c.c.synchronization_min_wait , _g->appcfg._general_config->c.c.synchronization_max_roundup , &next_round_time );
+	//_g->sync.lock_in_progress = 1;
+	//pthread_mutex_unlock( &_g->sync.mutex );
+
+	//next_round_time.tv_sec += 5; // bridge start later
+
+	format_clock_time( &next_round_time , __custom_message , sizeof( __custom_message ) );
+	_DIRECT_ECHO( "Will wake at %s" , __custom_message );
+
+	////pthread_mutex_lock(&_g->sync.mutex);
+	//// First thread sets the global target time
+	////if (next_round_time.tv_sec == 0) {
+	////	next_round_time = target;
+	////}
+	////pthread_mutex_unlock(&_g->sync.mutex);
+
+	// Sleep until that global target time
+	clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
+	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+
+	//pthread_mutex_lock( &_g->sync.mutex );
+	//_g->sync.lock_in_progress = 0;
+	//_g->sync.reset_static_after_lock = 1;
+	//pthread_cond_signal( &_g->sync.cond );
+	////pthread_cond_broadcast( &_g->sync.cond );
+	//pthread_mutex_unlock( &_g->sync.mutex );
+
+	//clock_gettime( CLOCK_REALTIME , &now );
+	//_DIRECT_ECHO( "waked up" );
+	//_DIRECT_ECHO( "" );
+
+	return NULL;
+}
+
+void * input_thread( void * pdata )
+{
+	INIT_BREAKABLE_FXN();
+	struct App_Data * _g = ( struct App_Data * )pdata;
+	while ( 1 )
+	{
+		pthread_mutex_lock( &_g->stat.lock_data.lock );
+
+		werase( _g->stat.input_win );
+		box( _g->stat.input_win , 0 , 0 );
+
+		pthread_mutex_unlock( &_g->stat.lock_data.lock );
+
+		// Enable echo and get input
+		echo();
+		curs_set( 1 );
+		wmove( _g->stat.input_win , 1 , 1 );
+		wprintw( _g->stat.input_win , "cmd(quit,sync): " );
+		wrefresh( _g->stat.input_win );
+		wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
+		noecho();
+		curs_set( 0 );
+
+		pthread_mutex_lock( &_g->stat.lock_data.lock );
+		bool boutput_command = 1;
+
+		if ( stricmp( _g->stat.input_buffer , "quit" ) == 0 )
+		{
+			_g->cmd.quit_app = 1;
+			break;
+		}
+		else if ( stricmp( _g->stat.input_buffer , "sync" ) == 0 )
+		{
+			boutput_command = 0;
+			pthread_t thread;
+			if ( pthread_create( &thread , NULL , sync_thread , pdata ) != 0 )
+			{
+				_ECHO( "pthread_create" );
+			}
+			//break;
+		}
+
+
+		if ( boutput_command )
+		{
+			strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
+			_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
+		}
+
+		pthread_mutex_unlock( &_g->stat.lock_data.lock );
+	}
+	return NULL;
+}
+
+#endif
+
+#ifndef section_stat
 
 // Centered cell printing
 void print_cell( WINDOW * win , int y , int x , int width , const char * text )
@@ -1258,7 +1467,7 @@ void print_cell( WINDOW * win , int y , int x , int width , const char * text )
 // Drawing the full table
 void draw_table( struct App_Data * _g )
 {
-	char * header_border = "+----------+--------------------+";
+	char * header_border = "+----------+--------------------------------------------------------------------------------+";
 
 	int cell_w = strlen( header_border ) / 2;
 	int start_x = 2;
@@ -1266,6 +1475,13 @@ void draw_table( struct App_Data * _g )
 
 	// Top border
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+
+	char buf[ 640 ];
+	char buf2[ 64 ];
+	struct timespec now;
+	clock_gettime( CLOCK_REALTIME , &now );
+	format_clock_time( &now , buf , sizeof( buf ) );
+	snprintf( buf2 , sizeof( buf2 ) , "PB Metric-%s" , buf );
 
 	// Header
 	wattron( MAIN_WIN , COLOR_PAIR( 1 ) );
@@ -1281,8 +1497,6 @@ void draw_table( struct App_Data * _g )
 
 	// Data rows
 	wattron( MAIN_WIN , COLOR_PAIR( 2 ) );
-	char buf[ 64 ];
-	char buf2[ 64 ];
 
 	setlocale( LC_NUMERIC , "en_US.UTF-8" );
 
@@ -1306,47 +1520,109 @@ void draw_table( struct App_Data * _g )
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "failure_count" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().syscal_err_count , 2 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.syscal_err_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp conn count" );
-	snprintf( buf , sizeof( buf ) , "%d" , MAIN_STAT().tcp.tcp_connection_count );
+	snprintf( buf , sizeof( buf ) , "%d" , MAIN_STAT().tcp_connection_count );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
-	
 
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
+	if ( _g->appcfg._general_config && _g->appcfg._general_config->c.c.show_line_hit )
+	{
+		for ( int i = 0 ; i < FXN_HIT_COUNT ; i++ )
+		{
+			if ( __FXN_HIT[ i ][ 0 ] > 0 )
+			{
+				mvwprintw( MAIN_WIN , y , start_x , "|" );
+				snprintf( buf , sizeof( buf ) , "%d" , i ); // line
+				print_cell( MAIN_WIN , y , start_x + 1 , cell_w , buf ); // line
+				snprintf( buf , sizeof( buf ) , "%d " , __FXN_HIT[ i ][ 0 ] ); // hit count
+
+				for ( int k = 1 ; k < PC_COUNT ; k++ )
+				{
+					if ( __FXN_HIT[ i ][ k ] == 0 )
+					{
+						break;
+					}
+					snprintf( buf2 , sizeof( buf2 ) , ",%d" , __FXN_HIT[ i ][ k ] );
+					strcat( buf , buf2 );
+				}
+
+				mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+				print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+				mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+			}
+		}
+
+		mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+	}
+
+	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+
+
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP get" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().tcp.total_tcp_get_count , 2 , "" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp get" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp.total_tcp_get_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP get byte" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().tcp.total_tcp_get_byte , 2 , "B" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp get byte" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp.total_tcp_get_byte , 2 , "B" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	// 1 sec
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s tcp pps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_1_sec.tcp_get_count_throughput , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().tcp.tcp_get_count_throughput , 4 , "" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s tcp bps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_1_sec.tcp_get_byte_throughput , 4 , "B" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	// 10 sec
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp pps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_10_sec.tcp_get_count_throughput / 10 , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().tcp.tcp_get_byte_throughput , 4 , "B" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp bps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_10_sec.tcp_get_byte_throughput / 10 , 4 , "B" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	// 40 sec
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp pps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_40_sec.tcp_get_count_throughput / 40 , 4 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp bps" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp_40_sec.tcp_get_byte_throughput / 40 , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1379,55 +1655,16 @@ void * stats_thread( void * pdata )
 	{
 		//if ( CLOSE_APP_VAR() ) break; // keep track changes until app is down
 
-		pthread_mutex_lock( &data_lock );
+		pthread_mutex_lock( &_g->stat.lock_data.lock );
 
 		werase( _g->stat.main_win );
 		box( _g->stat.main_win , 0 , 0 );
 		draw_table( _g );
 		wrefresh( _g->stat.main_win );
 
-		pthread_mutex_unlock( &data_lock );
+		pthread_mutex_unlock( &_g->stat.lock_data.lock );
 
 		sleep( STAT_REFERESH_INTERVAL_SEC() );
-	}
-	return NULL;
-}
-
-// Input thread
-void * input_thread( void * pdata )
-{
-	struct App_Data * _g = ( struct App_Data * )pdata;
-	while ( 1 )
-	{
-		pthread_mutex_lock( &data_lock );
-
-		werase( _g->stat.input_win );
-		box( _g->stat.input_win , 0 , 0 );
-
-		pthread_mutex_unlock( &data_lock );
-
-		// Enable echo and get input
-		echo();
-		curs_set( 1 );
-		wmove( _g->stat.input_win , 1 , 1 );
-		wprintw( _g->stat.input_win , "cmd(quit to exit): " );
-		wrefresh( _g->stat.input_win );
-		wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
-		noecho();
-		curs_set( 0 );
-
-		pthread_mutex_lock( &data_lock );
-
-		if ( strcmp( _g->stat.input_buffer , "quit" ) == 0 )
-		{
-			_g->appcfg._general_config->c.c.close_app = 1;
-			break;
-		}
-
-		strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX - 1 );
-		_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
-
-		pthread_mutex_unlock( &data_lock );
 	}
 	return NULL;
 }
@@ -1463,7 +1700,7 @@ void init_windows( struct App_Data * _g )
 
 #endif
 
-#ifndef section_stderr
+#ifndef section_err
 
 #define BUF_SIZE 2048
 
@@ -1519,11 +1756,9 @@ void M_showMsg( const char * msg )
 
 #ifndef section_main
 
-int main()
+void init( struct App_Data * _g )
 {
-	INIT_BREAKABLE_FXN();
-	struct App_Data _g = { 0 };
-	__g = &_g;
+	//INIT_BREAKABLE_FXN();
 
 	// Initialize curses
 	initscr();
@@ -1536,25 +1771,37 @@ int main()
 	init_pair( 2 , COLOR_GREEN , COLOR_BLACK );  // Data
 	init_pair( 3 , COLOR_YELLOW , COLOR_BLACK ); // Last Command
 
-	pthread_mutex_init( &data_lock , NULL );
+	pthread_mutex_init( &_g->stat.lock_data.lock , NULL );
 
 	// Initial window creation
-	init_windows( &_g );
+	init_windows( _g );
+	init_bypass_stdout( _g );
 
-	init_bypass_stdout( &_g );
+	//pthread_mutex_init( &_g->sync.mutex , NULL );
+	//pthread_cond_init( &_g->sync.cond , NULL );
+}
+
+int main()
+{
+	INIT_BREAKABLE_FXN();
+	struct App_Data g = { 0 };
+	struct App_Data * _g = &g;
+	__g = _g;
+
+	init( _g );
 
 	pthread_t tid_stats , tid_input;
-	pthread_create( &tid_stats , NULL , stats_thread , ( void * )&_g );
-	pthread_create( &tid_input , NULL , input_thread , ( void * )&_g );
+	pthread_create( &tid_stats , NULL , stats_thread , ( void * )_g );
+	pthread_create( &tid_input , NULL , input_thread , ( void * )_g );
 
 	pthread_t trd_version_checker;
-	MM_BREAK_IF( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
+	MM_BREAK_IF( pthread_create( &trd_version_checker , NULL , version_checker , ( void * )_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	pthread_t trd_config_loader;
-	MM_BREAK_IF( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
+	MM_BREAK_IF( pthread_create( &trd_config_loader , NULL , config_loader , ( void * )_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	pthread_t trd_tcp_listener_manager;
-	MM_BREAK_IF( pthread_create( &trd_tcp_listener_manager , NULL , tcp_listener_manager , ( void * )&_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
+	MM_BREAK_IF( pthread_create( &trd_tcp_listener_manager , NULL , tcp_listener_manager , ( void * )_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	M_BREAK_IF( pthread_join( trd_tcp_listener_manager , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
 
@@ -1564,7 +1811,7 @@ int main()
 		case 1: {}
 		case 0:
 		{
-			__g->stat.syscal_err_count++;
+			__g->stat.round.syscal_err_count++;
 		}
 	M_V_END_RET
 	return 1;
