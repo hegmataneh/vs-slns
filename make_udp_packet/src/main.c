@@ -1488,7 +1488,7 @@ void * sync_thread( void * pdata )
 	//pthread_mutex_unlock( &_g->sync.mutex );
 
 	//clock_gettime( CLOCK_REALTIME , &now );
-	_DIRECT_ECHO( "waked up" );
+	//_DIRECT_ECHO( "waked up" );
 	_DIRECT_ECHO("");
 
 	return NULL;

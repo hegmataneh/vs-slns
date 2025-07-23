@@ -391,35 +391,6 @@ int _connect_tcp( struct tcp_listener * src_tl )
 			continue;
 		}
 
-		//do
-		//{
-		//	if ( src_tl->tl_trds->alc_thread->do_close_thread )
-		//	{
-		//		break;
-		//	}
-		//	fd_set readfds;
-		//	FD_ZERO( &readfds );
-		//	FD_SET( src_tl->tcp_server_listener_sockfd , &readfds );
-
-		//	struct timeval tv;
-		//	tv.tv_sec = 1;
-		//	tv.tv_usec = 0;
-
-		//	int ret = select( src_tl->tcp_server_listener_sockfd + 1 , &readfds , NULL , NULL , &tv );
-		//	if ( ret <= 0 )
-		//	{
-		//		continue;
-		//	}
-		//	else
-		//	{
-		//		break;
-		//	}
-		//} while( 1 );
-		//if ( src_tl->tl_trds->alc_thread->do_close_thread )
-		//{
-		//	break;
-		//}
-
 		if ( ( src_tl->tcp_client_connection_sockfd = accept( src_tl->tcp_server_listener_sockfd , ( struct sockaddr * )&server_addr , ( socklen_t * )&addrlen ) ) < 0 )
 		{
 			_VERBOSE_ECHO( "accept error" );
@@ -512,6 +483,8 @@ void * tcp_listener_runner( void * src_tl )
 	ssize_t bytes_received;
 	fd_set readfds; // Set of socket descriptors
 
+	int socket_error_tolerance_count = 0; // restart socket after many error accur
+
 	int config_changes = 0;
 	pthread->base_config_change_applied = 0;
 	do
@@ -596,12 +569,68 @@ void * tcp_listener_runner( void * src_tl )
 
 			if ( ( activity < 0 ) && ( errno != EINTR ) )
 			{
+				int error = 0;
+				socklen_t errlen = sizeof( error );
+				getsockopt( tl->tcp_client_connection_sockfd , SOL_SOCKET , SO_ERROR , &error , &errlen );
+				if ( error != 0 )
+				{
+					_VERBOSE_ECHO( "Socket error: %d\n" , error );
+				}
+
+				if ( ++socket_error_tolerance_count > 3 )
+				{
+					socket_error_tolerance_count = 0;
+					for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
+					{
+						if ( _g->listeners.tl_holders_masks[ i ] )
+						{
+							if ( _g->listeners.tl_holders[ i ].alc_tl->tcp_connection_established ) // all the connected udp stoped or die so restart them
+							{
+								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+								{
+									_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect = 1;
+									break;
+								}
+							}
+						}
+					}
+				}
+
 				continue;
 			}
 			if ( activity == 0 )
 			{
+				int error = 0;
+				socklen_t errlen = sizeof( error );
+				getsockopt( tl->tcp_client_connection_sockfd , SOL_SOCKET , SO_ERROR , &error , &errlen );
+				if ( error != 0 )
+				{
+					_VERBOSE_ECHO( "Socket error: %d\n" , error );
+				}
+
+				if ( ++socket_error_tolerance_count > 3 )
+				{
+					socket_error_tolerance_count = 0;
+					for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
+					{
+						if ( _g->listeners.tl_holders_masks[ i ] )
+						{
+							if ( _g->listeners.tl_holders[ i ].alc_tl->tcp_connection_established ) // all the connected udp stoped or die so restart them
+							{
+								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+								{
+									_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect = 1;
+									break;
+								}
+							}
+						}
+					}
+				}
+
 				continue;
 			}
+
+			_g->stat.round.tcp.continuously_unsuccessful_select_on_open_port_count = 0;
 
 			if ( FD_ISSET( tl->tcp_client_connection_sockfd , &readfds ) )
 			{
@@ -1389,7 +1418,7 @@ void * sync_thread( void * pdata ) // pause app until moment other app exist
 
 	//clock_gettime( CLOCK_REALTIME , &now );
 	//_DIRECT_ECHO( "waked up" );
-	//_DIRECT_ECHO( "" );
+	_DIRECT_ECHO( "" );
 
 	return NULL;
 }
@@ -1481,12 +1510,12 @@ void draw_table( struct App_Data * _g )
 	struct timespec now;
 	clock_gettime( CLOCK_REALTIME , &now );
 	format_clock_time( &now , buf , sizeof( buf ) );
-	snprintf( buf2 , sizeof( buf2 ) , "PB Metric-%s" , buf );
+	snprintf( buf2 , sizeof( buf2 ) , "TL Metric-%s" , buf );
 
 	// Header
 	wattron( MAIN_WIN , COLOR_PAIR( 1 ) );
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TL Metric" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , buf2 );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , "Value" );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1532,10 +1561,9 @@ void draw_table( struct App_Data * _g )
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
-
 	if ( _g->appcfg._general_config && _g->appcfg._general_config->c.c.show_line_hit )
 	{
+		mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 		for ( int i = 0 ; i < FXN_HIT_COUNT ; i++ )
 		{
 			if ( __FXN_HIT[ i ][ 0 ] > 0 )
@@ -1578,6 +1606,13 @@ void draw_table( struct App_Data * _g )
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp get byte" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp.total_tcp_get_byte , 2 , "B" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "contnu unsuces slct tcp" );
+	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.tcp.continuously_unsuccessful_select_on_open_port_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );

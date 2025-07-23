@@ -137,7 +137,6 @@ struct protocol_bridge_temp_data
 {
 	void * _g; // just point to the main g
 	int pcfg_changed; // in passive cfg and active cfg that in alive protocol_bridge, in both it means something changed
-	//int wcfg_stabled; // after change happened in action thread cfg must be stablesh before doing any action
 };
 
 struct protocol_bridge_cfg_0
@@ -202,21 +201,19 @@ struct bridges_thread_base
 {
 	int thread_is_created;
 	int do_close_thread; // command from outside to inside thread
-	pthread_mutex_t creation_cuncurrency_lock; // prevent multi bridge create thread concurrently
+	pthread_mutex_t creation_thread_race_cond; // prevent multi bridge create thread concurrently
+	
 	int start_working; // because udp port may start after thread started
+	pthread_mutex_t start_working_race_cond; // prevent multi bridge create thread concurrently
 };
 
 struct bridges_bottleneck_thread // one thread for send and receive
 {
-	struct bridges_thread_base base;
-	
 	pthread_t trd_id;
 };
 
 struct bridges_bidirection_thread // one thread for each direction
 {
-	struct bridges_thread_base base;
-
 	pthread_t income_trd_id;
 	pthread_t outgoing_trd_id;
 
@@ -225,8 +222,6 @@ struct bridges_bidirection_thread // one thread for each direction
 
 struct bridges_justIncoming_thread // one thread for send and receive
 {
-	struct bridges_thread_base base;
-
 	pthread_t trd_id;
 };
 
@@ -239,6 +234,7 @@ struct protocol_bridge_holders
 
 	int under_listen_udp_sockets_group_changed;
 
+	struct bridges_thread_base thread_base;
 	struct bridges_bottleneck_thread * bottleneck_thread;
 	struct bridges_bidirection_thread * bidirection_thread;
 	struct bridges_justIncoming_thread * justIncoming_thread;
@@ -463,28 +459,19 @@ void * thread_udp_connection_proc( void * src_pb )
 	MM_BREAK_IF( bind( pb->udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errGeneral , 1 , "bind sock error" );
 	pb->udp_connection_established = 1;
 
+	pthread_mutex_lock( &_g->bridges.thread_base.start_working_race_cond );
+	if ( pb->udp_connection_established && pb->tcp_connection_established )
+	{
+		_g->bridges.thread_base.start_working = 1;
+	}
+	pthread_mutex_unlock( &_g->bridges.thread_base.start_working_race_cond );
+	SYS_ALIVE_CHECK();
+
 	_g->stat.udp_connection_count++;
 	_g->stat.total_retry_udp_connection_count++;
 
 	_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
 
-	if ( _g->bridges.bidirection_thread )
-	{
-		_g->bridges.bidirection_thread->base.start_working = 1;
-		SYS_ALIVE_CHECK();
-	}
-	if ( _g->bridges.bottleneck_thread )
-	{
-		_g->bridges.bottleneck_thread->base.start_working = 1;
-		SYS_ALIVE_CHECK();
-	}
-	if ( _g->bridges.justIncoming_thread )
-	{
-		_g->bridges.justIncoming_thread->base.start_working = 1;
-		//SYS_ALIVE_CHECK();
-	}
-
-	//_g->bridges.pbs[ i ].counterpart_connection_establishment_count++; // one side connection established
 	if ( IF_VERBOSE_MODE_CONDITION() )
 	{
 		_ECHO( "inbound udp connected" );
@@ -499,10 +486,10 @@ void * thread_udp_connection_proc( void * src_pb )
 	return NULL; // Threads can return a value, but this example returns NULL
 }
 
-int _connect_tcp( struct protocol_bridge * src_pb )
+int _connect_tcp( struct protocol_bridge * pb )
 {
 	INIT_BREAKABLE_FXN();
-	struct App_Data * _g = ( struct App_Data * )src_pb->apcfg.m.m.temp_data._g;
+	struct App_Data * _g = ( struct App_Data * )pb->apcfg.m.m.temp_data._g;
 
 	while ( 1 )
 	{
@@ -511,18 +498,18 @@ int _connect_tcp( struct protocol_bridge * src_pb )
 		// TODO . close open socket first
 
 		// try to create TCP socket
-		MM_BREAK_IF( ( src_pb->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
+		MM_BREAK_IF( ( pb->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
 
 		struct sockaddr_in tcp_addr;
 		tcp_addr.sin_family = AF_INET;
-		tcp_addr.sin_port = htons( ( uint16_t )src_pb->apcfg.m.m.id.TCP_destination_port );
-		MM_BREAK_IF( inet_pton( AF_INET , src_pb->apcfg.m.m.id.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
+		tcp_addr.sin_port = htons( ( uint16_t )pb->apcfg.m.m.id.TCP_destination_port );
+		MM_BREAK_IF( inet_pton( AF_INET , pb->apcfg.m.m.id.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
 
-		if ( connect( src_pb->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
+		if ( connect( pb->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
 		{
 			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
 			{
-				_close_socket( &src_pb->tcp_sockfd );
+				_close_socket( &pb->tcp_sockfd );
 				sleep( 2 ); // sec
 				continue;
 			}
@@ -531,9 +518,18 @@ int _connect_tcp( struct protocol_bridge * src_pb )
 		}
 		else
 		{
-			src_pb->tcp_connection_established = 1;
+			pb->tcp_connection_established = 1;
 			_g->stat.tcp_connection_count++;
 			_g->stat.total_retry_tcp_connection_count++;
+
+			pthread_mutex_lock( &_g->bridges.thread_base.start_working_race_cond );
+			if ( pb->udp_connection_established && pb->tcp_connection_established )
+			{
+				_g->bridges.thread_base.start_working = 1;
+			}
+			pthread_mutex_unlock( &_g->bridges.thread_base.start_working_race_cond );
+			SYS_ALIVE_CHECK();
+
 			if ( IF_VERBOSE_MODE_CONDITION() )
 			{
 				_ECHO( "outbound tcp connected" );
@@ -548,7 +544,7 @@ int _connect_tcp( struct protocol_bridge * src_pb )
 		case 2: {}
 		case 1:
 		{
-			_close_socket( &src_pb->tcp_sockfd );
+			_close_socket( &pb->tcp_sockfd );
 			_g->stat.round.syscal_err_count++;
 		}
 	M_V_END_RET
@@ -600,9 +596,9 @@ void * bottleneck_thread_proc( void * src_g )
 
 	time_t tnow = 0;
 
-	while ( !_g->bridges.justIncoming_thread->base.start_working )
+	while ( !_g->bridges.thread_base.start_working )
 	{
-		if ( _g->bridges.justIncoming_thread->base.do_close_thread )
+		if ( _g->bridges.thread_base.do_close_thread )
 		{
 			break;
 		}
@@ -615,7 +611,7 @@ void * bottleneck_thread_proc( void * src_g )
 	do
 	{
 		SYS_ALIVE_CHECK();
-		if ( _g->bridges.bottleneck_thread->base.do_close_thread )
+		if ( _g->bridges.thread_base.do_close_thread )
 		{
 			break;
 		}
@@ -674,7 +670,7 @@ void * bottleneck_thread_proc( void * src_g )
 			//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 			//}
 
-			if ( _g->bridges.bottleneck_thread->base.do_close_thread )
+			if ( _g->bridges.thread_base.do_close_thread )
 			{
 				break;
 			}
@@ -700,7 +696,10 @@ void * bottleneck_thread_proc( void * src_g )
 				int error = 0;
 				socklen_t errlen = sizeof( error );
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
-				_ECHO( "Socket error: %d\n" , error );
+				if ( error != 0 )
+				{
+					_ECHO( "Socket error: %d\n" , error );
+				}
 
 				if ( ++socket_error_tolerance_count > 3 )
 				{
@@ -730,7 +729,10 @@ void * bottleneck_thread_proc( void * src_g )
 				int error = 0;
 				socklen_t errlen = sizeof( error );
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
-				_ECHO( "Socket error: %d\n" , error );
+				if ( error != 0 )
+				{
+					_ECHO( "Socket error: %d\n" , error );
+				}
 
 				if ( ++socket_error_tolerance_count > 3 )
 				{
@@ -907,13 +909,22 @@ void * income_thread_proc( void * src_g )
 
 	time_t tnow = 0;
 
+	while ( !_g->bridges.thread_base.start_working )
+	{
+		if ( _g->bridges.thread_base.do_close_thread )
+		{
+			break;
+		}
+		sleep( 1 );
+	}
+
 	int socket_error_tolerance_count = 0; // restart socket after many error accur
 
 	int config_changes = 0;
 	do
 	{
 		SYS_ALIVE_CHECK();
-		if ( _g->bridges.bidirection_thread->base.do_close_thread )
+		if ( _g->bridges.thread_base.do_close_thread )
 		{
 			break;
 		}
@@ -971,7 +982,7 @@ void * income_thread_proc( void * src_g )
 			//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 			//}
 
-			if ( _g->bridges.bidirection_thread->base.do_close_thread )
+			if ( _g->bridges.thread_base.do_close_thread )
 			{
 				break;
 			}
@@ -995,7 +1006,10 @@ void * income_thread_proc( void * src_g )
 				int error = 0;
 				socklen_t errlen = sizeof( error );
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
-				_ECHO( "Socket error: %d\n" , error );
+				if ( error != 0 )
+				{
+					_ECHO( "Socket error: %d\n" , error );
+				}
 
 				continue;
 			}
@@ -1006,7 +1020,10 @@ void * income_thread_proc( void * src_g )
 				int error = 0;
 				socklen_t errlen = sizeof( error );
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
-				_ECHO( "Socket error: %d\n" , error );
+				if ( error != 0 )
+				{
+					_ECHO( "Socket error: %d\n" , error );
+				}
 
 				if ( ++socket_error_tolerance_count > 3 )
 				{
@@ -1153,7 +1170,7 @@ void * outgoing_thread_proc( void * src_g )
 		//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 		//}
 
-		if ( _g->bridges.bottleneck_thread->base.do_close_thread )
+		if ( _g->bridges.thread_base.do_close_thread )
 		{
 			break;
 		}
@@ -1251,9 +1268,9 @@ void * justIncoming_thread_proc( void * src_g )
 
 	//SYS_ALIVE_CHECK();
 
-	while ( !_g->bridges.justIncoming_thread->base.start_working )
+	while ( !_g->bridges.thread_base.start_working )
 	{
-		if ( _g->bridges.justIncoming_thread->base.do_close_thread )
+		if ( _g->bridges.thread_base.do_close_thread )
 		{
 			break;
 		}
@@ -1270,7 +1287,7 @@ void * justIncoming_thread_proc( void * src_g )
 	do
 	{
 		//SYS_ALIVE_CHECK();
-		if ( _g->bridges.justIncoming_thread->base.do_close_thread )
+		if ( _g->bridges.thread_base.do_close_thread )
 		{
 			break;
 		}
@@ -1334,7 +1351,7 @@ void * justIncoming_thread_proc( void * src_g )
 
 			//SYS_ALIVE_CHECK();
 
-			if ( _g->bridges.justIncoming_thread->base.do_close_thread )
+			if ( _g->bridges.thread_base.do_close_thread )
 			{
 				break;
 			}
@@ -1358,7 +1375,10 @@ void * justIncoming_thread_proc( void * src_g )
 				int error = 0;
 				socklen_t errlen = sizeof( error );
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
-				_VERBOSE_ECHO( "Socket error: %d\n" , error );
+				if ( error != 0 )
+				{
+					_VERBOSE_ECHO( "Socket error: %d\n" , error );
+				}
 
 				if ( ++socket_error_tolerance_count > 3 )
 				{
@@ -1549,13 +1569,13 @@ void * protocol_bridge_runner( void * src_pb )
 	{
 		if ( _g->bridges.bottleneck_thread != NULL )
 		{
-			pthread_mutex_lock( &_g->bridges.bottleneck_thread->base.creation_cuncurrency_lock );
-			if ( !_g->bridges.bottleneck_thread->base.thread_is_created )
+			pthread_mutex_lock( &_g->bridges.thread_base.creation_thread_race_cond );
+			if ( !_g->bridges.thread_base.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &_g->bridges.bottleneck_thread->trd_id , NULL , bottleneck_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-				_g->bridges.bottleneck_thread->base.thread_is_created = 1;
+				_g->bridges.thread_base.thread_is_created = 1;
 			}
-			pthread_mutex_unlock( &_g->bridges.bottleneck_thread->base.creation_cuncurrency_lock );
+			pthread_mutex_unlock( &_g->bridges.thread_base.creation_thread_race_cond );
 		}
 	}
 
@@ -1563,15 +1583,15 @@ void * protocol_bridge_runner( void * src_pb )
 	{
 		if ( _g->bridges.bidirection_thread != NULL )
 		{
-			pthread_mutex_lock( &_g->bridges.bidirection_thread->base.creation_cuncurrency_lock );
-			if ( !_g->bridges.bidirection_thread->base.thread_is_created )
+			pthread_mutex_lock( &_g->bridges.thread_base.creation_thread_race_cond );
+			if ( !_g->bridges.thread_base.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->income_trd_id , NULL , income_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 				MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->outgoing_trd_id , NULL , outgoing_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 
-				_g->bridges.bidirection_thread->base.thread_is_created = 1;
+				_g->bridges.thread_base.thread_is_created = 1;
 			}
-			pthread_mutex_unlock( &_g->bridges.bidirection_thread->base.creation_cuncurrency_lock );
+			pthread_mutex_unlock( &_g->bridges.thread_base.creation_thread_race_cond );
 		}
 	}
 
@@ -1579,13 +1599,13 @@ void * protocol_bridge_runner( void * src_pb )
 	{
 		if ( _g->bridges.justIncoming_thread != NULL )
 		{
-			pthread_mutex_lock( &_g->bridges.justIncoming_thread->base.creation_cuncurrency_lock );
-			if ( !_g->bridges.justIncoming_thread->base.thread_is_created )
+			pthread_mutex_lock( &_g->bridges.thread_base.creation_thread_race_cond );
+			if ( !_g->bridges.thread_base.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &_g->bridges.justIncoming_thread->trd_id , NULL , justIncoming_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-				_g->bridges.justIncoming_thread->base.thread_is_created = 1;
+				_g->bridges.thread_base.thread_is_created = 1;
 			}
-			pthread_mutex_unlock( &_g->bridges.justIncoming_thread->base.creation_cuncurrency_lock );
+			pthread_mutex_unlock( &_g->bridges.thread_base.creation_thread_race_cond );
 		}
 	}
 
@@ -1781,7 +1801,6 @@ void apply_new_protocol_bridge_config( struct App_Data * _g , struct protocol_br
 	
 	// when we arrive at this point we sure that somethings is changed
 	memcpy( &pb->apcfg , new_pcfg , sizeof( struct protocol_bridge_cfg ) );
-	//pwave->awcfg.m.m.temp_data.wcfg_stabled = 1;
 	new_pcfg->m.m.temp_data.pcfg_changed = 0;
 	// Set every threads that their state must change
 	for ( int i = 0 ; i < pb->pb_trds_masks_count ; i++ )
@@ -2319,19 +2338,22 @@ void * protocol_bridge_manager( void * app_data )
 	{
 		_g->bridges.bottleneck_thread = NEW( struct bridges_bottleneck_thread );
 		MEMSET_ZERO( _g->bridges.bottleneck_thread , struct bridges_bottleneck_thread , 1 );
-		pthread_mutex_init( &_g->bridges.bottleneck_thread->base.creation_cuncurrency_lock , NULL );
+		pthread_mutex_init( &_g->bridges.thread_base.creation_thread_race_cond , NULL );
+		pthread_mutex_init( &_g->bridges.thread_base.start_working_race_cond , NULL );
 	}
 	else if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "bidirection" ) == 0 )
 	{
 		_g->bridges.bidirection_thread = NEW( struct bridges_bidirection_thread );
 		MEMSET_ZERO( _g->bridges.bidirection_thread , struct bridges_bidirection_thread , 1 );
 		queue_init( &_g->bridges.bidirection_thread->queue );
+		pthread_mutex_init( &_g->bridges.thread_base.start_working_race_cond , NULL );
 	}
 	else if ( strcmp( _g->appcfg._general_config->c.c.thread_handler_type , "justIncoming" ) == 0 )
 	{
 		_g->bridges.justIncoming_thread = NEW( struct bridges_justIncoming_thread );
 		MEMSET_ZERO( _g->bridges.justIncoming_thread , struct bridges_justIncoming_thread , 1 );
-		pthread_mutex_init( &_g->bridges.justIncoming_thread->base.creation_cuncurrency_lock , NULL );
+		pthread_mutex_init( &_g->bridges.thread_base.creation_thread_race_cond , NULL );
+		pthread_mutex_init( &_g->bridges.thread_base.start_working_race_cond , NULL );
 	}
 
 	while ( 1 )
@@ -2437,7 +2459,7 @@ void * sync_thread( void * pdata ) // pause app until moment other app exist
 	//pthread_mutex_unlock( &_g->sync.mutex );
 
 	//clock_gettime( CLOCK_REALTIME , &now );
-	_DIRECT_ECHO( "waked up" );
+	//_DIRECT_ECHO( "waked up" );
 	_DIRECT_ECHO( "" );
 
 	return NULL;
