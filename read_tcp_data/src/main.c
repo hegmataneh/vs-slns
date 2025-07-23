@@ -39,6 +39,8 @@
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
 #define CLOSE_APP_VAR() ( _g->cmd.quit_app )
 
+#define RETRY_UNEXPECTED_WAIT_FOR_SOCK() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.retry_unexpected_wait_for_sock : 3 )
+
 #define FXN_HIT_COUNT 5000
 #define PC_COUNT 10 // first for hit count and last alwayz zero
 
@@ -88,6 +90,7 @@ struct Global_Config_0
 	int synchronization_min_wait;
 	int synchronization_max_roundup;
 	int show_line_hit;
+	int retry_unexpected_wait_for_sock;
 };
 
 struct Global_Config_n
@@ -175,7 +178,7 @@ struct tcp_listener
 	int tcp_client_connection_sockfd;
 	int tcp_connection_established; // tcp connection established
 
-	int retry_to_connect;
+	int retry_to_connect_tcp;
 
 	struct tcp_listener_thread_holder * tl_trds; // tcp_listener threads . in protocol listener app must be one
 	int * tl_trds_masks;  // each int represent thread is valid
@@ -271,7 +274,9 @@ struct statistics_lock_data
 struct BenchmarkRound
 {
 	// err
-	__int64u all_benchmarks_total_fail_count;
+	int continuously_unsuccessful_receive_error;
+	int total_unsuccessful_receive_error;
+
 	__int64u syscal_err_count;
 
 	struct tcp_stat_1_sec tcp_1_sec;
@@ -401,6 +406,7 @@ int _connect_tcp( struct tcp_listener * src_tl )
 		src_tl->tcp_connection_established = 1;
 
 		_g->stat.tcp_connection_count++;
+		_g->stat.total_retry_tcp_connection_count++;
 		SYS_ALIVE_CHECK();
 
 		return 1;
@@ -426,6 +432,15 @@ void * thread_tcp_connection_proc( void * src_tl )
 		_ECHO( "try to connect outbound tcp connection" );
 	}
 
+	if ( tl->tcp_connection_established )
+	{
+		SYS_ALIVE_CHECK();
+		_close_socket( &tl->tcp_client_connection_sockfd );
+		_close_socket( &tl->tcp_server_listener_sockfd );
+		tl->tcp_connection_established = 0;
+		_g->stat.tcp_connection_count--;
+	}
+
 	if ( _connect_tcp( tl ) == 0 )
 	{
 
@@ -440,7 +455,7 @@ void * thread_tcp_connection_proc( void * src_tl )
 	return NULL; // Threads can return a value, but this example returns NULL
 }
 
-#define BUFFER_SIZE 9999
+#define BUFFER_SIZE MAX_PACKET_SIZE
 
 void * tcp_listener_runner( void * src_tl )
 {
@@ -486,6 +501,8 @@ void * tcp_listener_runner( void * src_tl )
 	int socket_error_tolerance_count = 0; // restart socket after many error accur
 
 	int config_changes = 0;
+	int reconnect_tcp = 1;
+
 	pthread->base_config_change_applied = 0;
 	do
 	{
@@ -497,8 +514,12 @@ void * tcp_listener_runner( void * src_tl )
 
 		config_changes = 0;
 
-		pthread_t trd_tcp_connection;
-		MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , tl ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+		if ( reconnect_tcp )
+		{
+			pthread_t trd_tcp_connection;
+			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , tl ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+		}
+		reconnect_tcp = 0;
 
 		while ( 1 )
 		{
@@ -517,6 +538,12 @@ void * tcp_listener_runner( void * src_tl )
 			{
 				sleep( 1 );
 				continue;
+			}
+			if ( tl->retry_to_connect_tcp )
+			{
+				tl->retry_to_connect_tcp = 0;
+				reconnect_tcp = 1;
+				break;
 			}
 
 			// Clear the socket set
@@ -561,13 +588,13 @@ void * tcp_listener_runner( void * src_tl )
 			}
 
 			struct timeval timeout; //// Set timeout (e.g., 5 seconds)
-			timeout.tv_sec = 1;
+			timeout.tv_sec = ( socket_error_tolerance_count + 1 ) * 2;
 			timeout.tv_usec = 0;
 			SYS_ALIVE_CHECK();
 			int activity = select( tl->tcp_client_connection_sockfd + 1 , &readfds , NULL , NULL , &timeout );
 			SYS_ALIVE_CHECK();
 
-			if ( ( activity < 0 ) && ( errno != EINTR ) )
+			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 			{
 				int error = 0;
 				socklen_t errlen = sizeof( error );
@@ -577,7 +604,7 @@ void * tcp_listener_runner( void * src_tl )
 					_VERBOSE_ECHO( "Socket error: %d\n" , error );
 				}
 
-				if ( ++socket_error_tolerance_count > 3 )
+				if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
 				{
 					socket_error_tolerance_count = 0;
 					for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
@@ -588,7 +615,7 @@ void * tcp_listener_runner( void * src_tl )
 							{
 								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 								{
-									_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect = 1;
+									_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
 									break;
 								}
 							}
@@ -608,7 +635,7 @@ void * tcp_listener_runner( void * src_tl )
 					_VERBOSE_ECHO( "Socket error: %d\n" , error );
 				}
 
-				if ( ++socket_error_tolerance_count > 3 )
+				if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
 				{
 					socket_error_tolerance_count = 0;
 					for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
@@ -619,7 +646,7 @@ void * tcp_listener_runner( void * src_tl )
 							{
 								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 								{
-									_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect = 1;
+									_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
 									break;
 								}
 							}
@@ -635,6 +662,32 @@ void * tcp_listener_runner( void * src_tl )
 			if ( FD_ISSET( tl->tcp_client_connection_sockfd , &readfds ) )
 			{
 				bytes_received = recv( tl->tcp_client_connection_sockfd , buffer , BUFFER_SIZE - 1 , 0 );
+				if ( bytes_received <= 0 )
+				{
+					_g->stat.round.continuously_unsuccessful_receive_error++;
+					_g->stat.round.total_unsuccessful_receive_error++;
+
+					if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+					{
+						socket_error_tolerance_count = 0;
+						for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
+						{
+							if ( _g->listeners.tl_holders_masks[ i ] )
+							{
+								if ( _g->listeners.tl_holders[ i ].alc_tl->tcp_connection_established ) // all the connected udp stoped or die so restart them
+								{
+									//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+									{
+										_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
+										break;
+									}
+								}
+							}
+						}
+						continue;
+					}
+				}
+				_g->stat.round.continuously_unsuccessful_receive_error = 0;
 				if ( bytes_received > 0 )
 				{
 					_g->stat.round.tcp.total_tcp_get_count++;
@@ -652,7 +705,7 @@ void * tcp_listener_runner( void * src_tl )
 
 		//DAC( buffer );
 
-	} while ( config_changes );
+	} while ( config_changes || reconnect_tcp );
 
 	//_g->stat.sender_thread_count--;
 
@@ -1073,6 +1126,8 @@ void * config_loader( void * app_data )
 					CFG_ELEM_I( synchronization_min_wait );
 					CFG_ELEM_I( synchronization_max_roundup );
 					CFG_ELEM_I( show_line_hit );
+					CFG_ELEM_I( retry_unexpected_wait_for_sock );
+					
 
 #undef CFG_ELEM_I
 #undef CFG_ELEM_STR
@@ -1202,6 +1257,9 @@ void * config_loader( void * app_data )
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_min_wait == _g->appcfg._prev_general_config->c.c.synchronization_min_wait );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_max_roundup == _g->appcfg._prev_general_config->c.c.synchronization_max_roundup );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.show_line_hit == _g->appcfg._prev_general_config->c.c.show_line_hit );
+
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.retry_unexpected_wait_for_sock == _g->appcfg._prev_general_config->c.c.retry_unexpected_wait_for_sock );
+					
 				}
 			}
 
@@ -1548,15 +1606,22 @@ void draw_table( struct App_Data * _g )
 	///////////
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "failure_count" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "inp failure" );
+	snprintf( buf , sizeof( buf ) , "v%d Σv%d" , MAIN_STAT().round.continuously_unsuccessful_receive_error , MAIN_STAT().round.total_unsuccessful_receive_error );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "syscal_err" );
 	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round.syscal_err_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp conn count" );
-	snprintf( buf , sizeof( buf ) , "%d" , MAIN_STAT().tcp_connection_count );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP conn" );
+	snprintf( buf , sizeof( buf ) , "%d Σ%d" , MAIN_STAT().tcp_connection_count , MAIN_STAT().total_retry_tcp_connection_count );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
