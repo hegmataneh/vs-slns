@@ -1,5 +1,6 @@
 ﻿#ifndef section_include
 
+#define Uses_fcntl
 #define Uses_circbuf
 #define Uses_clock_gettime
 #define Uses_stricmp
@@ -45,6 +46,11 @@
 
 // TODO . maybe in middle of config change bug appear ad app unexpectedly quit but that sit is very rare
 #define RETRY_UNEXPECTED_WAIT_FOR_SOCK() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.retry_unexpected_wait_for_sock : 3 )
+
+
+#define NUMBER_IN_SHORT_FORM() ( _g->appcfg._general_config ? _g->appcfg._general_config->c.c.number_in_short_form : 1 )
+
+
 
 #define FXN_HIT_COUNT 5000
 #define PC_COUNT 10 // first for hit count and last alwayz zero
@@ -107,6 +113,7 @@ struct Global_Config_0
 	int synchronization_max_roundup;
 	int show_line_hit;
 	int retry_unexpected_wait_for_sock;
+	int number_in_short_form;
 };
 
 struct Global_Config_n
@@ -298,28 +305,6 @@ struct udp_stat_1_sec
 	//__int64u udp_get_byte_throughput;
 };
 
-//struct udp_stat_10_sec
-//{
-//	time_t t_udp_throughput;
-//
-//	__int64u calc_throughput_udp_get_count;
-//	__int64u calc_throughput_udp_get_bytes;
-//
-//	__int64u udp_get_count_throughput;
-//	__int64u udp_get_byte_throughput;
-//};
-//
-//struct udp_stat_40_sec
-//{
-//	time_t t_udp_throughput;
-//
-//	__int64u calc_throughput_udp_get_count;
-//	__int64u calc_throughput_udp_get_bytes;
-//
-//	__int64u udp_get_count_throughput;
-//	__int64u udp_get_byte_throughput;
-//};
-
 struct udp_stat
 {
 	__int64u total_udp_get_count;
@@ -338,28 +323,6 @@ struct tcp_stat_1_sec
 	//__int64u tcp_put_count_throughput;
 	//__int64u tcp_put_byte_throughput;
 };
-
-//struct tcp_stat_10_sec
-//{
-//	time_t t_tcp_throughput;
-//
-//	__int64u calc_throughput_tcp_put_count;
-//	__int64u calc_throughput_tcp_put_bytes;
-//
-//	__int64u tcp_put_count_throughput;
-//	__int64u tcp_put_byte_throughput;
-//};
-//
-//struct tcp_stat_40_sec
-//{
-//	time_t t_tcp_throughput;
-//
-//	__int64u calc_throughput_tcp_put_count;
-//	__int64u calc_throughput_tcp_put_bytes;
-//
-//	__int64u tcp_put_count_throughput;
-//	__int64u tcp_put_byte_throughput;
-//};
 
 struct tcp_stat
 {
@@ -388,6 +351,8 @@ struct BenchmarkRound_initable_memory // must be init with own function
 
 struct BenchmarkRound_zero_init_memory // can be memset to zero all byte
 {
+	struct timeval t_begin , t_end; // begin and end of on iteration of benchmarking
+
 	int continuously_unsuccessful_receive_error;
 	int total_unsuccessful_receive_error;
 
@@ -508,7 +473,10 @@ void * thread_udp_connection_proc( void * src_pb )
 	MM_BREAK_IF( ( pb->udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
 
 	int opt = 1;
-	MM_BREAK_IF( setsockopt( pb->udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &opt , sizeof( opt ) ) < 0 , errGeneral , 1 , "setsockopt error" );
+	MM_BREAK_IF( setsockopt( pb->udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &opt , sizeof( opt ) ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
+	//MM_BREAK_IF( setsockopt( pb->udp_sockfd , SOL_SOCKET , 0x0200 , &opt , sizeof( opt ) ) < 0 , errGeneral , 1 , "0x0200" );
+
+	fcntl(pb->udp_sockfd, F_SETFL, O_NONBLOCK);
 
 	struct sockaddr_in server_addr;
 	memset( &server_addr , 0 , sizeof( server_addr ) );
@@ -1595,12 +1563,12 @@ void * justIncoming_thread_proc( void * src_g )
 				break;
 			}
 
-			struct timeval timeout; // Set timeout (e.g., 5 seconds)
-			timeout.tv_sec = ( input_udp_socket_error_tolerance_count + 1 ) * 2;
-			timeout.tv_usec = 0;
+			//struct timeval timeout; // Set timeout (e.g., 5 seconds)
+			//timeout.tv_sec = ( input_udp_socket_error_tolerance_count + 1 ) * 2;
+			//timeout.tv_usec = 0;
 
 			// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , &timeout );
+			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , NULL/* & timeout*/ );
 
 			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 			{
@@ -1672,6 +1640,11 @@ void * justIncoming_thread_proc( void * src_g )
 
 			_g->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count = 0;
 
+			if ( _g->stat.round_zero_set.t_begin.tv_sec == 0 && _g->stat.round_zero_set.t_begin.tv_usec == 0 )
+			{
+				gettimeofday(&_g->stat.round_zero_set.t_begin, NULL);
+			}
+
 			//SYS_ALIVE_CHECK();
 
 			tnow = time( NULL );
@@ -1742,6 +1715,8 @@ void * justIncoming_thread_proc( void * src_g )
 							_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
 							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
+							gettimeofday(&_g->stat.round_zero_set.t_end, NULL);
+
 							_g->stat.round_zero_set.udp.total_udp_get_count++;
 							_g->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
 							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
@@ -1760,6 +1735,7 @@ void * justIncoming_thread_proc( void * src_g )
 		}
 
 	} while ( config_changes );
+	
 	//SYS_ALIVE_CHECK();
 	BREAK_OK( 0 ); // to just ignore gcc warning
 
@@ -2347,6 +2323,8 @@ void * config_loader( void * app_data )
 					CFG_ELEM_I( synchronization_max_roundup );
 					CFG_ELEM_I( show_line_hit );
 					CFG_ELEM_I( retry_unexpected_wait_for_sock );
+					CFG_ELEM_I( number_in_short_form );
+					
 					
 					
 					
@@ -2483,6 +2461,8 @@ void * config_loader( void * app_data )
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.synchronization_max_roundup == _g->appcfg._prev_general_config->c.c.synchronization_max_roundup );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.show_line_hit == _g->appcfg._prev_general_config->c.c.show_line_hit );
 					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.retry_unexpected_wait_for_sock == _g->appcfg._prev_general_config->c.c.retry_unexpected_wait_for_sock );
+					_g->appcfg._general_config_changed |= !( _g->appcfg._general_config->c.c.number_in_short_form == _g->appcfg._prev_general_config->c.c.number_in_short_form );
+					
 					
 					
 				}
@@ -2698,6 +2678,34 @@ void * protocol_bridge_manager( void * app_data )
 
 #ifndef section_staff_thread
 
+struct App_Data * __g;
+
+void reset_nonuse_stat()
+{
+	struct App_Data * _g = __g;
+	memset( &_g->stat.round_zero_set , 0 , sizeof( _g->stat.round_zero_set ) );
+
+	circbuf_reset( &_g->stat.round_init_set.udp_stat_5_sec_count );
+	circbuf_reset( &_g->stat.round_init_set.udp_stat_10_sec_count );
+	circbuf_reset( &_g->stat.round_init_set.udp_stat_40_sec_count );
+	circbuf_reset( &_g->stat.round_init_set.udp_stat_120_sec_count );
+
+	circbuf_reset( &_g->stat.round_init_set.udp_stat_5_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.udp_stat_10_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.udp_stat_40_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.udp_stat_120_sec_bytes );
+
+	circbuf_reset( &_g->stat.round_init_set.tcp_stat_5_sec_count );
+	circbuf_reset( &_g->stat.round_init_set.tcp_stat_10_sec_count );
+	circbuf_reset( &_g->stat.round_init_set.tcp_stat_40_sec_count );
+	circbuf_reset( &_g->stat.round_init_set.tcp_stat_120_sec_count );
+
+	circbuf_reset( &_g->stat.round_init_set.tcp_stat_5_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.tcp_stat_10_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.tcp_stat_40_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.tcp_stat_120_sec_bytes );
+}
+
 void * sync_thread( void * pdata ) // pause app until moment other app exist
 {
 	INIT_BREAKABLE_FXN();
@@ -2726,27 +2734,7 @@ void * sync_thread( void * pdata ) // pause app until moment other app exist
 
 	// Sleep until that global target time
 	clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
-	memset( &_g->stat.round_zero_set , 0 , sizeof( _g->stat.round_zero_set ) );
-
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_5_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_10_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_40_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_120_sec_count );
-											
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_5_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_10_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_40_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_120_sec_bytes );
-
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_5_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_10_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_40_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_120_sec_count );
-	
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_5_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_10_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_40_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_120_sec_bytes );
+	reset_nonuse_stat();
 
 	//pthread_mutex_lock( &_g->sync.mutex );
 	//_g->sync.lock_in_progress = 0;
@@ -2779,7 +2767,7 @@ void * input_thread( void * pdata )
 		echo();
 		curs_set( 1 );
 		wmove( _g->stat.input_win , 1 , 1 );
-		wprintw( _g->stat.input_win , "cmd(quit,sync): " );
+		wprintw( _g->stat.input_win , "cmd(quit,sync,rst): " );
 		wrefresh( _g->stat.input_win );
 		wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
 		noecho();
@@ -2801,6 +2789,12 @@ void * input_thread( void * pdata )
 			{
 				_ECHO( "pthread_create" );
 			}
+			//break;
+		}
+		else if ( stricmp( _g->stat.input_buffer , "rst" ) == 0 )
+		{
+			boutput_command = 0;
+			reset_nonuse_stat();
 			//break;
 		}
 		
@@ -2948,9 +2942,13 @@ void draw_table( struct App_Data * _g )
 
 	///////////
 
+	#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit ) ( NUMBER_IN_SHORT_FORM() ? \
+		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit ) :\
+		__snprintf( baaf , sizeof(baaf) , "%llu" , val ) )
+
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "syscal_err" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof(buf2) , MAIN_STAT().round_zero_set.syscal_err_count , 2 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof(buf2) , MAIN_STAT().round_zero_set.syscal_err_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -2959,7 +2957,7 @@ void draw_table( struct App_Data * _g )
 	{
 		mvwprintw( MAIN_WIN , y , start_x , "|" );
 		print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "qu cnt " );
-		snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )_g->bridges.bidirection_thread->queue.count , 2 , "" ) );
+		snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )_g->bridges.bidirection_thread->queue.count , 2 , "" ) );
 		mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 		print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 		mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -2967,40 +2965,50 @@ void draw_table( struct App_Data * _g )
 
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
-	
+	format_elapsed_time_with_millis( _g->stat.round_zero_set.t_begin , _g->stat.round_zero_set.t_end , buf2 , sizeof( buf2 ) );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "itr duration" );
+	snprintf( buf , sizeof( buf ) , "%s" , buf2 );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.total_udp_get_count , 2 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.total_udp_get_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get byte" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.total_udp_get_byte , 2 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.total_udp_get_byte , 2 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "contnu unsuces slct udp" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count , 2 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
+	#ifndef time_frame
+
 	// 5 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s udp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_5_sec_count ) , 4 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_5_sec_count ) , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s udp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_5_sec_bytes ) , 4 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_5_sec_bytes ) , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -3008,14 +3016,14 @@ void draw_table( struct App_Data * _g )
 	// 10 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s udp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_10_sec_count ) , 4 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_10_sec_count ) , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s udp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_10_sec_bytes ) , 4 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_10_sec_bytes ) , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -3023,14 +3031,14 @@ void draw_table( struct App_Data * _g )
 	// 40 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_40_sec_count ) , 4 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_40_sec_count ) , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_40_sec_bytes ) , 4 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_40_sec_bytes ) , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -3038,32 +3046,36 @@ void draw_table( struct App_Data * _g )
 	// 120 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s udp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_120_sec_count ) , 4 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_120_sec_count ) , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s udp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_120_sec_bytes ) , 4 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.udp_stat_120_sec_bytes ) , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
+	#endif
+
+
+	#ifndef tcp
 
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp put" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_put_count , 2 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_put_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp put byte" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_put_byte , 2 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_put_byte , 2 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -3072,14 +3084,14 @@ void draw_table( struct App_Data * _g )
 	// 5 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s tcp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_5_sec_count ) , 4 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_5_sec_count ) , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s tcp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_5_sec_bytes ) , 4 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_5_sec_bytes ) , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -3088,14 +3100,14 @@ void draw_table( struct App_Data * _g )
 	//// 10 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_10_sec_count ) , 4 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_10_sec_count ) , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_10_sec_bytes ) , 4 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_10_sec_bytes ) , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -3103,14 +3115,14 @@ void draw_table( struct App_Data * _g )
 	//// 40 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_40_sec_count ) , 4 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_40_sec_count ) , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_40_sec_bytes ) , 4 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_40_sec_bytes ) , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -3118,17 +3130,19 @@ void draw_table( struct App_Data * _g )
 	//// 120 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s tcp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_120_sec_count ) , 4 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_120_sec_count ) , 4 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s tcp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , format_pps( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_120_sec_bytes ) , 4 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )circbuf_mean_all( &MAIN_STAT().round_init_set.tcp_stat_120_sec_bytes ) , 4 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	#endif
 
 
 	wattroff( MAIN_WIN , COLOR_PAIR( 2 ) );
@@ -3244,8 +3258,6 @@ void init_bypass_stdout( struct App_Data * _g )
 	pthread_t tid_stdout_bypass;
 	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( void * )_g );
 }
-
-struct App_Data * __g;
 
 void M_showMsg( const char * msg ) 
 {
