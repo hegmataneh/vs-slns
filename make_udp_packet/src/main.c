@@ -1610,31 +1610,26 @@ void * sync_thread( void * pdata )
 	return NULL;
 }
 
-reset_stat()
+void reset_stat()
 {
 	struct App_Data * _g = __g;
 
 	memset( &_g->stat.round_zero_set , 0 , sizeof( _g->stat.round_zero_set ) );
 
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_5_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_10_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_40_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_120_sec_count );
+	struct circbuf_t stat_5_sec_count , stat_5_sec_bytes;
+	struct circbuf_t stat_10_sec_count , stat_10_sec_bytes;
+	struct circbuf_t stat_40_sec_count , stat_40_sec_bytes;
+	struct circbuf_t stat_120_sec_count , stat_120_sec_bytes;
 
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_5_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_10_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_40_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.udp_stat_120_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.stat_5_sec_count );
+	circbuf_reset( &_g->stat.round_init_set.stat_10_sec_count );
+	circbuf_reset( &_g->stat.round_init_set.stat_40_sec_count );
+	circbuf_reset( &_g->stat.round_init_set.stat_120_sec_count );
 
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_5_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_10_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_40_sec_count );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_120_sec_count );
-
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_5_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_10_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_40_sec_bytes );
-	circbuf_reset( &_g->stat.round_init_set.tcp_stat_120_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.stat_5_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.stat_10_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.stat_40_sec_bytes );
+	circbuf_reset( &_g->stat.round_init_set.stat_120_sec_bytes );
 }
 
 // Input thread

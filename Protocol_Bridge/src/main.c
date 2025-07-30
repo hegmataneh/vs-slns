@@ -1,5 +1,6 @@
 ﻿#ifndef section_include
 
+#define Uses_IPPROTO_TCP
 #define Uses_fcntl
 #define Uses_circbuf
 #define Uses_clock_gettime
@@ -566,6 +567,9 @@ int _connect_tcp( struct protocol_bridge * pb )
 			_g->stat.tcp_connection_count++;
 			_g->stat.total_retry_tcp_connection_count++;
 
+			//int flag = 1;
+			//setsockopt( pb->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , ( char * )&flag , sizeof( int ) );
+
 			pthread_mutex_lock( &_g->bridges.thread_base.start_working_race_cond );
 			switch ( _g->appcfg._general_config->c.c.atht )
 			{
@@ -755,7 +759,7 @@ void * bottleneck_thread_proc( void * src_g )
 			timeout.tv_usec = 0;
 
 			// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , &timeout );
+			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , _g->appcfg._general_config->c.c.time_out_sec > 0 ? &timeout : NULL );
 
 			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 			{
@@ -829,6 +833,11 @@ void * bottleneck_thread_proc( void * src_g )
 			}
 
 			_g->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count = 0;
+
+			if ( _g->stat.round_zero_set.t_begin.tv_sec == 0 && _g->stat.round_zero_set.t_begin.tv_usec == 0 )
+			{
+				gettimeofday( &_g->stat.round_zero_set.t_begin , NULL );
+			}
 
 			//SYS_ALIVE_CHECK();
 
@@ -938,65 +947,86 @@ void * bottleneck_thread_proc( void * src_g )
 					{
 						if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 						{
-							//SYS_ALIVE_CHECK();
-							bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
-							if ( bytes_received <= 0 )
+							while( 1 )
 							{
-								_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
-								_g->stat.round_zero_set.total_unsuccessful_receive_error++;
-								continue;
-							}
-							_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
-							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
-
-							_g->stat.round_zero_set.udp.total_udp_get_count++;
-							_g->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
-							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
-							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
-							//_g->stat.round.udp_10_sec.calc_throughput_udp_get_count++;
-							//_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes += bytes_received;
-							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
-							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
-
-							// Send data over TCP
-							if ( ( sz = send( _g->bridges.pb_holders[ i ].alc_pb->tcp_sockfd , buffer , ( size_t )bytes_received , MSG_NOSIGNAL ) ) == -1 )
-							{
-								_g->stat.round_zero_set.continuously_unsuccessful_send_error++;
-								_g->stat.round_zero_set.total_unsuccessful_send_error++;
-
-								if ( ++output_tcp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+								//SYS_ALIVE_CHECK();
+								bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
+								if ( bytes_received < 0 )
 								{
-									output_tcp_socket_error_tolerance_count = 0;
-									for ( int i = 0 ; i < _g->bridges.pb_holders_masks_count ; i++ )
+									if ( errno == EAGAIN || errno == EWOULDBLOCK )
 									{
-										if ( _g->bridges.pb_holders_masks[ i ] )
+										// No more packets available
+										break;
+									}
+									else
+									{
+										_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+										_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+										break;
+									}
+								}
+								
+								if ( bytes_received <= 0 )
+								{
+									_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+									_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+									continue;
+								}
+								_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
+								//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
+
+								_g->stat.round_zero_set.udp.total_udp_get_count++;
+								_g->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
+								_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
+								_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
+								//_g->stat.round.udp_10_sec.calc_throughput_udp_get_count++;
+								//_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes += bytes_received;
+								//_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
+								//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
+
+								// Send data over TCP
+								if ( ( sz = send( _g->bridges.pb_holders[ i ].alc_pb->tcp_sockfd , buffer , ( size_t )bytes_received , MSG_NOSIGNAL ) ) == -1 )
+								{
+									_g->stat.round_zero_set.continuously_unsuccessful_send_error++;
+									_g->stat.round_zero_set.total_unsuccessful_send_error++;
+
+									if ( ++output_tcp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+									{
+										output_tcp_socket_error_tolerance_count = 0;
+										for ( int i = 0 ; i < _g->bridges.pb_holders_masks_count ; i++ )
 										{
-											if ( _g->bridges.pb_holders[ i ].alc_pb->tcp_connection_established )  // all the connected udp stoped or die so restart them
+											if ( _g->bridges.pb_holders_masks[ i ] )
 											{
-												//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+												if ( _g->bridges.pb_holders[ i ].alc_pb->tcp_connection_established )  // all the connected udp stoped or die so restart them
 												{
-													_g->bridges.pb_holders[ i ].alc_pb->retry_to_connect_tcp = 1;
-													break;
+													//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+													{
+														_g->bridges.pb_holders[ i ].alc_pb->retry_to_connect_tcp = 1;
+														break;
+													}
 												}
 											}
 										}
 									}
+
+									continue;
 								}
+								_g->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
 
-								continue;
+								gettimeofday(&_g->stat.round_zero_set.t_end, NULL);
+
+								_g->stat.round_zero_set.tcp.total_tcp_put_count++;
+								_g->stat.round_zero_set.tcp.total_tcp_put_byte += sz;
+								_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count++;
+								_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes += sz;
+								//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_count++;
+								//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_bytes += sz;
+								//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_count++;
+								//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_bytes += sz;
+
+								//SYS_ALIVE_CHECK();
+
 							}
-							_g->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
-
-							_g->stat.round_zero_set.tcp.total_tcp_put_count++;
-							_g->stat.round_zero_set.tcp.total_tcp_put_byte += sz;
-							_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count++;
-							_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes += sz;
-							//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_count++;
-							//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_bytes += sz;
-							//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_count++;
-							//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_bytes += sz;
-
-							//SYS_ALIVE_CHECK();
 
 						}
 					}
@@ -1704,29 +1734,48 @@ void * justIncoming_thread_proc( void * src_g )
 					{
 						if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 						{
-							//SYS_ALIVE_CHECK();
-							bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
-							if ( bytes_received < 0 )
+							while( 1 )
 							{
-								_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
-								_g->stat.round_zero_set.total_unsuccessful_receive_error++;
-								continue;
+							
+								//SYS_ALIVE_CHECK();
+								bytes_received = recvfrom( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , buffer , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
+								if ( bytes_received < 0 )
+								{
+									if ( errno == EAGAIN || errno == EWOULDBLOCK )
+									{
+										// No more packets available
+										break;
+									}
+									else
+									{
+										_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+										_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+										break;
+									}
+								}
+								
+								if ( bytes_received <= 0 )
+								{
+									_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+									_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+									continue;
+								}
+								_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
+								//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
+
+								gettimeofday(&_g->stat.round_zero_set.t_end, NULL);
+
+								_g->stat.round_zero_set.udp.total_udp_get_count++;
+								_g->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
+								_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
+								_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
+								//_g->stat.round.udp_10_sec.calc_throughput_udp_get_count++;
+								//_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes += bytes_received;
+								//_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
+								//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
+
+								//SYS_ALIVE_CHECK();
 							}
-							_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
-							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
-
-							gettimeofday(&_g->stat.round_zero_set.t_end, NULL);
-
-							_g->stat.round_zero_set.udp.total_udp_get_count++;
-							_g->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
-							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
-							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
-							//_g->stat.round.udp_10_sec.calc_throughput_udp_get_count++;
-							//_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes += bytes_received;
-							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
-							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
-
-							//SYS_ALIVE_CHECK();
 						}
 					}
 				}
