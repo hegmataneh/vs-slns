@@ -126,7 +126,7 @@ struct wave_maintained_parameter // stays in position
 	int parallelism_count;
 
 	int enable;
-	int iteration_delay_milisec;
+	int iteration_delay_nanosec;
 	int packet_payload_size;
 };
 
@@ -491,10 +491,10 @@ void * wave_runner( void * src_pwave )
 
 			SYS_ALIVE_CHECK();
 
-			if ( pwave->awcfg.m.m.maintained.iteration_delay_milisec > 0 )
+			if ( pwave->awcfg.m.m.maintained.iteration_delay_nanosec > 0 )
 			{
-				//sleep( pwave->awcfg.m.m.maintained.iteration_delay_milisec / 1000 );
-				struct timespec ts = { 0, pwave->awcfg.m.m.maintained.iteration_delay_milisec * 1000000L };
+				//sleep( pwave->awcfg.m.m.maintained.iteration_delay_nanosec / 1000 );
+				struct timespec ts = { 0, pwave->awcfg.m.m.maintained.iteration_delay_nanosec };
 				thrd_sleep( &ts , NULL );
 			}
 
@@ -1037,7 +1037,7 @@ void * config_loader( void * app_data )
 						CFG_ELEM_I_maintained( limited_packets );
 						CFG_ELEM_I_maintained( packet_count );
 						CFG_ELEM_I_maintained( parallelism_count );
-						CFG_ELEM_I_maintained( iteration_delay_milisec );
+						CFG_ELEM_I_maintained( iteration_delay_nanosec );
 						CFG_ELEM_I_maintained( packet_payload_size );
 						CFG_ELEM_I_maintained( enable );
 						CFG_ELEM_I_momentary( reset_connections );
@@ -1563,7 +1563,7 @@ void dump_current_wave( FILE * pf )
 	fprintf( pf , "\r\n" "limited_packets  %d" , pwave->maintained.limited_packets );
 	fprintf( pf , "\r\n" "packet_count  %d" , pwave->maintained.packet_count );
 	fprintf( pf , "\r\n" "parallelism_count  %d" , pwave->maintained.parallelism_count );
-	fprintf( pf , "\r\n" "iteration_delay_milisec  %d" , pwave->maintained.iteration_delay_milisec );
+	fprintf( pf , "\r\n" "iteration_delay_nanosec  %d" , pwave->maintained.iteration_delay_nanosec );
 	fprintf( pf , "\r\n" "packet_payload_size  %d" , pwave->maintained.packet_payload_size );
 }
 
