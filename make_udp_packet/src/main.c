@@ -1391,7 +1391,7 @@ void draw_table( struct App_Data * _g )
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 	#endif
 
-	format_elapsed_time_with_millis( _g->stat.round_zero_set.t_begin , _g->stat.round_zero_set.t_end , buf2 , sizeof( buf2 ) );
+	format_elapsed_time_with_millis( _g->stat.round_zero_set.t_begin , _g->stat.round_zero_set.t_end , buf2 , sizeof( buf2 ) , 1 );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "itr duration" );

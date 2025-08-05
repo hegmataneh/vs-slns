@@ -123,10 +123,10 @@ int main( int argc , char * argv[] )
 
 
 	// set a large buffer (e.g., 10 MB)
-	if ( pcap_set_buffer_size( handle , 100 * 1024 * 1024 ) != 0 )
-	{
-		fprintf( stderr , "failed to set buffer size\n" );
-	}
+	//if ( pcap_set_buffer_size( handle , 100 * 1024 * 1024 ) != 0 )
+	//{
+	//	fprintf( stderr , "failed to set buffer size\n" );
+	//}
 
 	printf( "Listening on device %s, counting UDP packets on port 1234. Press Ctrl-C to stop.\n" , dev );
 	signal( SIGINT , cleanup_and_exit );

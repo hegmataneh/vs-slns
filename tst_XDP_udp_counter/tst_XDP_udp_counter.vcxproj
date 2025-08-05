@@ -35,9 +35,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{c53c827b-9bcb-47bd-82ea-5af9d9d87ca6}</ProjectGuid>
+    <ProjectGuid>{95b17110-5912-4396-b9ab-b1fd48437bc2}</ProjectGuid>
     <Keyword>Linux</Keyword>
-    <RootNamespace>testPFRing_count_udp_v1</RootNamespace>
+    <RootNamespace>tst_XDP_udp_counter</RootNamespace>
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
     <ApplicationType>Linux</ApplicationType>
     <ApplicationTypeRevision>1.0</ApplicationTypeRevision>
@@ -59,6 +59,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
+    <ConfigurationType>Makefile</ConfigurationType>
+    <RemoteProjectRelDir>$(ProjectName)</RemoteProjectRelDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <UseDebugLibraries>false</UseDebugLibraries>
@@ -74,25 +76,28 @@
   <ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <BuildCommandLine>
+    </BuildCommandLine>
+    <ReBuildCommandLine>
+    </ReBuildCommandLine>
+    <CleanCommandLine>
+    </CleanCommandLine>
+    <RemoteBuildCommandLine>make</RemoteBuildCommandLine>
+    <RemoteReBuildCommandLine>make clean &amp;&amp; make</RemoteReBuildCommandLine>
+    <RemoteCleanCommandLine>make clean</RemoteCleanCommandLine>
+  </PropertyGroup>
   <ItemGroup>
-    <ClCompile Include="main.c" />
-  </ItemGroup>
-  <ItemGroup>
-  </ItemGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ClCompile>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    <ClCompile Include="Makefile">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </DeploymentContent>
     </ClCompile>
-    <Link>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
-      <LibraryDependencies>pfring;pcap</LibraryDependencies>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <Link>
-      <LibraryDependencies>pfring;pcap</LibraryDependencies>
-    </Link>
-  </ItemDefinitionGroup>
+    <ClCompile Include="xdp_udp_counter.c" />
+    <ClCompile Include="read_counter.c" />
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <ItemDefinitionGroup />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>
