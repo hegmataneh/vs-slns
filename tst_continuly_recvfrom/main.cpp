@@ -70,7 +70,7 @@ int set_cpu_affinity( int cpu )
 #define PACKET_SIZE 1
 
 // 4
-#define ALLOCATION_ALIGN_SIZE 128 /*64*/
+//#define ALLOCATION_ALIGN_SIZE 128 /*64*/
 
 int main( void )
 {
@@ -81,7 +81,7 @@ int main( void )
 	struct sockaddr_storage their_addr;
 	
 	// 1
-	char buf[ 1 ];
+	char buf[ PACKET_SIZE ];
 	//char * buf = ( char * )malloc( PACKET_SIZE );
 
 	// 2. aligned allocation for potential cache benefits
@@ -146,9 +146,9 @@ int main( void )
 	freeaddrinfo( servinfo );
 
 	// 5. Enlarge the receive buffer; may require permissions to set very large.
-	int iii = RX_BUF_BYTES;
-	if ( setsockopt( sockfd , SOL_SOCKET , SO_RCVBUF , &iii , sizeof( iii ) ) != 0 )
-		perror( "SO_RCVBUF" );
+	//int iii = RX_BUF_BYTES;
+	//if ( setsockopt( sockfd , SOL_SOCKET , SO_RCVBUF , &iii , sizeof( iii ) ) != 0 )
+	//	perror( "SO_RCVBUF" );
 
 	//socklen_t optlen = sizeof(iii);
 
