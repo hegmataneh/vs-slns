@@ -91,12 +91,12 @@
     <None Include="dep\make_udp_packet.use" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\General projects\general\general.vcxproj">
-      <Project>{65d7d4b3-bbfa-4c50-adce-72911e410ca0}</Project>
-    </ProjectReference>
+    <ClInclude Include="header\msg.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="header\msg.h" />
+    <ProjectReference Include="..\..\general-projects\general\general.vcxproj">
+      <Project>{65d7d4b3-bbfa-4c50-adce-72911e410ca0}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
