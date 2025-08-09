@@ -8,7 +8,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Protocol_Bridge", "Protocol
 		{65D7D4B3-BBFA-4C50-ADCE-72911E410CA0} = {65D7D4B3-BBFA-4C50-ADCE-72911E410CA0}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "general", "..\..\General projects\general\general.vcxproj", "{65D7D4B3-BBFA-4C50-ADCE-72911E410CA0}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "general", "..\..\general-projects\general\general.vcxproj", "{65D7D4B3-BBFA-4C50-ADCE-72911E410CA0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

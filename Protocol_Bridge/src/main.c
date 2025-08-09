@@ -2226,7 +2226,7 @@ void add_new_protocol_bridge( struct App_Data * _g , struct protocol_bridge_cfg 
 
 #ifndef section_load_config
 
-#define CONFIG_ROOT_PATH "/home/my_projects/home-config/protocol_Bridge"
+#define CONFIG_ROOT_PATH "/root/my_projects/home-config/protocol_Bridge"
 
 // TODO . exit gracefully by auto mechanism
 // TODO . think about race condition
@@ -3014,7 +3014,7 @@ void draw_table( struct App_Data * _g )
 
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
-	format_elapsed_time_with_millis( _g->stat.round_zero_set.t_begin , _g->stat.round_zero_set.t_end , buf2 , sizeof( buf2 ) );
+	format_elapsed_time_with_millis( _g->stat.round_zero_set.t_begin , _g->stat.round_zero_set.t_end , buf2 , sizeof( buf2 ) , 1);
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "itr duration" );
