@@ -4,6 +4,21 @@
     <ClCompile Include="src\main.c">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\BridgeConfig.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\config.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\statistics.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\helper.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Bridge.c">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="header">
@@ -29,6 +44,24 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="header\msg.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\definition.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\config.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\BridgeConfig.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\Bridge.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\statistics.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\helper.h">
       <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>

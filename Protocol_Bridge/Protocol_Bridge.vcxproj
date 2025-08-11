@@ -84,7 +84,12 @@
     <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
   </PropertyGroup>
   <ItemGroup>
+    <ClCompile Include="src\Bridge.c" />
+    <ClCompile Include="src\BridgeConfig.c" />
+    <ClCompile Include="src\config.c" />
+    <ClCompile Include="src\helper.c" />
     <ClCompile Include="src\main.c" />
+    <ClCompile Include="src\statistics.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dep\Protocol_Bridge.dep" />
@@ -92,7 +97,13 @@
     <None Include="dep\Protocol_Bridge.use" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="header\Bridge.h" />
+    <ClInclude Include="header\BridgeConfig.h" />
+    <ClInclude Include="header\config.h" />
+    <ClInclude Include="header\definition.h" />
+    <ClInclude Include="header\helper.h" />
     <ClInclude Include="header\msg.h" />
+    <ClInclude Include="header\statistics.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\general-projects\general\general.vcxproj">
@@ -104,8 +115,11 @@
     <ClCompile>
       <PreprocessorDefinitions>INTELISENSE_BUILD=$(IntelliSenseBuild);__PROJECT_NAME__=$(ProjectName)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(RemoteRootDir)/$(ProjectName)/dep;$(RemoteRootDir)/$(ProjectName)/header;%(ClCompile.AdditionalIncludeDirectories);$(RemoteHeadersDir);./header;$(RemoteRootDir)/general/dep;$(RemoteRootDir)/general/header</AdditionalIncludeDirectories>
-      <Verbose />
+      <Verbose>
+      </Verbose>
       <AdditionalOptions>-D__COMPILE %(AdditionalOptions)</AdditionalOptions>
+      <ShowIncludes>
+      </ShowIncludes>
     </ClCompile>
     <PreBuildEvent>
       <Command>
