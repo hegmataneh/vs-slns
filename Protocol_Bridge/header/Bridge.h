@@ -18,15 +18,15 @@
 
 typedef struct AB_thread // threads use to recv and send data
 {
-	//struct bridges_thread_base
-	//{
-	//	int thread_is_created;
-	//	int do_close_thread; // command from outside to inside thread
-	//	pthread_mutex_t creation_thread_race_cond; // prevent multi bridge create thread concurrently
+	struct bridges_thread_base
+	{
+		int thread_is_created;
+		int do_close_thread; // command from outside to inside thread
+		pthread_mutex_t creation_thread_race_cond; // prevent multi bridge create thread concurrently
 
-	//	int start_working; // because udp port may start after thread started
-	//	pthread_mutex_t start_working_race_cond; // prevent multi bridge create thread concurrently
-	//} base;
+		int start_working; // because udp port may start after thread started
+		pthread_mutex_t start_working_race_cond; // prevent multi bridge create thread concurrently
+	} base;
 
 	struct bottleneck_thread // one thread for send and receive
 	{
@@ -75,9 +75,7 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 	int tcps_count;
 
 	ABtrd trd;
-	////struct protocol_bridge_thread_holder * pb_trds; // protocol_bridge threads . in protocol bridge app must be one
-	////int * pb_trds_masks;  // each int represent thread is valid
-	////size_t pb_trds_masks_count;  // thread keeper count
+	
 } AB;
 
 typedef struct AB_holder // every elemnt at the reallocation array must have holder because reallocate change data values but with holder just pointer addr change
@@ -88,7 +86,7 @@ typedef struct AB_holder // every elemnt at the reallocation array must have hol
 // TODO . IPv6
 typedef struct AB_holders
 {
-	ABh * ABhs; // all the active protocol_bridge or Active bridges
+	ABh * ABs; // all the active protocol_bridge or Active bridges
 	int * ABhs_masks; // protocol_bridge masks
 	size_t ABhs_masks_count; // mask count
 } ABhs;

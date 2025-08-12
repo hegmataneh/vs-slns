@@ -132,7 +132,7 @@ void draw_table( G * _g )
 
 	//mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
-	//if ( _g->appcfg._general_config && _g->appcfg._general_config->c.c.show_line_hit )
+	//if ( _g->appcfg._g_cfg && _g->appcfg._g_cfg->c.c.show_line_hit )
 	//{
 	//	for ( int i = 0 ; i < FXN_HIT_COUNT ; i++ )
 	//	{
@@ -175,7 +175,7 @@ void draw_table( G * _g )
 	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	//if ( _g->appcfg._general_config && _g->appcfg._general_config->c.c.atht == bidirection && _g->bridges.bidirection_thread )
+	//if ( _g->appcfg._g_cfg && _g->appcfg._g_cfg->c.c.atht == bidirection && _g->bridges.bidirection_thread )
 	//{
 	//	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	//	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "qu cnt " );

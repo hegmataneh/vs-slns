@@ -22,8 +22,6 @@ typedef struct Global_Config_0
 	int hi_frequent_log_interval_sec;
 	int refresh_variable_from_scratch;
 	int stat_referesh_interval_sec;
-	//const char * thread_handler_type;
-	//enum app_thread_handler_type atht;
 
 	int synchronization_min_wait;
 	int synchronization_max_roundup;
@@ -57,16 +55,16 @@ typedef struct App_Config // global config
 	int _version_changed; // act like bool . this var indicate just load new config
 
 	// general
-	Gcfg * _prev_general_config;
-	Gcfg * _general_config;
-	int _general_config_changed;
+	Gcfg * _prev_cfg;
+	Gcfg * _g_cfg;
+	int _g_cfg_changed;
 
 	// protocol_bridge 
-	Bcfg * _pprev_protocol_bridge_psvcfg; // maybe later in some condition we need to rollback to prev config
-	size_t _prev_protocol_bridge_psvcfg_count;
+	Bcfg * old_bdj_psv_cfg; // maybe later in some condition we need to rollback to prev config
+	size_t _old_bdj_psv_cfg_count;
 
-	Bcfg * _pprotocol_bridge_psvcfg; // passive config
-	size_t _protocol_bridge_psvcfg_count;
+	Bcfg * _bdj_psv_cfg; // passive config
+	size_t _bdj_psv_cfg_count;
 
 	int _psvcfg_changed; // act like bool . something is changed
 } Acfg;

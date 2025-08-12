@@ -1,33 +1,10 @@
-﻿//#define Uses_TWD
-//#define Uses_IPPROTO_TCP
-//#define Uses_fcntl
-//#define Uses_circbuf
-//#define Uses_clock_gettime
-//#define Uses_stricmp
-//#define Uses_PacketQueue
-//#define Uses_fd_set
-//#define Uses_thrd_sleep
-//#define Uses_close
-//#define Uses_socket
-#define Uses_pthread_t
-//#define Uses_rand
-//#define Uses_errno
-//#define Uses_strerror
-//#define Uses_va_list
-//#define Uses_printf
-//#define Uses_sockaddr_in
-//#define Uses_ssize_t
-//#define Uses_Remote_vs_prj
-//#define Uses_NEWSTR
+﻿#define Uses_pthread_t
 #define Uses_statistics
 #define Uses_config
 #define Uses_INIT_BREAKABLE_FXN
 #define Uses_helper
 
-//#define Uses_fileno
-//#define Uses_setlocale
-
-#define DIRECT_ECHO_BUF _g->stat.last_command // just before include dep
+//#define DIRECT_ECHO_BUF _g->stat.last_command // just before include dep
 #include <Protocol_Bridge.dep>
 
 

@@ -79,6 +79,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
+    <EnableIncrementalBuild>No</EnableIncrementalBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
@@ -86,7 +87,10 @@
   <ItemGroup>
     <ClCompile Include="src\Bridge.c" />
     <ClCompile Include="src\BridgeConfig.c" />
-    <ClCompile Include="src\config.c" />
+    <ClCompile Include="src\config.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="src\helper.c" />
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\statistics.c" />
@@ -115,11 +119,9 @@
     <ClCompile>
       <PreprocessorDefinitions>INTELISENSE_BUILD=$(IntelliSenseBuild);__PROJECT_NAME__=$(ProjectName)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(RemoteRootDir)/$(ProjectName)/dep;$(RemoteRootDir)/$(ProjectName)/header;%(ClCompile.AdditionalIncludeDirectories);$(RemoteHeadersDir);./header;$(RemoteRootDir)/general/dep;$(RemoteRootDir)/general/header</AdditionalIncludeDirectories>
-      <Verbose>
-      </Verbose>
+      <Verbose>false</Verbose>
       <AdditionalOptions>-D__COMPILE %(AdditionalOptions)</AdditionalOptions>
-      <ShowIncludes>
-      </ShowIncludes>
+      <ShowIncludes>false</ShowIncludes>
     </ClCompile>
     <PreBuildEvent>
       <Command>

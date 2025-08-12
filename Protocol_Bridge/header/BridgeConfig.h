@@ -14,35 +14,42 @@ typedef struct bridge_cfg_0
 	{
 		struct bridge_cfg_input_part
 		{
-			char group[ 64 ];
-			char group_type[ 64 ];
-			char UDP_origin_ip[ 64 ];
-			int UDP_origin_port;
-			char UDP_origin_interface[ 64 ];
-			int enable;
-			int reset_connection;
+			char name[ 64 ];
+
+			struct
+			{
+				char group[ 64 ];
+				char group_type[ 64 ];
+				char UDP_origin_ip[ 64 ];
+				int UDP_origin_port;
+				char UDP_origin_interface[ 64 ];
+				int enable;
+				int reset_connection;
+			} data;
+
 		} *in;
 		int in_count;
 
 		struct bridge_cfg_output_part
 		{
-			char group[ 64 ];
-			char group_type[ 64 ];
-			char TCP_destination_ip[ 64 ];
-			int TCP_destination_port;
-			char TCP_destination_interface[ 64 ];
-			int enable;
-			int reset_connection;
+			char name[ 64 ];
+
+			struct
+			{
+				char group[ 64 ];
+				char group_type[ 64 ];
+				char TCP_destination_ip[ 64 ];
+				int TCP_destination_port;
+				char TCP_destination_interface[ 64 ];
+				int enable;
+				int reset_connection;
+			} data;
+
 		} *out;
 		int out_count;
 
 		int enable;
 	} maintained;
-
-	struct bridge_momentary_parameter // popup automatically
-	{
-		int reset_connections;
-	} momentary;
 
 	struct bridge_temp_data
 	{
@@ -63,3 +70,9 @@ typedef struct bridge_cfg // finalizer . protocol_bridge_cfg
 } Bcfg;
 
 void copy_bridge_cfg( Bcfg * dst , Bcfg * src );
+
+int Bcfg0_id_equlity( Bcfg0 * left , Bcfg0 * right );
+int Bcfg_id_equlity( Bcfg * left , Bcfg * right );
+
+int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right );
+int bridge_cfg_data_equlity( Bcfg * left , Bcfg * right );

@@ -2,7 +2,7 @@
 #define Uses_TWD
 #define Uses_pthread_t
 #define Uses_Bridge
-//#define Uses_helper
+#define Uses_helper
 
 //#define DIRECT_ECHO_BUF _g->stat.last_command // just before include dep
 #include <Protocol_Bridge.dep>
@@ -68,12 +68,12 @@ _THREAD_FXN void * bottleneck_thread_proc( void * src_g )
 //	//	{
 //	//		if ( _g->bridges.ABhs_masks[ i ] )
 //	//		{
-//	//			if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established && _g->bridges.ABhs[ i ].single_AB->tcp_connection_established )
+//	//			if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established && _g->bridges.ABs[ i ].single_AB->tcp_connection_established )
 //	//			{
-//	//				FD_SET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds );
-//	//				if ( _g->bridges.ABhs[ i ].single_AB->udp_sockfd > sockfd_max )
+//	//				FD_SET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds );
+//	//				if ( _g->bridges.ABs[ i ].single_AB->udp_sockfd > sockfd_max )
 //	//				{
-//	//					sockfd_max = _g->bridges.ABhs[ i ].single_AB->udp_sockfd;
+//	//					sockfd_max = _g->bridges.ABs[ i ].single_AB->udp_sockfd;
 //	//				}
 //	//			}
 //	//		}
@@ -118,7 +118,7 @@ _THREAD_FXN void * bottleneck_thread_proc( void * src_g )
 //	//		timeout.tv_usec = 0;
 //
 //	//		// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-//	//		int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , _g->appcfg._general_config->c.c.time_out_sec > 0 ? &timeout : NULL );
+//	//		int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , _g->appcfg._g_cfg->c.c.time_out_sec > 0 ? &timeout : NULL );
 //
 //	//		if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 //	//		{
@@ -140,11 +140,11 @@ _THREAD_FXN void * bottleneck_thread_proc( void * src_g )
 //	//				{
 //	//					if ( _g->bridges.ABhs_masks[ i ] )
 //	//					{
-//	//						if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established )  // all the connected udp stoped or die so restart them
+//	//						if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established )  // all the connected udp stoped or die so restart them
 //	//						{
-//	//							//if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
+//	//							//if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
 //	//							{
-//	//								_g->bridges.ABhs[ i ].single_AB->retry_to_connect_udp = 1;
+//	//								_g->bridges.ABs[ i ].single_AB->retry_to_connect_udp = 1;
 //	//								break;
 //	//							}
 //	//						}
@@ -174,11 +174,11 @@ _THREAD_FXN void * bottleneck_thread_proc( void * src_g )
 //	//				{
 //	//					if ( _g->bridges.ABhs_masks[ i ] )
 //	//					{
-//	//						if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established )  // all the connected udp stoped or die so restart them
+//	//						if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established )  // all the connected udp stoped or die so restart them
 //	//						{
-//	//							//if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
+//	//							//if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
 //	//							{
-//	//								_g->bridges.ABhs[ i ].single_AB->retry_to_connect_udp = 1;
+//	//								_g->bridges.ABs[ i ].single_AB->retry_to_connect_udp = 1;
 //	//								break;
 //	//							}
 //	//						}
@@ -298,13 +298,13 @@ _THREAD_FXN void * bottleneck_thread_proc( void * src_g )
 //	//		{
 //	//			if ( _g->bridges.ABhs_masks[ i ] )
 //	//			{
-//	//				if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established && _g->bridges.ABhs[ i ].single_AB->tcp_connection_established )
+//	//				if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established && _g->bridges.ABs[ i ].single_AB->tcp_connection_established )
 //	//				{
-//	//					if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
+//	//					if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
 //	//					{
 //	//						while( 1 )
 //	//						{
-//	//							bytes_received = recvfrom( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , buffer , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
+//	//							bytes_received = recvfrom( _g->bridges.ABs[ i ].single_AB->udp_sockfd , buffer , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
 //	//							if ( bytes_received < 0 )
 //	//							{
 //	//								if ( errno == EAGAIN || errno == EWOULDBLOCK )
@@ -339,7 +339,7 @@ _THREAD_FXN void * bottleneck_thread_proc( void * src_g )
 //	//							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
 //
 //	//							// Send data over TCP
-//	//							if ( ( sz = send( _g->bridges.ABhs[ i ].single_AB->tcp_sockfd , buffer , ( size_t )bytes_received , MSG_NOSIGNAL ) ) == -1 )
+//	//							if ( ( sz = send( _g->bridges.ABs[ i ].single_AB->tcp_sockfd , buffer , ( size_t )bytes_received , MSG_NOSIGNAL ) ) == -1 )
 //	//							{
 //	//								_g->stat.round_zero_set.continuously_unsuccessful_send_error++;
 //	//								_g->stat.round_zero_set.total_unsuccessful_send_error++;
@@ -351,11 +351,11 @@ _THREAD_FXN void * bottleneck_thread_proc( void * src_g )
 //	//									{
 //	//										if ( _g->bridges.ABhs_masks[ i ] )
 //	//										{
-//	//											if ( _g->bridges.ABhs[ i ].single_AB->tcp_connection_established )  // all the connected udp stoped or die so restart them
+//	//											if ( _g->bridges.ABs[ i ].single_AB->tcp_connection_established )  // all the connected udp stoped or die so restart them
 //	//											{
-//	//												//if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
+//	//												//if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
 //	//												{
-//	//													_g->bridges.ABhs[ i ].single_AB->retry_to_connect_tcp = 1;
+//	//													_g->bridges.ABs[ i ].single_AB->retry_to_connect_tcp = 1;
 //	//													break;
 //	//												}
 //	//											}
@@ -462,12 +462,12 @@ _THREAD_FXN void * income_thread_proc( void * src_g )
 //	//	{
 //	//		if ( _g->bridges.ABhs_masks[ i ] )
 //	//		{
-//	//			if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established /* && _g->bridges.ABhs[i].single_AB->tcp_connection_established*/ )
+//	//			if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established /* && _g->bridges.ABs[i].single_AB->tcp_connection_established*/ )
 //	//			{
-//	//				FD_SET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds );
-//	//				if ( _g->bridges.ABhs[ i ].single_AB->udp_sockfd > sockfd_max )
+//	//				FD_SET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds );
+//	//				if ( _g->bridges.ABs[ i ].single_AB->udp_sockfd > sockfd_max )
 //	//				{
-//	//					sockfd_max = _g->bridges.ABhs[ i ].single_AB->udp_sockfd;
+//	//					sockfd_max = _g->bridges.ABs[ i ].single_AB->udp_sockfd;
 //	//				}
 //	//			}
 //	//		}
@@ -534,11 +534,11 @@ _THREAD_FXN void * income_thread_proc( void * src_g )
 //	//				{
 //	//					if ( _g->bridges.ABhs_masks[ i ] )
 //	//					{
-//	//						if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established )  // all the connected udp stoped or die so restart them
+//	//						if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established )  // all the connected udp stoped or die so restart them
 //	//						{
-//	//							//if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
+//	//							//if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
 //	//							{
-//	//								_g->bridges.ABhs[ i ].single_AB->retry_to_connect_udp = 1;
+//	//								_g->bridges.ABs[ i ].single_AB->retry_to_connect_udp = 1;
 //	//								break;
 //	//							}
 //	//						}
@@ -568,11 +568,11 @@ _THREAD_FXN void * income_thread_proc( void * src_g )
 //	//				{
 //	//					if ( _g->bridges.ABhs_masks[ i ] )
 //	//					{
-//	//						if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established )  // all the connected udp stoped or die so restart them
+//	//						if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established )  // all the connected udp stoped or die so restart them
 //	//						{
-//	//							//if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
+//	//							//if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
 //	//							{
-//	//								_g->bridges.ABhs[ i ].single_AB->retry_to_connect_udp = 1;
+//	//								_g->bridges.ABs[ i ].single_AB->retry_to_connect_udp = 1;
 //	//								break;
 //	//							}
 //	//						}
@@ -637,11 +637,11 @@ _THREAD_FXN void * income_thread_proc( void * src_g )
 //	//		{
 //	//			if ( _g->bridges.ABhs_masks[ i ] )
 //	//			{
-//	//				if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established /* && _g->bridges.ABhs[i].single_AB->tcp_connection_established*/ )
+//	//				if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established /* && _g->bridges.ABs[i].single_AB->tcp_connection_established*/ )
 //	//				{
-//	//					if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
+//	//					if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
 //	//					{
-//	//						bytes_received = recvfrom( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
+//	//						bytes_received = recvfrom( _g->bridges.ABs[ i ].single_AB->udp_sockfd , buffer , BUFFER_SIZE , MSG_WAITALL , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
 //	//						if ( bytes_received <= 0 )
 //	//						{
 //	//							_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
@@ -671,8 +671,8 @@ _THREAD_FXN void * income_thread_proc( void * src_g )
 //	//BREAK_OK( 0 ); // to just ignore gcc warning
 //
 //	//BEGIN_RET
-//	//	case 3: {}
-//	//	case 2: {}
+//	//	case 3: ;
+//	//	case 2: ;
 //	//	case 1:
 //	//	{
 //	//		//_close_socket( &src_pb->tcp_sockfd );
@@ -787,9 +787,9 @@ _THREAD_FXN void * outgoing_thread_proc( void * src_g )
 //	//	
 //	//	for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
 //	//	{
-//	//		if ( _g->bridges.ABhs_masks[ i ] && _g->bridges.ABhs[ i ].single_AB->tcp_connection_established )
+//	//		if ( _g->bridges.ABhs_masks[ i ] && _g->bridges.ABs[ i ].single_AB->tcp_connection_established )
 //	//		{
-//	//			if ( ( snd_ret = send( _g->bridges.ABhs[ i ].single_AB->tcp_sockfd , buffer , ( size_t )sz , MSG_NOSIGNAL ) ) == -1 )
+//	//			if ( ( snd_ret = send( _g->bridges.ABs[ i ].single_AB->tcp_sockfd , buffer , ( size_t )sz , MSG_NOSIGNAL ) ) == -1 )
 //	//			{
 //	//				_g->stat.round_zero_set.continuously_unsuccessful_send_error++;
 //	//				_g->stat.round_zero_set.total_unsuccessful_send_error++;
@@ -801,11 +801,11 @@ _THREAD_FXN void * outgoing_thread_proc( void * src_g )
 //	//					{
 //	//						if ( _g->bridges.ABhs_masks[ i ] )
 //	//						{
-//	//							if ( _g->bridges.ABhs[ i ].single_AB->tcp_connection_established )  // all the connected udp stoped or die so restart them
+//	//							if ( _g->bridges.ABs[ i ].single_AB->tcp_connection_established )  // all the connected udp stoped or die so restart them
 //	//							{
-//	//								//if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
+//	//								//if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
 //	//								{
-//	//									_g->bridges.ABhs[ i ].single_AB->retry_to_connect_tcp = 1;
+//	//									_g->bridges.ABs[ i ].single_AB->retry_to_connect_tcp = 1;
 //	//									break;
 //	//								}
 //	//							}
@@ -835,8 +835,8 @@ _THREAD_FXN void * outgoing_thread_proc( void * src_g )
 //	//BREAK_OK(0); // to just ignore gcc warning
 //
 //	//BEGIN_RET
-//	//	case 3: {}
-//	//	case 2: {}
+//	//	case 3: ;
+//	//	case 2: ;
 //	//	case 1:
 //	//	{
 //	//		//_close_socket( &src_pb->tcp_sockfd );
@@ -853,303 +853,303 @@ return NULL;
 
 _THREAD_FXN void * justIncoming_thread_proc( void * src_g )
 {
-//	INIT_BREAKABLE_FXN();
-//	static TWD twd = { 0 };
-//	if ( twd.threadId == 0 )
-//	{
-//		twd.threadId = pthread_self();
-//		twd.cal = justIncoming_thread_proc; // self function address
-//		twd.callback_arg = src_pb;
-//	}
-//	if ( src_pb == NULL )
-//	{
-//		return ( void * )&twd;
-//	}
-//
-//	////AB * pb = ( AB * )src_pb;
-//	//G * _g = ( G * )src_g;
-//
-//
-//	//while ( !_g->bridges.thread_base.start_working )
-//	//{
-//	//	if ( _g->bridges.thread_base.do_close_thread )
-//	//	{
-//	//		break;
-//	//	}
-//	//	sleep(1);
-//	//}
-//
-//
-//	//time_t tnow = 0;
-//
-//	//int input_udp_socket_error_tolerance_count = 0; // restart socket after many error accur
-//
-//	//int config_changes = 0;
-//	//do
-//	//{
-//	//	if ( _g->bridges.thread_base.do_close_thread )
-//	//	{
-//	//		break;
-//	//	}
-//	//	config_changes = 0;
-//
-//	//	char buffer[ BUFFER_SIZE ]; // Define a buffer to store received data
-//	//	struct sockaddr_in client_addr;
-//	//	socklen_t client_len = sizeof( client_addr );
-//	//	ssize_t bytes_received;
-//
-//	//	fd_set readfds; // Set of socket descriptors
-//	//	FD_ZERO( &readfds );
-//
-//	//	ssize_t sz;
-//
-//	//	int sockfd_max = -1; // for select compulsion
-//	//	for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
-//	//	{
-//	//		if ( _g->bridges.ABhs_masks[ i ] )
-//	//		{
-//	//			if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established /* && _g->bridges.ABhs[i].single_AB->tcp_connection_established*/ )
-//	//			{
-//	//				FD_SET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds );
-//	//				if ( _g->bridges.ABhs[ i ].single_AB->udp_sockfd > sockfd_max )
-//	//				{
-//	//					sockfd_max = _g->bridges.ABhs[ i ].single_AB->udp_sockfd;
-//	//				}
-//	//			}
-//	//		}
-//	//	}
-//	//	_g->bridges.under_listen_udp_sockets_group_changed = 0; // if any udp socket change then fdset must be reinitialized
-//	//	if ( sockfd_max < 0 )
-//	//	{
-//	//		sleep( 1 );
-//	//		continue;
-//	//	}
-//
-//	//	while ( 1 )
-//	//	{
-//	//		//pthread_mutex_lock( &_g->sync.mutex );
-//	//		//while ( _g->sync.lock_in_progress )
-//	//		//{
-//	//		//	////struct timespec ts = { 0, 10L };
-//	//		//	////thrd_sleep( &ts , NULL );
-//	//		//	pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
-//	//		//}
-//	//		//pthread_mutex_unlock( &_g->sync.mutex );
-//	//		//if ( _g->sync.reset_static_after_lock )
-//	//		//{
-//	//		//	_g->sync.reset_static_after_lock = 0;
-//	//		//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
-//	//		//}
-//
-//
-//	//		if ( _g->bridges.thread_base.do_close_thread )
-//	//		{
-//	//			break;
-//	//		}
-//	//		if ( _g->bridges.under_listen_udp_sockets_group_changed )
-//	//		{
-//	//			config_changes = 1;
-//	//			break;
-//	//		}
-//
-//	//		//struct timeval timeout; // Set timeout (e.g., 5 seconds)
-//	//		//timeout.tv_sec = ( input_udp_socket_error_tolerance_count + 1 ) * 2;
-//	//		//timeout.tv_usec = 0;
-//
-//	//		// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-//	//		int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , NULL/* & timeout*/ );
-//
-//	//		if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
-//	//		{
-//
-//	//			int error = 0;
-//	//			socklen_t errlen = sizeof( error );
-//	//			getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
-//	//			if ( error != 0 )
-//	//			{
-//	//				_VERBOSE_ECHO( "Socket error: %d\n" , error );
-//	//			}
-//
-//	//			if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-//	//			{
-//	//				input_udp_socket_error_tolerance_count = 0;
-//	//				for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
-//	//				{
-//	//					if ( _g->bridges.ABhs_masks[ i ] )
-//	//					{
-//	//						if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established ) // all the connected udp stoped or die so restart them
-//	//						{
-//	//							//if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
-//	//							{
-//	//								_g->bridges.ABhs[ i ].single_AB->retry_to_connect_udp = 1;
-//	//								break;
-//	//							}
-//	//						}
-//	//					}
-//	//				}
-//	//			}
-//
-//	//			continue;
-//	//		}
-//	//		if ( activity == 0 ) // timed out
-//	//		{
-//
-//	//			int error = 0;
-//	//			socklen_t errlen = sizeof( error );
-//	//			getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
-//	//			if ( error == 0 )
-//	//			{
-//	//				_g->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count++;
-//	//				if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-//	//				{
-//	//					input_udp_socket_error_tolerance_count = 0;
-//	//					for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
-//	//					{
-//	//						if ( _g->bridges.ABhs_masks[ i ] )
-//	//						{
-//	//							if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established ) // all the connected udp stoped or die so restart them
-//	//							{
-//	//								//if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
-//	//								{
-//	//									_g->bridges.ABhs[ i ].single_AB->retry_to_connect_udp = 1;
-//	//									break;
-//	//								}
-//	//							}
-//	//						}
-//	//					}
-//	//				}
-//	//				continue;
-//	//			}
-//	//			_VERBOSE_ECHO( "Socket error: %d\n" , error );
-//	//			
-//	//			continue;
-//	//		}
-//
-//	//		_g->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count = 0;
-//
-//	//		if ( _g->stat.round_zero_set.t_begin.tv_sec == 0 && _g->stat.round_zero_set.t_begin.tv_usec == 0 )
-//	//		{
-//	//			gettimeofday(&_g->stat.round_zero_set.t_begin, NULL);
-//	//		}
-//
-//
-//	//		tnow = time( NULL );
-//	//		// udp
-//	//		if ( difftime( tnow , _g->stat.round_zero_set.udp_1_sec.t_udp_throughput ) >= 1.0 )
-//	//		{
-//	//			if ( _g->stat.round_zero_set.udp_1_sec.t_udp_throughput > 0 )
-//	//			{
-//	//				circbuf_advance( &_g->stat.round_init_set.udp_stat_5_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-//	//				circbuf_advance( &_g->stat.round_init_set.udp_stat_5_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-//
-//	//				circbuf_advance( &_g->stat.round_init_set.udp_stat_10_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-//	//				circbuf_advance( &_g->stat.round_init_set.udp_stat_10_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-//
-//	//				circbuf_advance( &_g->stat.round_init_set.udp_stat_40_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-//	//				circbuf_advance( &_g->stat.round_init_set.udp_stat_40_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-//
-//	//				circbuf_advance( &_g->stat.round_init_set.udp_stat_120_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-//	//				circbuf_advance( &_g->stat.round_init_set.udp_stat_120_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-//
-//	//				//_g->stat.round.udp_1_sec.udp_get_count_throughput = _g->stat.round.udp_1_sec.calc_throughput_udp_get_count;
-//	//				//_g->stat.round.udp_1_sec.udp_get_byte_throughput = _g->stat.round.udp_1_sec.calc_throughput_udp_get_bytes;
-//	//			}
-//	//			_g->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
-//	//			_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
-//	//			_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
-//	//		}
-//	//		//if ( difftime( tnow , _g->stat.round.udp_10_sec.t_udp_throughput ) >= 10.0 )
-//	//		//{
-//	//		//	if ( _g->stat.round.udp_10_sec.t_udp_throughput > 0 )
-//	//		//	{
-//	//		//		_g->stat.round.udp_10_sec.udp_get_count_throughput = _g->stat.round.udp_10_sec.calc_throughput_udp_get_count;
-//	//		//		_g->stat.round.udp_10_sec.udp_get_byte_throughput = _g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes;
-//	//		//	}
-//	//		//	_g->stat.round.udp_10_sec.t_udp_throughput = tnow;
-//	//		//	_g->stat.round.udp_10_sec.calc_throughput_udp_get_count = 0;
-//	//		//	_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes = 0;
-//	//		//}
-//	//		//if ( difftime( tnow , _g->stat.round.udp_40_sec.t_udp_throughput ) >= 40.0 )
-//	//		//{
-//	//		//	if ( _g->stat.round.udp_40_sec.t_udp_throughput > 0 )
-//	//		//	{
-//	//		//		_g->stat.round.udp_40_sec.udp_get_count_throughput = _g->stat.round.udp_40_sec.calc_throughput_udp_get_count;
-//	//		//		_g->stat.round.udp_40_sec.udp_get_byte_throughput = _g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes;
-//	//		//	}
-//	//		//	_g->stat.round.udp_40_sec.t_udp_throughput = tnow;
-//	//		//	_g->stat.round.udp_40_sec.calc_throughput_udp_get_count = 0;
-//	//		//	_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes = 0;
-//	//		//}
-//
-//
-//	//		for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
-//	//		{
-//	//			if ( _g->bridges.ABhs_masks[ i ] )
-//	//			{
-//	//				if ( _g->bridges.ABhs[ i ].single_AB->udp_connection_established )
-//	//				{
-//	//					if ( FD_ISSET( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , &readfds ) )
-//	//					{
-//	//						while( 1 )
-//	//						{
-//	//						
-//	//							bytes_received = recvfrom( _g->bridges.ABhs[ i ].single_AB->udp_sockfd , buffer , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
-//	//							if ( bytes_received < 0 )
-//	//							{
-//	//								if ( errno == EAGAIN || errno == EWOULDBLOCK )
-//	//								{
-//	//									// No more packets available
-//	//									break;
-//	//								}
-//	//								else
-//	//								{
-//	//									_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
-//	//									_g->stat.round_zero_set.total_unsuccessful_receive_error++;
-//	//									break;
-//	//								}
-//	//							}
-//	//							
-//	//							if ( bytes_received <= 0 )
-//	//							{
-//	//								_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
-//	//								_g->stat.round_zero_set.total_unsuccessful_receive_error++;
-//	//								continue;
-//	//							}
-//	//							_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
-//	//							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
-//
-//	//							gettimeofday(&_g->stat.round_zero_set.t_end, NULL);
-//
-//	//							_g->stat.round_zero_set.udp.total_udp_get_count++;
-//	//							_g->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
-//	//							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
-//	//							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
-//	//							//_g->stat.round.udp_10_sec.calc_throughput_udp_get_count++;
-//	//							//_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes += bytes_received;
-//	//							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
-//	//							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
-//
-//	//						}
-//	//					}
-//	//				}
-//	//			}
-//	//		}
-//	//	}
-//
-//	//} while ( config_changes );
-//	//
-//	//BREAK_OK( 0 ); // to just ignore gcc warning
-//
-//	//BEGIN_RET
-//	//	case 3: {}
-//	//	case 2: {}
-//	//	case 1:
-//	//	{
-//	//		//_close_socket( &src_pb->tcp_sockfd );
-//	//		_g->stat.round_zero_set.syscal_err_count++;
-//	//	}
-//	//M_V_END_RET
-//
+	INIT_BREAKABLE_FXN();
+	//static TWD twd = { 0 }; // static not allowed on shared fxn
+	//if ( twd.threadId == 0 )
+	//{
+	//	twd.threadId = pthread_self();
+	//	twd.cal = justIncoming_thread_proc; // self function address
+	//	twd.callback_arg = src_pb;
+	//}
+	//if ( src_pb == NULL )
+	//{
+	//	return ( void * )&twd;
+	//}
+
+	//AB * pb = ( AB * )src_pb;
+	G * _g = ( G * )src_g;
+
+
+	while ( !_g->bridges.trd.base.start_working )
+	{
+		if ( _g->bridges.trd.base.do_close_thread )
+		{
+			break;
+		}
+		sleep(1);
+	}
+
+
+	time_t tnow = 0;
+
+	int input_udp_socket_error_tolerance_count = 0; // restart socket after many error accur
+
+	int config_changes = 0;
+	do
+	{
+		if ( _g->bridges.trd.base.do_close_thread )
+		{
+			break;
+		}
+		config_changes = 0;
+
+		char buffer[ BUFFER_SIZE ]; // Define a buffer to store received data
+		struct sockaddr_in client_addr;
+		socklen_t client_len = sizeof( client_addr );
+		ssize_t bytes_received;
+
+		fd_set readfds; // Set of socket descriptors
+		FD_ZERO( &readfds );
+
+		ssize_t sz;
+
+		int sockfd_max = -1; // for select compulsion
+		for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+		{
+			if ( _g->bridges.ABhs_masks[ i ] )
+			{
+				if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established /* && _g->bridges.ABs[i].single_AB->tcp_connection_established*/ )
+				{
+					FD_SET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds );
+					if ( _g->bridges.ABs[ i ].single_AB->udp_sockfd > sockfd_max )
+					{
+						sockfd_max = _g->bridges.ABs[ i ].single_AB->udp_sockfd;
+					}
+				}
+			}
+		}
+		_g->bridges.under_listen_udp_sockets_group_changed = 0; // if any udp socket change then fdset must be reinitialized
+		if ( sockfd_max < 0 )
+		{
+			sleep( 1 );
+			continue;
+		}
+
+		while ( 1 )
+		{
+			//pthread_mutex_lock( &_g->sync.mutex );
+			//while ( _g->sync.lock_in_progress )
+			//{
+			//	////struct timespec ts = { 0, 10L };
+			//	////thrd_sleep( &ts , NULL );
+			//	pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
+			//}
+			//pthread_mutex_unlock( &_g->sync.mutex );
+			//if ( _g->sync.reset_static_after_lock )
+			//{
+			//	_g->sync.reset_static_after_lock = 0;
+			//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+			//}
+
+
+			if ( _g->bridges.thread_base.do_close_thread )
+			{
+				break;
+			}
+			if ( _g->bridges.under_listen_udp_sockets_group_changed )
+			{
+				config_changes = 1;
+				break;
+			}
+
+			//struct timeval timeout; // Set timeout (e.g., 5 seconds)
+			//timeout.tv_sec = ( input_udp_socket_error_tolerance_count + 1 ) * 2;
+			//timeout.tv_usec = 0;
+
+			// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
+			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , NULL/* & timeout*/ );
+
+			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
+			{
+
+				int error = 0;
+				socklen_t errlen = sizeof( error );
+				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
+				if ( error != 0 )
+				{
+					_VERBOSE_ECHO( "Socket error: %d\n" , error );
+				}
+
+				if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+				{
+					input_udp_socket_error_tolerance_count = 0;
+					for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+					{
+						if ( _g->bridges.ABhs_masks[ i ] )
+						{
+							if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established ) // all the connected udp stoped or die so restart them
+							{
+								//if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
+								{
+									_g->bridges.ABs[ i ].single_AB->retry_to_connect_udp = 1;
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				continue;
+			}
+			if ( activity == 0 ) // timed out
+			{
+
+				int error = 0;
+				socklen_t errlen = sizeof( error );
+				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
+				if ( error == 0 )
+				{
+					_g->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count++;
+					if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+					{
+						input_udp_socket_error_tolerance_count = 0;
+						for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+						{
+							if ( _g->bridges.ABhs_masks[ i ] )
+							{
+								if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established ) // all the connected udp stoped or die so restart them
+								{
+									//if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
+									{
+										_g->bridges.ABs[ i ].single_AB->retry_to_connect_udp = 1;
+										break;
+									}
+								}
+							}
+						}
+					}
+					continue;
+				}
+				_VERBOSE_ECHO( "Socket error: %d\n" , error );
+				
+				continue;
+			}
+
+			_g->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count = 0;
+
+			if ( _g->stat.round_zero_set.t_begin.tv_sec == 0 && _g->stat.round_zero_set.t_begin.tv_usec == 0 )
+			{
+				gettimeofday(&_g->stat.round_zero_set.t_begin, NULL);
+			}
+
+
+			tnow = time( NULL );
+			// udp
+			if ( difftime( tnow , _g->stat.round_zero_set.udp_1_sec.t_udp_throughput ) >= 1.0 )
+			{
+				if ( _g->stat.round_zero_set.udp_1_sec.t_udp_throughput > 0 )
+				{
+					circbuf_advance( &_g->stat.round_init_set.udp_stat_5_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+					circbuf_advance( &_g->stat.round_init_set.udp_stat_5_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+					circbuf_advance( &_g->stat.round_init_set.udp_stat_10_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+					circbuf_advance( &_g->stat.round_init_set.udp_stat_10_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+					circbuf_advance( &_g->stat.round_init_set.udp_stat_40_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+					circbuf_advance( &_g->stat.round_init_set.udp_stat_40_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+					circbuf_advance( &_g->stat.round_init_set.udp_stat_120_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+					circbuf_advance( &_g->stat.round_init_set.udp_stat_120_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+					//_g->stat.round.udp_1_sec.udp_get_count_throughput = _g->stat.round.udp_1_sec.calc_throughput_udp_get_count;
+					//_g->stat.round.udp_1_sec.udp_get_byte_throughput = _g->stat.round.udp_1_sec.calc_throughput_udp_get_bytes;
+				}
+				_g->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
+				_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
+				_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
+			}
+			//if ( difftime( tnow , _g->stat.round.udp_10_sec.t_udp_throughput ) >= 10.0 )
+			//{
+			//	if ( _g->stat.round.udp_10_sec.t_udp_throughput > 0 )
+			//	{
+			//		_g->stat.round.udp_10_sec.udp_get_count_throughput = _g->stat.round.udp_10_sec.calc_throughput_udp_get_count;
+			//		_g->stat.round.udp_10_sec.udp_get_byte_throughput = _g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes;
+			//	}
+			//	_g->stat.round.udp_10_sec.t_udp_throughput = tnow;
+			//	_g->stat.round.udp_10_sec.calc_throughput_udp_get_count = 0;
+			//	_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes = 0;
+			//}
+			//if ( difftime( tnow , _g->stat.round.udp_40_sec.t_udp_throughput ) >= 40.0 )
+			//{
+			//	if ( _g->stat.round.udp_40_sec.t_udp_throughput > 0 )
+			//	{
+			//		_g->stat.round.udp_40_sec.udp_get_count_throughput = _g->stat.round.udp_40_sec.calc_throughput_udp_get_count;
+			//		_g->stat.round.udp_40_sec.udp_get_byte_throughput = _g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes;
+			//	}
+			//	_g->stat.round.udp_40_sec.t_udp_throughput = tnow;
+			//	_g->stat.round.udp_40_sec.calc_throughput_udp_get_count = 0;
+			//	_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes = 0;
+			//}
+
+
+			for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+			{
+				if ( _g->bridges.ABhs_masks[ i ] )
+				{
+					if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established )
+					{
+						if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
+						{
+							while( 1 )
+							{
+							
+								bytes_received = recvfrom( _g->bridges.ABs[ i ].single_AB->udp_sockfd , buffer , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
+								if ( bytes_received < 0 )
+								{
+									if ( errno == EAGAIN || errno == EWOULDBLOCK )
+									{
+										// No more packets available
+										break;
+									}
+									else
+									{
+										_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+										_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+										break;
+									}
+								}
+								
+								if ( bytes_received <= 0 )
+								{
+									_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+									_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+									continue;
+								}
+								_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
+								//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
+
+								gettimeofday(&_g->stat.round_zero_set.t_end, NULL);
+
+								_g->stat.round_zero_set.udp.total_udp_get_count++;
+								_g->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
+								_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
+								_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
+								//_g->stat.round.udp_10_sec.calc_throughput_udp_get_count++;
+								//_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes += bytes_received;
+								//_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
+								//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
+
+							}
+						}
+					}
+				}
+			}
+		}
+
+	} while ( config_changes );
+	
+	BREAK_OK( 0 ); // to just ignore gcc warning
+
+	BEGIN_RET
+		case 3: ;
+		case 2: ;
+		case 1:
+		{
+			//_close_socket( &src_pb->tcp_sockfd );
+			_g->stat.round_zero_set.syscal_err_count++;
+		}
+	M_V_END_RET
+
 	return NULL;
 }
 
@@ -1195,7 +1195,7 @@ _THREAD_FXN void * protocol_bridge_runner( void * src_pb )
 //	//	return NULL;
 //	//}
 //
-//	//if ( _g->appcfg._general_config->c.c.atht == buttleneck )
+//	//if ( _g->appcfg._g_cfg->c.c.atht == buttleneck )
 //	//{
 //	//	if ( _g->bridges.bottleneck_thread != NULL )
 //	//	{
@@ -1209,7 +1209,7 @@ _THREAD_FXN void * protocol_bridge_runner( void * src_pb )
 //	//	}
 //	//}
 //
-//	//if ( _g->appcfg._general_config->c.c.atht == bidirection )
+//	//if ( _g->appcfg._g_cfg->c.c.atht == bidirection )
 //	//{
 //	//	if ( _g->bridges.bidirection_thread != NULL )
 //	//	{
@@ -1225,7 +1225,7 @@ _THREAD_FXN void * protocol_bridge_runner( void * src_pb )
 //	//	}
 //	//}
 //
-//	//if ( _g->appcfg._general_config->c.c.atht == justIncoming )
+//	//if ( _g->appcfg._g_cfg->c.c.atht == justIncoming )
 //	//{
 //	//	if ( _g->bridges.justIncoming_thread != NULL )
 //	//	{
@@ -1276,7 +1276,7 @@ _THREAD_FXN void * protocol_bridge_runner( void * src_pb )
 //	//	try_to_connect_udp_port = 0;
 //	//	try_to_connect_tcp_port = 0;
 //
-//	//	if ( _g->appcfg._general_config->c.c.atht == buttleneck || _g->appcfg._general_config->c.c.atht == bidirection )
+//	//	if ( _g->appcfg._g_cfg->c.c.atht == buttleneck || _g->appcfg._g_cfg->c.c.atht == bidirection )
 //	//	{
 //	//		// first close then reconnect
 //	//		if ( tmp_try_to_connect_udp_port )
@@ -1290,7 +1290,7 @@ _THREAD_FXN void * protocol_bridge_runner( void * src_pb )
 //	//			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 //	//		}
 //	//	}
-//	//	else if ( _g->appcfg._general_config->c.c.atht == justIncoming )
+//	//	else if ( _g->appcfg._g_cfg->c.c.atht == justIncoming )
 //	//	{
 //	//		if ( tmp_try_to_connect_udp_port )
 //	//		{
@@ -1315,8 +1315,8 @@ _THREAD_FXN void * protocol_bridge_runner( void * src_pb )
 //
 //	//
 //	//BEGIN_RET
-//	//	case 3: {}
-//	//	case 2: {}
+//	//	case 3: ;
+//	//	case 2: ;
 //	//	case 1:
 //	//	{
 //	//		//_close_socket( &src_pb->tcp_sockfd );
@@ -1325,4 +1325,66 @@ _THREAD_FXN void * protocol_bridge_runner( void * src_pb )
 //	//M_V_END_RET
 //
 	return NULL;
+}
+
+
+void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
+{
+	INIT_BREAKABLE_FXN();
+
+	//if ( !new_ccfg->m.m.maintained.enable )
+	//{
+	//	for ( int i = 0 ; i < pb->pb_trds_masks_count ; i++ )
+	//	{
+	//		if ( pb->pb_trds_masks[ i ] )
+	//		{
+	//			pb->pb_trds->alc_thread->do_close_thread = 1;
+	//		}
+	//	}
+	//	return;
+	//}
+
+	// when we arrive at this point we sure that somethings is changed
+	copy_bridge_cfg( &pb->ccfg , new_ccfg );
+	new_ccfg->m.m.temp_data.pcfg_changed = 0; // say to config that change applied to bridge
+	
+	if ( STR_SAME( pb->ccfg.m.m.id.thread_handler_act , JUSTINCOMING ) )
+	{
+		if ( !_g->bridges.justIncoming_thread )
+		{
+			_g->bridges.justIncoming_thread = NEW( struct bridges_justIncoming_thread );
+			MEMSET_ZERO( _g->bridges.justIncoming_thread , struct bridges_justIncoming_thread , 1 );
+			pthread_mutex_init( &_g->bridges.trd.creation_thread_race_cond , NULL );
+			pthread_mutex_init( &_g->bridges.trd.start_working_race_cond , NULL );
+		}
+	}
+	else if ( STR_SAME( pb->ccfg.m.m.id.thread_handler_act , BOTTLENECK ) )
+	{
+		if ( !_g->bridges.bottleneck_thread )
+		{
+			_g->bridges.bottleneck_thread = NEW( struct bridges_bottleneck_thread );
+			MEMSET_ZERO( _g->bridges.bottleneck_thread , struct bridges_bottleneck_thread , 1 );
+			pthread_mutex_init( &_g->bridges.trd.creation_thread_race_cond , NULL );
+			pthread_mutex_init( &_g->bridges.trd.start_working_race_cond , NULL );
+		}
+	}
+	else if ( STR_SAME( pb->ccfg.m.m.id.thread_handler_act , BIDIRECTION ) )
+	{
+		if ( !_g->bridges.bidirection_thread )
+		{
+			_g->bridges.bidirection_thread = NEW( struct bridges_bidirection_thread );
+			memset( &_g->bridges.bidirection_thread->mem , 0 , sizeof( struct bridges_bidirection_thread_zero_init_memory ) );
+			queue_init( &_g->bridges.bidirection_thread->queue );
+			pthread_mutex_init( &_g->bridges.trd.start_working_race_cond , NULL );
+		}
+	}
+
+	BEGIN_RET // TODO . complete reverse on error
+	case 3: ;
+	case 2: ;
+	case 1:
+	{
+		_g->stat.round_zero_set.syscal_err_count++;
+	}
+	M_V_END_RET
 }

@@ -135,7 +135,7 @@ _THREAD_FXN void * sync_thread( void * pdata ) // pause app until moment other a
 	//clock_gettime( CLOCK_REALTIME , &now );
 
 	////pthread_mutex_lock( &_g->sync.mutex );
-	//round_up_to_next_interval( &now , _g->appcfg._general_config->c.c.synchronization_min_wait , _g->appcfg._general_config->c.c.synchronization_max_roundup , &next_round_time );
+	//round_up_to_next_interval( &now , _g->appcfg._g_cfg->c.c.synchronization_min_wait , _g->appcfg._g_cfg->c.c.synchronization_max_roundup , &next_round_time );
 	////_g->sync.lock_in_progress = 1;
 	////pthread_mutex_unlock( &_g->sync.mutex );
 
@@ -242,8 +242,6 @@ _THREAD_FXN void * input_thread( void * pdata )
 }
 
 
-//#define PARALLELISM_COUNT 1
-
 // TODO . close connection after change in config
 _THREAD_FXN void * thread_udp_connection_proc( void * src_pb )
 {
@@ -289,7 +287,7 @@ _THREAD_FXN void * thread_udp_connection_proc( void * src_pb )
 	//pb->udp_connection_established = 1;
 
 	//pthread_mutex_lock( &_g->bridges.thread_base.start_working_race_cond );
-	//switch ( _g->appcfg._general_config->c.c.atht )
+	//switch ( _g->appcfg._g_cfg->c.c.atht )
 	//{
 	//	case buttleneck :
 	//	case bidirection :
@@ -318,8 +316,8 @@ _THREAD_FXN void * thread_udp_connection_proc( void * src_pb )
 	//_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
 
 	//BEGIN_RET
-	//	case 3: {}
-	//	case 2: {}
+	//	case 3: ;
+	//	case 2: ;
 	//	case 1:	_g->stat.round_zero_set.syscal_err_count++;
 	//M_V_END_RET
 	return NULL; // Threads can return a value, but this example returns NULL
@@ -362,7 +360,7 @@ int _connect_tcp( AB * pb )
 	//		//setsockopt( pb->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , ( char * )&flag , sizeof( int ) );
 
 	//		pthread_mutex_lock( &_g->bridges.thread_base.start_working_race_cond );
-	//		switch ( _g->appcfg._general_config->c.c.atht )
+	//		switch ( _g->appcfg._g_cfg->c.c.atht )
 	//		{
 	//			case buttleneck:
 	//			case bidirection:
@@ -391,8 +389,8 @@ int _connect_tcp( AB * pb )
 	//}
 	//
 	//BEGIN_RET
-	//	case 3: {}
-	//	case 2: {}
+	//	case 3: ;
+	//	case 2: ;
 	//	case 1:
 	//	{
 	//		_close_socket( &pb->tcp_sockfd );
@@ -434,9 +432,9 @@ _THREAD_FXN void * thread_tcp_connection_proc( void * src_pb )
 	//BREAK_OK(0); // to just ignore gcc warning
 
 	//BEGIN_RET
-	//	case 3: {}
-	//	case 2: {}
-	//	case 1: {}
+	//	case 3: ;
+	//	case 2: ;
+	//	case 1: ;
 	//M_V_END_RET
 	return NULL; // Threads can return a value, but this example returns NULL
 }
