@@ -19,7 +19,7 @@ void M_showMsg( const char * msg );
 void init( G * _g );
 _THREAD_FXN void * sync_thread( void * pdata ); // pause app until moment other app exist
 _THREAD_FXN void * input_thread( void * pdata );
-_THREAD_FXN void * thread_udp_connection_proc( void * src_pb );
+_THREAD_FXN void * connect_udps_proc( void * src_pb );
 int _connect_tcp( AB * pb );
 _THREAD_FXN void * thread_tcp_connection_proc( void * src_pb );
 

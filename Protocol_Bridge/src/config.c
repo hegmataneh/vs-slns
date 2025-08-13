@@ -36,7 +36,7 @@ _THREAD_FXN void * version_checker( void * app_data )
 
 		if ( CLOSE_APP_VAR() ) break;
 
-		if ( _g->appcfg._ver == NULL || difftime( cur_time , prev_time ) > 5 )
+		if ( _g->appcfg.ver == NULL || difftime( cur_time , prev_time ) > 5 )
 		{
 			prev_time = cur_time;
 
@@ -63,10 +63,10 @@ _THREAD_FXN void * version_checker( void * app_data )
 			temp_ver.Revision_Patch = ( int )strtol( strtok( NULL , "." ) , &perr , 10 );	MM_BREAK_IF( !perr , errGeneral , 0 , "ver Revision_Patch wrong" );
 			json_free( &el_config_ver ); // string is user so must be free at the end
 
-			if ( _g->appcfg._ver == NULL || STR_DIFF( temp_ver.version , _g->appcfg._ver->version ) )
+			if ( _g->appcfg.ver == NULL || STR_DIFF( temp_ver.version , _g->appcfg.ver->version ) )
 			{
-				_g->appcfg._ver = ( struct Config_ver * )memcpy( &_g->appcfg.___temp_ver , &temp_ver , sizeof( temp_ver ) );
-				_g->appcfg._version_changed = 1;
+				_g->appcfg.ver = ( struct Config_ver * )memcpy( &_g->appcfg.temp_ver , &temp_ver , sizeof( temp_ver ) );
+				_g->appcfg.version_changed = 1;
 				//if ( IF_VERBOSE_MODE_CONDITION() )
 				//{
 				//	_ECHO( "version changed %s" , _g->appcfg._ver->version );
@@ -103,7 +103,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 	G * _g = ( G * )app_data;
 	time_t prev_time , cur_time;
 	
-	while ( !_g->appcfg._version_changed ) // load after version loaded
+	while ( !_g->appcfg.version_changed ) // load after version loaded
 	{
 		if ( CLOSE_APP_VAR() ) break;
 		sleep( 1 );
@@ -115,7 +115,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 	{
 		cur_time = time( NULL );
 		if ( CLOSE_APP_VAR() ) break;
-		if ( _g->appcfg._g_cfg == NULL || _g->appcfg._version_changed /* || difftime(cur_time , prev_time) > 15 * 60*/ )
+		if ( _g->appcfg.g_cfg == NULL || _g->appcfg.version_changed /* || difftime(cur_time , prev_time) > 15 * 60*/ )
 		{
 			prev_time = prev_time; // to ignore warning
 			prev_time = cur_time;
@@ -134,7 +134,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 				el_Protocol_Bridge_config = result_unwrap( json_element )( &rs_Protocol_Bridge_config );
 	
 				// load general configurations
-				if ( _g->appcfg._ver->Major >= 1 ) // first version of config file structure
+				if ( _g->appcfg.ver->Major >= 1 ) // first version of config file structure
 				{
 					result( json_element ) re_configurations = json_object_find( el_Protocol_Bridge_config.value.as_object , "configurations" );
 					MM_BREAK_IF( catch_error( &re_configurations , "configurations" ) , errGeneral , 0 , "configurations" );
@@ -190,7 +190,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 	
 					MM_BREAK_IF( ( Protocol_Bridges_count = el_Protocol_Bridges.value.as_object->count ) < 1 , errGeneral , 0 , "Protocol_Bridges must be not zero" );
 	
-					M_BREAK_IF( !( pProtocol_Bridges = NEWBUF( Bcfg , el_Protocol_Bridges.value.as_object->count ) ) , errMemoryLow , 0 );
+					M_BREAK_IF( !( pProtocol_Bridges = MALLOC_AR( pProtocol_Bridges , el_Protocol_Bridges.value.as_object->count ) ) , errMemoryLow , 0 );
 					MEMSET_ZERO( pProtocol_Bridges , el_Protocol_Bridges.value.as_object->count );
 						
 					for ( int i = 0 ; i < el_Protocol_Bridges.value.as_object->count ; i++ ) // each bridge
@@ -266,46 +266,48 @@ _THREAD_FXN void * config_loader( void * app_data )
 						
 						// bridge outputs
 						result( json_element ) re_outputs = json_object_find( el_each_bridge.value.as_object , "outputs" );
-						MM_BREAK_IF( catch_error( &re_outputs , "outputs" ) , errGeneral , 0 , "outputs" );
-						typed( json_element ) el_outputs = result_unwrap( json_element )( &re_outputs );
-
-						( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count = el_outputs.value.as_object->count;
-
-						M_BREAK_IF( !( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out = MALLOC_AR( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count ) ) , errMemoryLow , 0 );
-						MEMSET_ZERO( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count );
-						for ( int j = 0 ; j < ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count ; j++ )
+						if ( !catch_error( &re_outputs , "outputs" ) )
 						{
-							const char * output_outputs_name = ( *( el_outputs.value.as_object->entries + j ) )->key;
+							typed( json_element ) el_outputs = result_unwrap( json_element )( &re_outputs );
 
-							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in + j )->name , output_outputs_name );
+							( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count = el_outputs.value.as_object->count;
 
-							result( json_element ) re_out = json_object_find( el_outputs.value.as_object , output_outputs_name );
-							M_BREAK_IF( catch_error( &re_out , output_outputs_name ) , errGeneral , 0 );
-							typed( json_element ) el_out = result_unwrap( json_element )( &re_out );
+							M_BREAK_IF( !( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out = MALLOC_AR( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count ) ) , errMemoryLow , 0 );
+							MEMSET_ZERO( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count );
+							for ( int j = 0 ; j < ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count ; j++ )
+							{
+								const char * output_outputs_name = ( *( el_outputs.value.as_object->entries + j ) )->key;
 
-							#define IN_CFG_ELEM_STR( elem , namee )																		/**/\
-							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-							M_BREAK_IF( catch_error( &re_##namee , #namee ) , errGeneral , 0 );											/**/\
-							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
-							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.out + j )->data.namee , el_##namee.value.as_string );		/**/
+								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in + j )->name , output_outputs_name );
 
-							#define IN_CFG_ELEM_I( elem , namee )																				/**/\
-							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
-							M_BREAK_IF( catch_error( &re_##namee , #namee ) , errGeneral , 0 );													/**/\
-							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
-							( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.out + j )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
+								result( json_element ) re_out = json_object_find( el_outputs.value.as_object , output_outputs_name );
+								M_BREAK_IF( catch_error( &re_out , output_outputs_name ) , errGeneral , 0 );
+								typed( json_element ) el_out = result_unwrap( json_element )( &re_out );
 
-							IN_CFG_ELEM_STR( el_out , group );
-							IN_CFG_ELEM_STR( el_out , group_type );
-							IN_CFG_ELEM_STR( el_out , TCP_destination_ip );
-							IN_CFG_ELEM_STR( el_out , TCP_destination_interface );
+								#define IN_CFG_ELEM_STR( elem , namee )																		/**/\
+								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
+								M_BREAK_IF( catch_error( &re_##namee , #namee ) , errGeneral , 0 );											/**/\
+								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
+								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.out + j )->data.namee , el_##namee.value.as_string );		/**/
 
-							IN_CFG_ELEM_I( el_out , TCP_destination_port );
-							IN_CFG_ELEM_I( el_out , enable );
-							IN_CFG_ELEM_I( el_out , reset_connection );
+								#define IN_CFG_ELEM_I( elem , namee )																				/**/\
+								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
+								M_BREAK_IF( catch_error( &re_##namee , #namee ) , errGeneral , 0 );													/**/\
+								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
+								( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.out + j )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
 
-							#undef IN_CFG_ELEM_STR
-							#undef IN_CFG_ELEM_I
+								IN_CFG_ELEM_STR( el_out , group );
+								IN_CFG_ELEM_STR( el_out , group_type );
+								IN_CFG_ELEM_STR( el_out , TCP_destination_ip );
+								IN_CFG_ELEM_STR( el_out , TCP_destination_interface );
+
+								IN_CFG_ELEM_I( el_out , TCP_destination_port );
+								IN_CFG_ELEM_I( el_out , enable );
+								IN_CFG_ELEM_I( el_out , reset_connection );
+
+								#undef IN_CFG_ELEM_STR
+								#undef IN_CFG_ELEM_I
+							}
 						}
 	
 						#undef CFG_ELEM_I
@@ -318,65 +320,63 @@ _THREAD_FXN void * config_loader( void * app_data )
 	
 			int initial_general_config = 0;
 			// 
-			if ( _g->appcfg._g_cfg == NULL ) // TODO . make assignemnt atomic
+			if ( _g->appcfg.g_cfg == NULL ) // TODO . make assignemnt atomic
 			{
-				M_BREAK_IF( !( _g->appcfg._g_cfg = malloc( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
+				M_BREAK_IF( !( _g->appcfg.g_cfg = malloc( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
 	
-				MEMSET_ZERO( _g->appcfg._g_cfg , 1 );
-				memcpy( _g->appcfg._g_cfg , &temp_config , sizeof( temp_config ) );
+				MEMSET_ZERO( _g->appcfg.g_cfg , 1 );
+				memcpy( _g->appcfg.g_cfg , &temp_config , sizeof( temp_config ) );
 				memset( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings
 				initial_general_config = 1;
-				_g->appcfg._g_cfg_changed = 1;
+				_g->appcfg.g_cfg_changed = 1;
 			}
 			if ( !initial_general_config )
 			{
 				// compare general config
-				DAC( _g->appcfg._prev_cfg );
+				DAC( _g->appcfg.prev_cfg );
 	
-				_g->appcfg._prev_cfg = _g->appcfg._g_cfg;
-				_g->appcfg._g_cfg = NULL;
+				_g->appcfg.prev_cfg = _g->appcfg.g_cfg;
+				_g->appcfg.g_cfg = NULL;
 	
-				M_BREAK_IF( !( _g->appcfg._g_cfg = malloc( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
-				memset( _g->appcfg._g_cfg , 0 , sizeof( struct Global_Config ) );
-				memcpy( _g->appcfg._g_cfg , &temp_config , sizeof( temp_config ) );
+				M_BREAK_IF( !( _g->appcfg.g_cfg = malloc( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
+				memset( _g->appcfg.g_cfg , 0 , sizeof( struct Global_Config ) );
+				memcpy( _g->appcfg.g_cfg , &temp_config , sizeof( temp_config ) );
 				memset( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings
 	
-				if ( _g->appcfg._prev_cfg != NULL && _g->appcfg._g_cfg != NULL )
+				if ( _g->appcfg.prev_cfg != NULL && _g->appcfg.g_cfg != NULL )
 				{
-					_g->appcfg._g_cfg_changed |= !STR_SAME( _g->appcfg._g_cfg->c.c.create_date , _g->appcfg._prev_cfg->c.c.create_date );
-					_g->appcfg._g_cfg_changed |= !STR_SAME( _g->appcfg._g_cfg->c.c.modify_date , _g->appcfg._prev_cfg->c.c.modify_date );
-					_g->appcfg._g_cfg_changed |= !STR_SAME( _g->appcfg._g_cfg->c.c.config_name , _g->appcfg._prev_cfg->c.c.config_name );
-					_g->appcfg._g_cfg_changed |= !STR_SAME( _g->appcfg._g_cfg->c.c.config_tags , _g->appcfg._prev_cfg->c.c.config_tags );
-					_g->appcfg._g_cfg_changed |= !STR_SAME( _g->appcfg._g_cfg->c.c.description , _g->appcfg._prev_cfg->c.c.description );
-					_g->appcfg._g_cfg_changed |= !STR_SAME( _g->appcfg._g_cfg->c.c.log_level , _g->appcfg._prev_cfg->c.c.log_level );
-					_g->appcfg._g_cfg_changed |= !STR_SAME( _g->appcfg._g_cfg->c.c.log_file , _g->appcfg._prev_cfg->c.c.log_file );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.create_date , _g->appcfg.prev_cfg->c.c.create_date );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.modify_date , _g->appcfg.prev_cfg->c.c.modify_date );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.config_name , _g->appcfg.prev_cfg->c.c.config_name );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.config_tags , _g->appcfg.prev_cfg->c.c.config_tags );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.description , _g->appcfg.prev_cfg->c.c.description );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.log_level , _g->appcfg.prev_cfg->c.c.log_level );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.log_file , _g->appcfg.prev_cfg->c.c.log_file );
+
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.enable == _g->appcfg.prev_cfg->c.c.enable );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.shutdown == _g->appcfg.prev_cfg->c.c.shutdown );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.watchdog_enabled == _g->appcfg.prev_cfg->c.c.watchdog_enabled );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.load_prev_config == _g->appcfg.prev_cfg->c.c.load_prev_config );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.dump_current_config == _g->appcfg.prev_cfg->c.c.dump_current_config );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.dump_prev_config == _g->appcfg.prev_cfg->c.c.dump_prev_config );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.time_out_sec == _g->appcfg.prev_cfg->c.c.time_out_sec );
+
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.verbose_mode == _g->appcfg.prev_cfg->c.c.verbose_mode );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.hi_frequent_log_interval_sec == _g->appcfg.prev_cfg->c.c.hi_frequent_log_interval_sec );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.refresh_variable_from_scratch == _g->appcfg.prev_cfg->c.c.refresh_variable_from_scratch );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.stat_referesh_interval_sec == _g->appcfg.prev_cfg->c.c.stat_referesh_interval_sec );
+					//_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.thread_handler_type , _g->appcfg.prev_cfg->c.c.thread_handler_type );
 	
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.enable == _g->appcfg._prev_cfg->c.c.enable );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.shutdown == _g->appcfg._prev_cfg->c.c.shutdown );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.watchdog_enabled == _g->appcfg._prev_cfg->c.c.watchdog_enabled );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.load_prev_config == _g->appcfg._prev_cfg->c.c.load_prev_config );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.dump_current_config == _g->appcfg._prev_cfg->c.c.dump_current_config );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.dump_prev_config == _g->appcfg._prev_cfg->c.c.dump_prev_config );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.time_out_sec == _g->appcfg._prev_cfg->c.c.time_out_sec );
-	
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.verbose_mode == _g->appcfg._prev_cfg->c.c.verbose_mode );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.hi_frequent_log_interval_sec == _g->appcfg._prev_cfg->c.c.hi_frequent_log_interval_sec );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.refresh_variable_from_scratch == _g->appcfg._prev_cfg->c.c.refresh_variable_from_scratch );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.stat_referesh_interval_sec == _g->appcfg._prev_cfg->c.c.stat_referesh_interval_sec );
-					//_g->appcfg._g_cfg_changed |= !STR_SAME( _g->appcfg._g_cfg->c.c.thread_handler_type , _g->appcfg._prev_cfg->c.c.thread_handler_type );
-	
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.synchronization_min_wait == _g->appcfg._prev_cfg->c.c.synchronization_min_wait );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.synchronization_max_roundup == _g->appcfg._prev_cfg->c.c.synchronization_max_roundup );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.show_line_hit == _g->appcfg._prev_cfg->c.c.show_line_hit );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.retry_unexpected_wait_for_sock == _g->appcfg._prev_cfg->c.c.retry_unexpected_wait_for_sock );
-					_g->appcfg._g_cfg_changed |= !( _g->appcfg._g_cfg->c.c.number_in_short_form == _g->appcfg._prev_cfg->c.c.number_in_short_form );
-						
-						
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.synchronization_min_wait == _g->appcfg.prev_cfg->c.c.synchronization_min_wait );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.synchronization_max_roundup == _g->appcfg.prev_cfg->c.c.synchronization_max_roundup );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.show_line_hit == _g->appcfg.prev_cfg->c.c.show_line_hit );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.retry_unexpected_wait_for_sock == _g->appcfg.prev_cfg->c.c.retry_unexpected_wait_for_sock );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.number_in_short_form == _g->appcfg.prev_cfg->c.c.number_in_short_form );
 						
 				}
 			}
 	
-			if ( _g->appcfg._g_cfg_changed )
+			if ( _g->appcfg.g_cfg_changed )
 			{
 				//if ( IF_VERBOSE_MODE_CONDITION() )
 				//{
@@ -384,83 +384,83 @@ _THREAD_FXN void * config_loader( void * app_data )
 				//}
 			}
 	
-			if ( _g->appcfg._bdj_psv_cfg )
+			if ( _g->appcfg.bdj_psv_cfg )
 			{
 				DAC( _g->appcfg.old_bdj_psv_cfg );
-				_g->appcfg._old_bdj_psv_cfg_count = 0;
-				_g->appcfg.old_bdj_psv_cfg = _g->appcfg._bdj_psv_cfg;
-				_g->appcfg._old_bdj_psv_cfg_count = _g->appcfg._bdj_psv_cfg_count;
+				_g->appcfg.old_bdj_psv_cfg_count = 0;
+				_g->appcfg.old_bdj_psv_cfg = _g->appcfg.bdj_psv_cfg;
+				_g->appcfg.old_bdj_psv_cfg_count = _g->appcfg.bdj_psv_cfg_count;
 			}
-			_g->appcfg._bdj_psv_cfg = pProtocol_Bridges;
-			_g->appcfg._bdj_psv_cfg_count = Protocol_Bridges_count;
+			_g->appcfg.bdj_psv_cfg = pProtocol_Bridges;
+			_g->appcfg.bdj_psv_cfg_count = Protocol_Bridges_count;
 			pProtocol_Bridges = NULL; // to not delete intentionally
 			Protocol_Bridges_count = 0;
 	
 			// TEST CASE. some slightly change in config cause equality control tested
-			if ( _g->appcfg.old_bdj_psv_cfg == NULL && _g->appcfg._bdj_psv_cfg ) // prev null & curr !null
+			if ( _g->appcfg.old_bdj_psv_cfg == NULL && _g->appcfg.bdj_psv_cfg ) // prev null & curr !null
 			{
 				// all new ones
-				_g->appcfg._psvcfg_changed = 1; // ham koli set mishavad change rokh dad
-				for ( int i = 0 ; i < _g->appcfg._bdj_psv_cfg_count ; i++ )
+				_g->appcfg.psv_cfg_changed = 1; // ham koli set mishavad change rokh dad
+				for ( int i = 0 ; i < _g->appcfg.bdj_psv_cfg_count ; i++ )
 				{
-					_g->appcfg._bdj_psv_cfg[ i ].m.m.temp_data.pcfg_changed = 1; // ham joz e set mishavad
+					_g->appcfg.bdj_psv_cfg[ i ].m.m.temp_data.pcfg_changed = 1; // ham joz e set mishavad
 				}
 			}
-			else if ( _g->appcfg.old_bdj_psv_cfg && _g->appcfg._bdj_psv_cfg ) // prev !null & curr !null
+			else if ( _g->appcfg.old_bdj_psv_cfg && _g->appcfg.bdj_psv_cfg ) // prev !null & curr !null
 			{
 				// from old perspective
-				for ( int i = 0 ; i < _g->appcfg._old_bdj_psv_cfg_count ; i++ )
+				for ( int i = 0 ; i < _g->appcfg.old_bdj_psv_cfg_count ; i++ )
 				{
 					int prev_exist = 0;
-					for ( int j = 0 ; j < _g->appcfg._bdj_psv_cfg_count ; j++ )
+					for ( int j = 0 ; j < _g->appcfg.bdj_psv_cfg_count ; j++ )
 					{
-						if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg._bdj_psv_cfg[ j ] ) )
+						if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] ) )
 						{
 							prev_exist = 1;
-							if ( !bridge_cfg_data_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg._bdj_psv_cfg[ j ] ) )
+							if ( !bridge_cfg_data_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] ) )
 							{
-								_g->appcfg._psvcfg_changed = 1;
-								_g->appcfg._bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed = 1;
+								_g->appcfg.psv_cfg_changed = 1;
+								_g->appcfg.bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed = 1;
 							}
 							break;
 						}
 					}
 					if ( !prev_exist )
 					{
-						_g->appcfg._psvcfg_changed = 1;
+						_g->appcfg.psv_cfg_changed = 1;
 						_g->appcfg.old_bdj_psv_cfg[ i ].m.m.temp_data.pcfg_changed = 1;
 						break;
 					}
 				}
 				// from new perspective
-				for ( int j = 0 ; j < _g->appcfg._bdj_psv_cfg_count ; j++ )
+				for ( int j = 0 ; j < _g->appcfg.bdj_psv_cfg_count ; j++ )
 				{
 					int new_exist = 0;
-					for ( int i = 0 ; i < _g->appcfg._old_bdj_psv_cfg_count ; i++ )
+					for ( int i = 0 ; i < _g->appcfg.old_bdj_psv_cfg_count ; i++ )
 					{
-						if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg._bdj_psv_cfg[ j ] ) )
+						if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] ) )
 						{
 							new_exist = 1;
-							if ( !bridge_cfg_data_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg._bdj_psv_cfg[ j ] ) )
+							if ( !bridge_cfg_data_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] ) )
 							{
-								_g->appcfg._psvcfg_changed = 1;
-								_g->appcfg._bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed = 1;
+								_g->appcfg.psv_cfg_changed = 1;
+								_g->appcfg.bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed = 1;
 							}
 							break;
 						}
 					}
 					if ( !new_exist )
 					{
-						_g->appcfg._psvcfg_changed = 1;
-						_g->appcfg._bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed = 1;
+						_g->appcfg.psv_cfg_changed = 1;
+						_g->appcfg.bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed = 1;
 						break;
 					}
 				}
 			}
 	
-			_g->appcfg._version_changed = 0;
+			_g->appcfg.version_changed = 0;
 	
-			//if ( _g->appcfg._psvcfg_changed && IF_VERBOSE_MODE_CONDITION() )
+			//if ( _g->appcfg._psv_cfg_changed && IF_VERBOSE_MODE_CONDITION() )
 			//{
 			//	_ECHO( "protocol_bridge config changed" );
 			//}
@@ -492,7 +492,7 @@ _THREAD_FXN void * config_executer( void * app_data )
 	}
 	G * _g = ( G * )app_data;
 
-	while ( !_g->appcfg._bdj_psv_cfg_count ) // load after any config loaded
+	while ( !_g->appcfg.bdj_psv_cfg_count ) // load after any config loaded
 	{
 		if ( CLOSE_APP_VAR() ) break;
 		sleep( 1 );
@@ -502,30 +502,30 @@ _THREAD_FXN void * config_executer( void * app_data )
 	{
 		if ( CLOSE_APP_VAR() )
 		{
-			for ( int j = 0 ; j < _g->appcfg._bdj_psv_cfg_count ; j++ )
+			for ( int j = 0 ; j < _g->appcfg.bdj_psv_cfg_count ; j++ )
 			{
-				_g->appcfg._bdj_psv_cfg[ j ].m.m.maintained.enable = 0;
-				apply_protocol_bridge_new_cfg_changes( _g , &_g->appcfg._bdj_psv_cfg[ j ] , &_g->appcfg._bdj_psv_cfg[ j ] );
+				_g->appcfg.bdj_psv_cfg[ j ].m.m.maintained.enable = 0;
+				apply_protocol_bridge_new_cfg_changes( _g , &_g->appcfg.bdj_psv_cfg[ j ] , &_g->appcfg.bdj_psv_cfg[ j ] );
 			}
 			break;
 		}
-		if ( _g->appcfg._g_cfg_changed )
+		if ( _g->appcfg.g_cfg_changed )
 		{
-			_g->appcfg._g_cfg_changed = 0; // for now . TODO later
+			_g->appcfg.g_cfg_changed = 0; // for now . TODO later
 		}
 
-		if ( _g->appcfg._psvcfg_changed )
+		if ( _g->appcfg.psv_cfg_changed )
 		{
-			for ( int i = 0 ; i < _g->appcfg._old_bdj_psv_cfg_count ; i++ )
+			for ( int i = 0 ; i < _g->appcfg.old_bdj_psv_cfg_count ; i++ )
 			{
 				int exist = 0;
-				for ( int j = 0 ; j < _g->appcfg._bdj_psv_cfg_count ; j++ )
+				for ( int j = 0 ; j < _g->appcfg.bdj_psv_cfg_count ; j++ )
 				{
 					if ( exist ) break;
-					if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg._bdj_psv_cfg[ j ] ) && _g->appcfg._bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed )
+					if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] ) && _g->appcfg.bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed )
 					{
 						// existed cfg changed
-						apply_protocol_bridge_new_cfg_changes( _g , &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg._bdj_psv_cfg[ j ] );
+						apply_protocol_bridge_new_cfg_changes( _g , &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] );
 						exist = 1;
 					}
 				}
@@ -535,12 +535,12 @@ _THREAD_FXN void * config_executer( void * app_data )
 					remove_protocol_bridge( _g , &_g->appcfg.old_bdj_psv_cfg[ i ] );
 				}
 			}
-			for ( int i = 0 ; i < _g->appcfg._bdj_psv_cfg_count ; i++ )
+			for ( int i = 0 ; i < _g->appcfg.bdj_psv_cfg_count ; i++ )
 			{
 				int exist = 0;
-				for ( int j = 0 ; j < _g->appcfg._old_bdj_psv_cfg_count ; j++ )
+				for ( int j = 0 ; j < _g->appcfg.old_bdj_psv_cfg_count ; j++ )
 				{
-					if ( Bcfg_id_equlity( &_g->appcfg._bdj_psv_cfg[ i ] , &_g->appcfg.old_bdj_psv_cfg[ j ] ) )
+					if ( Bcfg_id_equlity( &_g->appcfg.bdj_psv_cfg[ i ] , &_g->appcfg.old_bdj_psv_cfg[ j ] ) )
 					{
 						exist = 1;
 						break;
@@ -549,10 +549,10 @@ _THREAD_FXN void * config_executer( void * app_data )
 				if ( !exist )
 				{
 					// start new cfg
-					add_new_protocol_bridge( _g , &_g->appcfg._bdj_psv_cfg[ i ] );
+					add_new_protocol_bridge( _g , &_g->appcfg.bdj_psv_cfg[ i ] );
 				}
 			}
-			_g->appcfg._psvcfg_changed = 0; // changes applied
+			_g->appcfg.psv_cfg_changed = 0; // changes applied
 		}
 		sleep( 5 );
 	}
@@ -563,9 +563,9 @@ void stop_protocol_bridge( G * _g , AB * pb )
 {
 	////INIT_BREAKABLE_FXN();
 
-	pb->ccfg.m.m.maintained.enable = 0;
-	pb->ccfg.m.m.temp_data.pcfg_changed = 1;
-	apply_new_protocol_bridge_config( _g , pb , &pb->ccfg );
+	pb->cpy_cfg.m.m.maintained.enable = 0;
+	pb->cpy_cfg.m.m.temp_data.pcfg_changed = 1;
+	apply_new_protocol_bridge_config( _g , pb , &pb->cpy_cfg );
 	//// TODO
 }
 
@@ -577,7 +577,7 @@ void apply_protocol_bridge_new_cfg_changes( G * _g , Bcfg * prev_pcfg , Bcfg * n
 	{
 		if ( _g->bridges.ABhs_masks[ i ] )
 		{
-			if ( Bcfg_id_equlity( &_g->bridges.ABs[ i ].single_AB->ccfg , prev_pcfg ) )
+			if ( Bcfg_id_equlity( &_g->bridges.ABs[ i ].single_AB->cpy_cfg , prev_pcfg ) )
 			{
 				apply_new_protocol_bridge_config( _g , _g->bridges.ABs[ i ].single_AB , new_ccfg );
 			}
@@ -593,7 +593,7 @@ void remove_protocol_bridge( G * _g , Bcfg * pcfg )
 	{
 		if ( _g->bridges.ABhs_masks[ i ] )
 		{
-			if ( Bcfg_id_equlity( &_g->bridges.ABs[ i ].single_AB->ccfg , pcfg ) )
+			if ( Bcfg_id_equlity( &_g->bridges.ABs[ i ].single_AB->cpy_cfg , pcfg ) )
 			{
 				stop_protocol_bridge( _g , _g->bridges.ABs[ i ].single_AB );
 				_g->bridges.ABhs_masks[ i ] = 0;
@@ -634,10 +634,10 @@ void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg )
 	}
 
 	ASSERT( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB == NULL );
-	M_BREAK_IF( ( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB = NEW( AB ) ) == NEW_ERR , errMemoryLow , 0 );
-	MEMSET_ZERO( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB ,1 );
+	M_BREAK_IF( ( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB = MALLOC_AR( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB , 1 ) ) == NEW_ERR , errMemoryLow , 0 );
+	MEMSET_ZERO( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB , 1 );
 	_g->bridges.ABhs_masks[ new_ccfg_placement_index ] = 1;
-	copy_bridge_cfg( &_g->bridges.ABs[ new_ccfg_placement_index ].single_AB->ccfg , new_ccfg );
+	copy_bridge_cfg( &_g->bridges.ABs[ new_ccfg_placement_index ].single_AB->cpy_cfg , new_ccfg );
 
 	apply_protocol_bridge_new_cfg_changes( _g , new_ccfg , new_ccfg );
 

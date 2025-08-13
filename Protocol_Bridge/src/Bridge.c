@@ -1,3 +1,7 @@
+#define Uses_memset
+#define Uses_errno
+#define Uses_sockaddr_in
+#define Uses_sleep
 #define Uses_INIT_BREAKABLE_FXN
 #define Uses_TWD
 #define Uses_pthread_t
@@ -9,8 +13,7 @@
 
 #ifndef bottleneck_in_input_output
 
-
-_THREAD_FXN void * bottleneck_thread_proc( void * src_g )
+_THREAD_FXN void * bottleneck_thread_proc( void * src_pb )
 {
 //	INIT_BREAKABLE_FXN();
 //	static TWD twd = { 0 };
@@ -118,7 +121,7 @@ _THREAD_FXN void * bottleneck_thread_proc( void * src_g )
 //	//		timeout.tv_usec = 0;
 //
 //	//		// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-//	//		int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , _g->appcfg._g_cfg->c.c.time_out_sec > 0 ? &timeout : NULL );
+//	//		int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , _g->appcfg.g_cfg->c.c.time_out_sec > 0 ? &timeout : NULL );
 //
 //	//		if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 //	//		{
@@ -406,7 +409,7 @@ return NULL;
 
 #ifndef seperate_thread_for_input_output
 
-_THREAD_FXN void * income_thread_proc( void * src_g )
+_THREAD_FXN void * income_thread_proc( void * src_pb )
 {
 //	INIT_BREAKABLE_FXN();
 //	static TWD twd = { 0 };
@@ -683,7 +686,7 @@ _THREAD_FXN void * income_thread_proc( void * src_g )
 return NULL;
 }
 
-_THREAD_FXN void * outgoing_thread_proc( void * src_g )
+_THREAD_FXN void * outgoing_thread_proc( void * src_pb )
 {
 //	INIT_BREAKABLE_FXN();
 //	static TWD twd = { 0 };
@@ -851,14 +854,19 @@ return NULL;
 
 #ifndef thread_just_for_input
 
-_THREAD_FXN void * justIncoming_thread_proc( void * src_g )
+/// <summary>
+/// this fxn get uninitialized active bridge single udp cfg and open and initialized it
+/// </summary>
+/// <param name="src_AB_udp"></param>
+/// <returns></returns>
+_THREAD_FXN void * udp_counter_thread_proc( void * src_pb )
 {
 	INIT_BREAKABLE_FXN();
 	//static TWD twd = { 0 }; // static not allowed on shared fxn
 	//if ( twd.threadId == 0 )
 	//{
 	//	twd.threadId = pthread_self();
-	//	twd.cal = justIncoming_thread_proc; // self function address
+	//	twd.cal = udp_counter_thread_proc; // self function address
 	//	twd.callback_arg = src_pb;
 	//}
 	//if ( src_pb == NULL )
@@ -866,19 +874,18 @@ _THREAD_FXN void * justIncoming_thread_proc( void * src_g )
 	//	return ( void * )&twd;
 	//}
 
-	//AB * pb = ( AB * )src_pb;
-	G * _g = ( G * )src_g;
+	//AB_udp * pAB_udp = ( AB_udp * )src_AB_udp;
+	AB * pb = ( AB * )src_pb;
+	G * _g = pb->cpy_cfg.m.m.temp_data._g;
 
-
-	while ( !_g->bridges.trd.base.start_working )
+	while ( !pb->trd.base.do_all_prerequisite_stablished )
 	{
-		if ( _g->bridges.trd.base.do_close_thread )
+		if ( pb->trd.base.do_close_thread )
 		{
 			break;
 		}
 		sleep(1);
 	}
-
 
 	time_t tnow = 0;
 
@@ -887,7 +894,7 @@ _THREAD_FXN void * justIncoming_thread_proc( void * src_g )
 	int config_changes = 0;
 	do
 	{
-		if ( _g->bridges.trd.base.do_close_thread )
+		if ( pb->trd.base.do_close_thread )
 		{
 			break;
 		}
@@ -904,21 +911,18 @@ _THREAD_FXN void * justIncoming_thread_proc( void * src_g )
 		ssize_t sz;
 
 		int sockfd_max = -1; // for select compulsion
-		for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+		for ( int i = 0 ; i < pb->udps_count ; i++ )
 		{
-			if ( _g->bridges.ABhs_masks[ i ] )
+			if ( pb->udps[ i ].udp_connection_established )
 			{
-				if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established /* && _g->bridges.ABs[i].single_AB->tcp_connection_established*/ )
+				FD_SET( pb->udps[ i ].udp_sockfd , &readfds );
+				if ( pb->udps[ i ].udp_sockfd > sockfd_max )
 				{
-					FD_SET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds );
-					if ( _g->bridges.ABs[ i ].single_AB->udp_sockfd > sockfd_max )
-					{
-						sockfd_max = _g->bridges.ABs[ i ].single_AB->udp_sockfd;
-					}
+					sockfd_max = pb->udps[ i ].udp_sockfd;
 				}
 			}
 		}
-		_g->bridges.under_listen_udp_sockets_group_changed = 0; // if any udp socket change then fdset must be reinitialized
+		//pb->under_listen_udp_sockets_group_changed = 0; // if any udp socket change then fdset must be reinitialized
 		if ( sockfd_max < 0 )
 		{
 			sleep( 1 );
@@ -942,15 +946,15 @@ _THREAD_FXN void * justIncoming_thread_proc( void * src_g )
 			//}
 
 
-			if ( _g->bridges.thread_base.do_close_thread )
+			if ( pb->trd.base.do_close_thread )
 			{
 				break;
 			}
-			if ( _g->bridges.under_listen_udp_sockets_group_changed )
-			{
-				config_changes = 1;
-				break;
-			}
+			//if ( pb->under_listen_udp_sockets_group_changed )
+			//{
+			//	config_changes = 1;
+			//	break;
+			//}
 
 			//struct timeval timeout; // Set timeout (e.g., 5 seconds)
 			//timeout.tv_sec = ( input_udp_socket_error_tolerance_count + 1 ) * 2;
@@ -970,24 +974,24 @@ _THREAD_FXN void * justIncoming_thread_proc( void * src_g )
 					_VERBOSE_ECHO( "Socket error: %d\n" , error );
 				}
 
-				if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-				{
-					input_udp_socket_error_tolerance_count = 0;
-					for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
-					{
-						if ( _g->bridges.ABhs_masks[ i ] )
-						{
-							if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established ) // all the connected udp stoped or die so restart them
-							{
-								//if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
-								{
-									_g->bridges.ABs[ i ].single_AB->retry_to_connect_udp = 1;
-									break;
-								}
-							}
-						}
-					}
-				}
+				//if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+				//{
+				//	input_udp_socket_error_tolerance_count = 0;
+				//	for ( int i = 0 ; i < pb->ABhs_masks_count ; i++ )
+				//	{
+				//		if ( pb->ABhs_masks[ i ] )
+				//		{
+				//			if ( pb->ABs[ i ].single_AB->udp_connection_established ) // all the connected udp stoped or die so restart them
+				//			{
+				//				//if ( FD_ISSET( pb->ABs[ i ].single_AB->udp_sockfd , &readfds ) )
+				//				{
+				//					pb->ABs[ i ].single_AB->retry_to_connect_udp = 1;
+				//					break;
+				//				}
+				//			}
+				//		}
+				//	}
+				//}
 
 				continue;
 			}
@@ -1000,24 +1004,24 @@ _THREAD_FXN void * justIncoming_thread_proc( void * src_g )
 				if ( error == 0 )
 				{
 					_g->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count++;
-					if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-					{
-						input_udp_socket_error_tolerance_count = 0;
-						for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
-						{
-							if ( _g->bridges.ABhs_masks[ i ] )
-							{
-								if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established ) // all the connected udp stoped or die so restart them
-								{
-									//if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
-									{
-										_g->bridges.ABs[ i ].single_AB->retry_to_connect_udp = 1;
-										break;
-									}
-								}
-							}
-						}
-					}
+					//if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+					//{
+					//	input_udp_socket_error_tolerance_count = 0;
+					//	for ( int i = 0 ; i < pb->ABhs_masks_count ; i++ )
+					//	{
+					//		if ( pb->ABhs_masks[ i ] )
+					//		{
+					//			if ( pb->ABs[ i ].single_AB->udp_connection_established ) // all the connected udp stoped or die so restart them
+					//			{
+					//				//if ( FD_ISSET( pb->ABs[ i ].single_AB->udp_sockfd , &readfds ) )
+					//				{
+					//					pb->ABs[ i ].single_AB->retry_to_connect_udp = 1;
+					//					break;
+					//				}
+					//			}
+					//		}
+					//	}
+					//}
 					continue;
 				}
 				_VERBOSE_ECHO( "Socket error: %d\n" , error );
@@ -1050,86 +1054,57 @@ _THREAD_FXN void * justIncoming_thread_proc( void * src_g )
 
 					circbuf_advance( &_g->stat.round_init_set.udp_stat_120_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
 					circbuf_advance( &_g->stat.round_init_set.udp_stat_120_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-					//_g->stat.round.udp_1_sec.udp_get_count_throughput = _g->stat.round.udp_1_sec.calc_throughput_udp_get_count;
-					//_g->stat.round.udp_1_sec.udp_get_byte_throughput = _g->stat.round.udp_1_sec.calc_throughput_udp_get_bytes;
 				}
 				_g->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
 				_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
 				_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
 			}
-			//if ( difftime( tnow , _g->stat.round.udp_10_sec.t_udp_throughput ) >= 10.0 )
-			//{
-			//	if ( _g->stat.round.udp_10_sec.t_udp_throughput > 0 )
-			//	{
-			//		_g->stat.round.udp_10_sec.udp_get_count_throughput = _g->stat.round.udp_10_sec.calc_throughput_udp_get_count;
-			//		_g->stat.round.udp_10_sec.udp_get_byte_throughput = _g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes;
-			//	}
-			//	_g->stat.round.udp_10_sec.t_udp_throughput = tnow;
-			//	_g->stat.round.udp_10_sec.calc_throughput_udp_get_count = 0;
-			//	_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes = 0;
-			//}
-			//if ( difftime( tnow , _g->stat.round.udp_40_sec.t_udp_throughput ) >= 40.0 )
-			//{
-			//	if ( _g->stat.round.udp_40_sec.t_udp_throughput > 0 )
-			//	{
-			//		_g->stat.round.udp_40_sec.udp_get_count_throughput = _g->stat.round.udp_40_sec.calc_throughput_udp_get_count;
-			//		_g->stat.round.udp_40_sec.udp_get_byte_throughput = _g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes;
-			//	}
-			//	_g->stat.round.udp_40_sec.t_udp_throughput = tnow;
-			//	_g->stat.round.udp_40_sec.calc_throughput_udp_get_count = 0;
-			//	_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes = 0;
-			//}
 
-
-			for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+			for ( int i = 0 ; i < pb->udps_count ; i++ )
 			{
-				if ( _g->bridges.ABhs_masks[ i ] )
+				if ( pb->udps[ i ].udp_connection_established )
 				{
-					if ( _g->bridges.ABs[ i ].single_AB->udp_connection_established )
+					if ( FD_ISSET( pb->udps[ i ].udp_sockfd , &readfds ) )
 					{
-						if ( FD_ISSET( _g->bridges.ABs[ i ].single_AB->udp_sockfd , &readfds ) )
+						while( 1 ) // drain it
 						{
-							while( 1 )
-							{
 							
-								bytes_received = recvfrom( _g->bridges.ABs[ i ].single_AB->udp_sockfd , buffer , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
-								if ( bytes_received < 0 )
+							bytes_received = recvfrom( pb->udps[ i ].udp_sockfd , buffer , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
+							if ( bytes_received < 0 )
+							{
+								if ( errno == EAGAIN || errno == EWOULDBLOCK )
 								{
-									if ( errno == EAGAIN || errno == EWOULDBLOCK )
-									{
-										// No more packets available
-										break;
-									}
-									else
-									{
-										_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
-										_g->stat.round_zero_set.total_unsuccessful_receive_error++;
-										break;
-									}
+									// No more packets available
+									break;
 								}
-								
-								if ( bytes_received <= 0 )
+								else
 								{
 									_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
 									_g->stat.round_zero_set.total_unsuccessful_receive_error++;
-									continue;
+									break;
 								}
-								_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
-								//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
-
-								gettimeofday(&_g->stat.round_zero_set.t_end, NULL);
-
-								_g->stat.round_zero_set.udp.total_udp_get_count++;
-								_g->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
-								_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
-								_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
-								//_g->stat.round.udp_10_sec.calc_throughput_udp_get_count++;
-								//_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes += bytes_received;
-								//_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
-								//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
-
 							}
+								
+							if ( bytes_received <= 0 )
+							{
+								_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+								_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+								continue;
+							}
+							_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
+							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
+
+							gettimeofday(&_g->stat.round_zero_set.t_end, NULL);
+
+							_g->stat.round_zero_set.udp.total_udp_get_count++;
+							_g->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
+							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
+							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
+							//_g->stat.round.udp_10_sec.calc_throughput_udp_get_count++;
+							//_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes += bytes_received;
+							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
+							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
+
 						}
 					}
 				}
@@ -1155,90 +1130,8 @@ _THREAD_FXN void * justIncoming_thread_proc( void * src_g )
 
 #endif
 
-_THREAD_FXN void * protocol_bridge_runner( void * src_pb )
-{
-//	INIT_BREAKABLE_FXN();
-//	static TWD twd = { 0 };
-//	if ( twd.threadId == 0 )
-//	{
-//		twd.threadId = pthread_self();
-//		twd.cal = protocol_bridge_runner; // self function address
-//		twd.callback_arg = src_pb;
-//	}
-//	if ( src_pb == NULL )
-//	{
-//		return ( void * )&twd;
-//	}
-//
-//	//AB * pb = ( AB * )src_pb;
-//	//G * _g = pb->ccfg.m.m.temp_data._g;
-//	//pthread_t tid = pthread_self();
-//	////time_t tnow = 0;
-//	//struct protocol_bridge_thread * pthread = NULL;
-//	//while ( pthread == NULL )
-//	//{
-//	//	for ( int i = 0 ; i < pb->pb_trds_masks_count ; i++ )
-//	//	{
-//	//		if ( pb->pb_trds_masks[ i ] )
-//	//		{
-//	//			if ( pb->pb_trds[ i ].alc_thread->trd_id == tid )
-//	//			{
-//	//				pthread = pb->pb_trds[ i ].alc_thread;
-//	//				break;
-//	//			}
-//	//		}
-//	//	}
-//	//}
-//	//if ( pthread == NULL )
-//	//{
-//	//	_g->stat.round_zero_set.syscal_err_count++;
-//	//	return NULL;
-//	//}
-//
-//	//if ( _g->appcfg._g_cfg->c.c.atht == buttleneck )
-//	//{
-//	//	if ( _g->bridges.bottleneck_thread != NULL )
-//	//	{
-//	//		pthread_mutex_lock( &_g->bridges.thread_base.creation_thread_race_cond );
-//	//		if ( !_g->bridges.thread_base.thread_is_created )
-//	//		{
-//	//			MM_BREAK_IF( pthread_create( &_g->bridges.bottleneck_thread->trd_id , NULL , bottleneck_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-//	//			_g->bridges.thread_base.thread_is_created = 1;
-//	//		}
-//	//		pthread_mutex_unlock( &_g->bridges.thread_base.creation_thread_race_cond );
-//	//	}
-//	//}
-//
-//	//if ( _g->appcfg._g_cfg->c.c.atht == bidirection )
-//	//{
-//	//	if ( _g->bridges.bidirection_thread != NULL )
-//	//	{
-//	//		pthread_mutex_lock( &_g->bridges.thread_base.creation_thread_race_cond );
-//	//		if ( !_g->bridges.thread_base.thread_is_created )
-//	//		{
-//	//			MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->mem.income_trd_id , NULL , income_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-//	//			MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->mem.outgoing_trd_id , NULL , outgoing_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-//
-//	//			_g->bridges.thread_base.thread_is_created = 1;
-//	//		}
-//	//		pthread_mutex_unlock( &_g->bridges.thread_base.creation_thread_race_cond );
-//	//	}
-//	//}
-//
-//	//if ( _g->appcfg._g_cfg->c.c.atht == justIncoming )
-//	//{
-//	//	if ( _g->bridges.justIncoming_thread != NULL )
-//	//	{
-//	//		pthread_mutex_lock( &_g->bridges.thread_base.creation_thread_race_cond );
-//	//		if ( !_g->bridges.thread_base.thread_is_created )
-//	//		{
-//	//			MM_BREAK_IF( pthread_create( &_g->bridges.justIncoming_thread->trd_id , NULL , justIncoming_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-//	//			_g->bridges.thread_base.thread_is_created = 1;
-//	//		}
-//	//		pthread_mutex_unlock( &_g->bridges.thread_base.creation_thread_race_cond );
-//	//	}
-//	//}
-//
+//_THREAD_FXN void * protocol_bridge_runner( void * src_pb )
+//{
 //	//int try_to_connect_udp_port = 1; // for the first time
 //	//int try_to_connect_tcp_port = 1; // for the first time
 //
@@ -1276,13 +1169,13 @@ _THREAD_FXN void * protocol_bridge_runner( void * src_pb )
 //	//	try_to_connect_udp_port = 0;
 //	//	try_to_connect_tcp_port = 0;
 //
-//	//	if ( _g->appcfg._g_cfg->c.c.atht == buttleneck || _g->appcfg._g_cfg->c.c.atht == bidirection )
+//	//	if ( _g->appcfg.g_cfg->c.c.atht == buttleneck || _g->appcfg.g_cfg->c.c.atht == bidirection )
 //	//	{
 //	//		// first close then reconnect
 //	//		if ( tmp_try_to_connect_udp_port )
 //	//		{
 //	//			pthread_t trd_udp_connection;
-//	//			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , thread_udp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+//	//			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 //	//		}
 //	//		if ( tmp_try_to_connect_tcp_port )
 //	//		{
@@ -1290,12 +1183,12 @@ _THREAD_FXN void * protocol_bridge_runner( void * src_pb )
 //	//			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 //	//		}
 //	//	}
-//	//	else if ( _g->appcfg._g_cfg->c.c.atht == justIncoming )
+//	//	else if ( _g->appcfg.g_cfg->c.c.atht == justIncoming )
 //	//	{
 //	//		if ( tmp_try_to_connect_udp_port )
 //	//		{
 //	//			pthread_t trd_udp_connection;
-//	//			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , thread_udp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+//	//			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 //	//		}
 //	//	}
 //	//	
@@ -1324,9 +1217,48 @@ _THREAD_FXN void * protocol_bridge_runner( void * src_pb )
 //	//	}
 //	//M_V_END_RET
 //
-	return NULL;
-}
+//	return NULL;
+//}
 
+void init_ActiveBridge( G * _g , AB * pb )
+{
+	INIT_BREAKABLE_FXN();
+
+	if ( pb->cpy_cfg.m.m.maintained.in_count > 0 )
+	{
+		M_BREAK_IF( !( pb->udps = MALLOC_AR( pb->udps , pb->cpy_cfg.m.m.maintained.in_count ) ) , errMemoryLow , 1 );
+		MEMSET_ZERO( pb->udps , pb->cpy_cfg.m.m.maintained.in_count );
+		pb->udps_count = pb->cpy_cfg.m.m.maintained.in_count;
+
+		for ( int i = 0 ; i < pb->udps_count ; i++ )
+		{
+			pb->udps[ i ].owner_pb = pb;
+			pb->udps[ i ].__udp_cfg = &pb->cpy_cfg.m.m.maintained.in[ i ].data;
+		}
+	}
+	if ( pb->cpy_cfg.m.m.maintained.out_count > 0 )
+	{
+		M_BREAK_IF( !( pb->tcps = MALLOC_AR( pb->tcps , pb->cpy_cfg.m.m.maintained.out_count ) ) , errMemoryLow , 1 );
+		MEMSET_ZERO( pb->tcps , pb->cpy_cfg.m.m.maintained.out_count );
+		pb->tcps_count = pb->cpy_cfg.m.m.maintained.out_count;
+
+		for ( int i = 0 ; i < pb->tcps_count ; i++ )
+		{
+			pb->tcps[ i ].owner_pb = pb;
+			pb->tcps[ i ].__tcp_cfg = &pb->cpy_cfg.m.m.maintained.out[ i ].data;
+		}
+	}
+
+
+	BEGIN_RET // TODO . complete reverse on error
+	case 3: ;
+	case 2: ;
+	case 1:
+	{
+		_g->stat.round_zero_set.syscal_err_count++;
+	}
+	M_V_END_RET
+}
 
 void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 {
@@ -1345,39 +1277,87 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 	//}
 
 	// when we arrive at this point we sure that somethings is changed
-	copy_bridge_cfg( &pb->ccfg , new_ccfg );
 	new_ccfg->m.m.temp_data.pcfg_changed = 0; // say to config that change applied to bridge
 	
-	if ( STR_SAME( pb->ccfg.m.m.id.thread_handler_act , JUSTINCOMING ) )
+	if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "udp_counter" ) )
 	{
-		if ( !_g->bridges.justIncoming_thread )
+		if ( !pb->trd.t.p_udp_counter_thread )
 		{
-			_g->bridges.justIncoming_thread = NEW( struct bridges_justIncoming_thread );
-			MEMSET_ZERO( _g->bridges.justIncoming_thread , struct bridges_justIncoming_thread , 1 );
-			pthread_mutex_init( &_g->bridges.trd.creation_thread_race_cond , NULL );
-			pthread_mutex_init( &_g->bridges.trd.start_working_race_cond , NULL );
+			init_ActiveBridge( _g , pb );
+
+			M_BREAK_IF( !( pb->trd.t.p_udp_counter_thread = MALLOC_AR( pb->trd.t.p_udp_counter_thread , 1 ) ) , errMemoryLow , 1 );
+			MEMSET_ZERO( pb->trd.t.p_udp_counter_thread , 1 );
+			pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
+			pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
+
+			pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
+			
+			if ( !pb->trd.base.thread_is_created )
+			{
+				MM_BREAK_IF( pthread_create( &pb->trd.t.p_udp_counter_thread->trd_id , NULL , udp_counter_thread_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				pb->trd.base.thread_is_created = 1;
+			}
+			pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
+
+			pthread_t trd_udp_connection;
+			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 		}
 	}
-	else if ( STR_SAME( pb->ccfg.m.m.id.thread_handler_act , BOTTLENECK ) )
-	{
-		if ( !_g->bridges.bottleneck_thread )
-		{
-			_g->bridges.bottleneck_thread = NEW( struct bridges_bottleneck_thread );
-			MEMSET_ZERO( _g->bridges.bottleneck_thread , struct bridges_bottleneck_thread , 1 );
-			pthread_mutex_init( &_g->bridges.trd.creation_thread_race_cond , NULL );
-			pthread_mutex_init( &_g->bridges.trd.start_working_race_cond , NULL );
-		}
-	}
-	else if ( STR_SAME( pb->ccfg.m.m.id.thread_handler_act , BIDIRECTION ) )
-	{
-		if ( !_g->bridges.bidirection_thread )
-		{
-			_g->bridges.bidirection_thread = NEW( struct bridges_bidirection_thread );
-			memset( &_g->bridges.bidirection_thread->mem , 0 , sizeof( struct bridges_bidirection_thread_zero_init_memory ) );
-			queue_init( &_g->bridges.bidirection_thread->queue );
-			pthread_mutex_init( &_g->bridges.trd.start_working_race_cond , NULL );
-		}
-	}
+	//else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , BOTTLENECK ) )
+	//{
+	//	if ( !_g->bridges.bottleneck_thread )
+	//	{
+	//		_g->bridges.bottleneck_thread = NEW( struct bridges_bottleneck_thread );
+	//		MEMSET_ZERO( _g->bridges.bottleneck_thread , struct bridges_bottleneck_thread , 1 );
+	//		pthread_mutex_init( &_g->bridges.trd.creation_thread_race_cond , NULL );
+	//		pthread_mutex_init( &_g->bridges.trd.start_working_race_cond , NULL );
+
+	//		pthread_mutex_lock( &_g->bridges.trd.base.creation_thread_race_cond );
+	//		if ( !_g->bridges.trd.base.thread_is_created )
+	//		{
+	//			MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->mem.income_trd_id , NULL , income_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+	//			MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->mem.outgoing_trd_id , NULL , outgoing_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+
+	//			_g->bridges.trd.base.thread_is_created = 1;
+	//		}
+	//		pthread_mutex_unlock( &_g->bridges.trd.base.creation_thread_race_cond );
+	//	}
+	//}
+	//else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , BIDIRECTION ) )
+	//{
+	//	if ( !_g->bridges.bidirection_thread )
+	//	{
+	//		_g->bridges.bidirection_thread = NEW( struct bridges_bidirection_thread );
+	//		memset( &_g->bridges.bidirection_thread->mem , 0 , sizeof( struct bridges_bidirection_thread_zero_init_memory ) );
+	//		queue_init( &_g->bridges.bidirection_thread->queue );
+	//		pthread_mutex_init( &_g->bridges.trd.start_working_race_cond , NULL );
+
+	//		pthread_mutex_lock( &_g->bridges.trd.base.creation_thread_race_cond );
+	//		if ( !_g->bridges.trd.base.thread_is_created )
+	//		{
+	//			MM_BREAK_IF( pthread_create( &_g->bridges.bottleneck_thread->trd_id , NULL , bottleneck_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+	//			_g->bridges.trd.base.thread_is_created = 1;
+	//		}
+	//		pthread_mutex_unlock( &_g->bridges.trd.base.creation_thread_race_cond );
+	//	}
+	//}
+
+
+	//if ( _g->appcfg.g_cfg->c.c.atht == buttleneck || _g->appcfg.g_cfg->c.c.atht == bidirection )
+	//{
+	//	// first close then reconnect
+	//	if ( tmp_try_to_connect_udp_port )
+	//	{
+	//		pthread_t trd_udp_connection;
+	//		MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+	//	}
+	//	if ( tmp_try_to_connect_tcp_port )
+	//	{
+	//		pthread_t trd_tcp_connection;
+	//		MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+	//	}
+	//}
+	
 
 	BEGIN_RET // TODO . complete reverse on error
 	case 3: ;

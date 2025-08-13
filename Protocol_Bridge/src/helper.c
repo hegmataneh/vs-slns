@@ -1,3 +1,5 @@
+#define Uses_fcntl
+#define Uses_socket
 #define Uses_strncpy
 #define Uses_read
 #define Uses_TWD
@@ -135,7 +137,7 @@ _THREAD_FXN void * sync_thread( void * pdata ) // pause app until moment other a
 	//clock_gettime( CLOCK_REALTIME , &now );
 
 	////pthread_mutex_lock( &_g->sync.mutex );
-	//round_up_to_next_interval( &now , _g->appcfg._g_cfg->c.c.synchronization_min_wait , _g->appcfg._g_cfg->c.c.synchronization_max_roundup , &next_round_time );
+	//round_up_to_next_interval( &now , _g->appcfg.g_cfg->c.c.synchronization_min_wait , _g->appcfg.g_cfg->c.c.synchronization_max_roundup , &next_round_time );
 	////_g->sync.lock_in_progress = 1;
 	////pthread_mutex_unlock( &_g->sync.mutex );
 
@@ -169,164 +171,168 @@ _THREAD_FXN void * sync_thread( void * pdata ) // pause app until moment other a
 	return NULL;
 }
 
-_THREAD_FXN void * input_thread( void * pdata )
+_THREAD_FXN void * input_thread( void * src_g )
 {
-	//INIT_BREAKABLE_FXN();
+	INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
 	if ( twd.threadId == 0 )
 	{
 		twd.threadId = pthread_self();
 		twd.cal = input_thread; // self function address
-		twd.callback_arg = pdata;
+		twd.callback_arg = src_g;
 	}
-	if ( pdata == NULL )
+	if ( src_g == NULL )
 	{
 		return ( void * )&twd;
 	}
 
-	//G * _g = ( G * )pdata;
-	//while ( 1 )
-	//{
-	//	pthread_mutex_lock( &_g->stat.lock_data.lock );
+	G * _g = ( G * )src_g;
+	while ( 1 )
+	{
+		pthread_mutex_lock( &_g->stat.lock_data.lock );
 
-	//	werase( _g->stat.input_win );
-	//	box( _g->stat.input_win , 0 , 0 );
+		werase( _g->stat.input_win );
+		box( _g->stat.input_win , 0 , 0 );
 
-	//	pthread_mutex_unlock( &_g->stat.lock_data.lock );
+		pthread_mutex_unlock( &_g->stat.lock_data.lock );
 
-	//	// Enable echo and get input
-	//	echo();
-	//	curs_set( 1 );
-	//	wmove( _g->stat.input_win , 1 , 1 );
-	//	wprintw( _g->stat.input_win , "cmd(quit,sync,rst): " );
-	//	wrefresh( _g->stat.input_win );
-	//	wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
-	//	noecho();
-	//	curs_set( 0 );
+		// Enable echo and get input
+		echo();
+		curs_set( 1 );
+		wmove( _g->stat.input_win , 1 , 1 );
+		wprintw( _g->stat.input_win , "cmd(quit,sync,rst): " );
+		wrefresh( _g->stat.input_win );
+		wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
+		noecho();
+		curs_set( 0 );
 
-	//	pthread_mutex_lock( &_g->stat.lock_data.lock );
-	//	bool boutput_command = 1;
+		pthread_mutex_lock( &_g->stat.lock_data.lock );
+		bool boutput_command = 1;
 
-	//	if ( stricmp( _g->stat.input_buffer , "quit" ) == 0 )
-	//	{
-	//		_g->cmd.quit_app = 1;
-	//		break;
-	//	}
-	//	else if ( stricmp( _g->stat.input_buffer , "sync" ) == 0 )
-	//	{
-	//		boutput_command = 0;
-	//		pthread_t thread;
-	//		if ( pthread_create( &thread , NULL , sync_thread , pdata ) != 0 )
-	//		{
-	//			_ECHO( "pthread_create" );
-	//		}
-	//		//break;
-	//	}
-	//	else if ( stricmp( _g->stat.input_buffer , "rst" ) == 0 )
-	//	{
-	//		boutput_command = 0;
-	//		reset_nonuse_stat();
-	//		//break;
-	//	}
-	//	
+		if ( iSTR_SAME( _g->stat.input_buffer , "quit" ) )
+		{
+			_g->cmd.quit_app = 1;
+			break;
+		}
+		else if ( iSTR_SAME( _g->stat.input_buffer , "sync" ) )
+		{
+			boutput_command = 0;
+			pthread_t thread;
+			if ( pthread_create( &thread , NULL , sync_thread , src_g ) != 0 )
+			{
+				_ECHO( "pthread_create" );
+			}
+			//break;
+		}
+		else if ( iSTR_SAME( _g->stat.input_buffer , "rst" ) )
+		{
+			boutput_command = 0;
+			reset_nonuse_stat();
+			//break;
+		}
+		
+		if ( boutput_command )
+		{
+			strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
+			_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
+		}
 
-	//	if ( boutput_command )
-	//	{
-	//		strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
-	//		_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
-	//	}
-
-	//	pthread_mutex_unlock( &_g->stat.lock_data.lock );
-	//}
+		pthread_mutex_unlock( &_g->stat.lock_data.lock );
+	}
+	BEGIN_RET
+	case 0:	;
+	M_V_END_RET
 	return NULL;
 }
 
 
 // TODO . close connection after change in config
-_THREAD_FXN void * thread_udp_connection_proc( void * src_pb )
+
+
+/// <summary>
+/// this function stablish every udp that need to be stablished
+/// this callback call multitimes
+/// </summary>
+/// <param name="src_pb"></param>
+/// <returns></returns>
+_THREAD_FXN void * connect_udps_proc( void * src_pb )
 {
-	//INIT_BREAKABLE_FXN();
-	static TWD twd = { 0 };
-	if ( twd.threadId == 0 )
+	INIT_BREAKABLE_FXN();
+	////static TWD twd = { 0 };
+	////if ( twd.threadId == 0 )
+	////{
+	////	twd.threadId = pthread_self();
+	////	twd.cal = connect_udps_proc; // self function address
+	////	twd.callback_arg = src_pb;
+	////}
+	////if ( src_pb == NULL )
+	////{
+	////	return ( void * )&twd;
+	////}
+
+	AB * pb = ( AB * )src_pb;
+	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
+
+	for ( int i = 0 ; i < pb->udps_count ; i++ )
 	{
-		twd.threadId = pthread_self();
-		twd.cal = thread_udp_connection_proc; // self function address
-		twd.callback_arg = src_pb;
+		if ( pb->udps[ i ].udp_connection_established )
+		{
+			_close_socket( &pb->udps[ i ].udp_sockfd );
+			pb->udps[ i ].udp_connection_established = 0;
+			_g->stat.udp_connection_count--;
+		}
+
+		MM_BREAK_IF( ( pb->udps[ i ].udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
+
+		int opt = 1;
+		MM_BREAK_IF( setsockopt( pb->udps[ i ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &opt , sizeof( opt ) ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
+		fcntl(pb->udps[ i ].udp_sockfd, F_SETFL, O_NONBLOCK);
+
+		// TODO . make it protocol independent
+		struct sockaddr_in server_addr;
+		memset( &server_addr , 0 , sizeof( server_addr ) );
+		server_addr.sin_family = AF_INET; // IPv4
+		server_addr.sin_port = htons( ( uint16_t )pb->udps[ i ].__udp_cfg->UDP_origin_port ); // Convert port to network byte order
+		if ( iSTR_SAME( pb->udps[ i ].__udp_cfg->UDP_origin_ip , "INADDR_ANY" ) )
+		{
+			server_addr.sin_addr.s_addr = INADDR_ANY; // Or use INADDR_ANY to bind to all available interfaces:
+		}
+		else
+		{
+			server_addr.sin_addr.s_addr = inet_addr( pb->udps[ i ].__udp_cfg->UDP_origin_ip ); // Specify the IP address to bind to
+		}
+
+		MM_BREAK_IF( bind( pb->udps[ i ].udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errGeneral , 1 , "bind sock error" );
+		pb->udps[ i ].udp_connection_established = 1;
+
+		_g->stat.udp_connection_count++;
+		_g->stat.total_retry_udp_connection_count++;
+
+		//_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
 	}
-	if ( src_pb == NULL )
+
+	pthread_mutex_lock( &pb->trd.base.do_all_prerequisite_stablished_race_cond );
+	if ( iSTR_SAME( pb->cpy_cfg.m.m.id.out_type , "one" ) )
 	{
-		return ( void * )&twd;
+		if ( pb->udps_count )
+		{
+			pb->trd.base.do_all_prerequisite_stablished = 1;
+		}
 	}
+	pthread_mutex_unlock( &pb->trd.base.do_all_prerequisite_stablished_race_cond );
 
-	//AB *pb = ( AB * )src_pb;
-	//G * _g = ( G * )pb->ccfg.m.m.temp_data._g;
-
-	//if ( pb->udp_connection_established )
-	//{
-	//	_close_socket( &pb->udp_sockfd );
-	//	pb->udp_connection_established = 0;
-	//	_g->stat.udp_connection_count--;
-	//}
-
-	//MM_BREAK_IF( ( pb->udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
-
-	//int opt = 1;
-	//MM_BREAK_IF( setsockopt( pb->udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &opt , sizeof( opt ) ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
-	////MM_BREAK_IF( setsockopt( pb->udp_sockfd , SOL_SOCKET , 0x0200 , &opt , sizeof( opt ) ) < 0 , errGeneral , 1 , "0x0200" );
-
-	//fcntl(pb->udp_sockfd, F_SETFL, O_NONBLOCK);
-
-	//struct sockaddr_in server_addr;
-	//memset( &server_addr , 0 , sizeof( server_addr ) );
-	//server_addr.sin_family = AF_INET; // IPv4
-	//server_addr.sin_port = htons( ( uint16_t )pb->ccfg.m.m.id.UDP_origin_port ); // Convert port to network byte order
-	//server_addr.sin_addr.s_addr = inet_addr( pb->ccfg.m.m.id.UDP_origin_ip ); // Specify the IP address to bind to
-	////server_addr.sin_addr.s_addr = INADDR_ANY; // Or use INADDR_ANY to bind to all available interfaces:
-
-	//MM_BREAK_IF( bind( pb->udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errGeneral , 1 , "bind sock error" );
-	//pb->udp_connection_established = 1;
-
-	//pthread_mutex_lock( &_g->bridges.thread_base.start_working_race_cond );
-	//switch ( _g->appcfg._g_cfg->c.c.atht )
-	//{
-	//	case buttleneck :
-	//	case bidirection :
-	//	{
-	//		if ( pb->udp_connection_established && pb->tcp_connection_established )
-	//		{
-	//			_g->bridges.thread_base.start_working = 1;
-	//		}
-	//		break;
-	//	}
-	//	default:
-	//	case justIncoming :
-	//	{
-	//		if ( pb->udp_connection_established )
-	//		{
-	//			_g->bridges.thread_base.start_working = 1;
-	//		}
-	//		break;
-	//	}
-	//}
-	//pthread_mutex_unlock( &_g->bridges.thread_base.start_working_race_cond );
-
-	//_g->stat.udp_connection_count++;
-	//_g->stat.total_retry_udp_connection_count++;
-
-	//_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
-
-	//BEGIN_RET
-	//	case 3: ;
-	//	case 2: ;
-	//	case 1:	_g->stat.round_zero_set.syscal_err_count++;
-	//M_V_END_RET
+	BEGIN_RET
+	case 3: ;
+	case 2: ;
+	case 1:	_g->stat.round_zero_set.syscal_err_count++;
+	M_V_END_RET
 	return NULL; // Threads can return a value, but this example returns NULL
 }
 
 int _connect_tcp( AB * pb )
 {
 	//INIT_BREAKABLE_FXN();
-	//G * _g = ( G * )pb->ccfg.m.m.temp_data._g;
+	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
 
 	//while ( 1 )
 	//{
@@ -336,8 +342,8 @@ int _connect_tcp( AB * pb )
 
 	//	struct sockaddr_in tcp_addr;
 	//	tcp_addr.sin_family = AF_INET;
-	//	tcp_addr.sin_port = htons( ( uint16_t )pb->ccfg.m.m.id.TCP_destination_port );
-	//	MM_BREAK_IF( inet_pton( AF_INET , pb->ccfg.m.m.id.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
+	//	tcp_addr.sin_port = htons( ( uint16_t )pb->cpy_cfg.m.m.id.TCP_destination_port );
+	//	MM_BREAK_IF( inet_pton( AF_INET , pb->cpy_cfg.m.m.id.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
 
 	//	if ( connect( pb->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
 	//	{
@@ -360,7 +366,7 @@ int _connect_tcp( AB * pb )
 	//		//setsockopt( pb->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , ( char * )&flag , sizeof( int ) );
 
 	//		pthread_mutex_lock( &_g->bridges.thread_base.start_working_race_cond );
-	//		switch ( _g->appcfg._g_cfg->c.c.atht )
+	//		switch ( _g->appcfg.g_cfg->c.c.atht )
 	//		{
 	//			case buttleneck:
 	//			case bidirection:
@@ -416,7 +422,7 @@ _THREAD_FXN void * thread_tcp_connection_proc( void * src_pb )
 	}
 
 	//AB *pb = ( AB *)src_pb;
-	//G * _g = ( G * )pb->ccfg.m.m.temp_data._g;
+	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
 
 	//if ( pb->tcp_connection_established )
 	//{

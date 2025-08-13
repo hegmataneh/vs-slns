@@ -381,8 +381,8 @@ void * wave_runner( void * src_pwave )
 		}
 
 		int buf_size = pwave->awcfg.m.m.maintained.packet_payload_size;
-		char * buffer = NEWBUF( char , buf_size );
-		MEMSET_ZERO( buffer , char , buf_size );
+		char * buffer = MALLOC_AR( buffer , buf_size );
+		MEMSET_ZERO( buffer , buf_size );
 		static int iii = 0;
 		__snprintf( buffer , buf_size , "a %d" , iii++ );
 
@@ -582,10 +582,10 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 		int new_thread_count = old_thread_count + diff_count;
 
 		M_BREAK_IF( ( pwave->wv_trds_masks = REALLOC( pwave->wv_trds_masks , new_thread_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
-		MEMSET_ZERO( pwave->wv_trds_masks + old_thread_count , int , diff_count );
+		MEMSET_ZERO( pwave->wv_trds_masks + old_thread_count , diff_count );
 
 		M_BREAK_IF( ( pwave->wv_trds = REALLOC( pwave->wv_trds , new_thread_count * sizeof( struct wave_thread_holder ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
-		MEMSET_ZERO( pwave->wv_trds + old_thread_count , struct wave_thread_holder , diff_count );
+		MEMSET_ZERO( pwave->wv_trds + old_thread_count , diff_count );
 
 		pwave->wv_trds_masks_count = new_thread_count;
 	}
@@ -626,8 +626,8 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 					pwave->wv_trds_masks[ i ] = 1; // order is matter
 
 					DAC( pwave->wv_trds[ i ].alc_thread );
-					M_BREAK_IF( ( pwave->wv_trds[ i ].alc_thread = NEW( struct wave_thread ) ) == NEW_ERR , errMemoryLow , 0 );
-					MEMSET_ZERO( pwave->wv_trds[ i ].alc_thread , struct wave_thread , 1 );
+					M_BREAK_IF( ( pwave->wv_trds[ i ].alc_thread = MALLOC_AR( pwave->wv_trds[ i ].alc_thread , 1 ) ) == NEW_ERR , errMemoryLow , 0 );
+					MEMSET_ZERO( pwave->wv_trds[ i ].alc_thread , 1 );
 					pwave->wv_trds[ i ].alc_thread->pwave = pwave;
 
 					// 3. create thread also
@@ -790,10 +790,10 @@ void add_new_wave( struct App_Data * _g , struct wave_cfg * new_wcfg )
 			int new_wv_holders_masks_count = old_wv_holders_masks_count + PREALLOCAION_SIZE;
 
 			M_BREAK_IF( ( _g->waves.wv_holders_masks = REALLOC( _g->waves.wv_holders_masks , new_wv_holders_masks_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 2 );
-			MEMSET_ZERO( _g->waves.wv_holders_masks + old_wv_holders_masks_count , int , PREALLOCAION_SIZE );
+			MEMSET_ZERO( _g->waves.wv_holders_masks + old_wv_holders_masks_count , PREALLOCAION_SIZE );
 
 			M_BREAK_IF( ( _g->waves.wv_holders = REALLOC( _g->waves.wv_holders , new_wv_holders_masks_count * sizeof( struct udp_wave_holder ) ) ) == REALLOC_ERR , errMemoryLow , 1 );
-			MEMSET_ZERO( _g->waves.wv_holders + old_wv_holders_masks_count , struct udp_wave_holder , PREALLOCAION_SIZE );
+			MEMSET_ZERO( _g->waves.wv_holders + old_wv_holders_masks_count , PREALLOCAION_SIZE );
 
 			_g->waves.wv_holders_masks_count = new_wv_holders_masks_count;
 		}
@@ -802,8 +802,8 @@ void add_new_wave( struct App_Data * _g , struct wave_cfg * new_wcfg )
 	#undef PREALLOCAION_SIZE
 
 	ASSERT( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave == NULL );
-	M_BREAK_IF( ( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave = NEW( struct udp_wave ) ) == NEW_ERR , errMemoryLow , 0 );
-	MEMSET_ZERO( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave , struct udp_wave , 1 );
+	M_BREAK_IF( ( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave = MALLOC_AR( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave , 1 ) ) == NEW_ERR , errMemoryLow , 0 );
+	MEMSET_ZERO( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave , 1 );
 	_g->waves.wv_holders_masks[ new_wcfg_placement_index ] = 1;
 	memcpy( &_g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave->awcfg , new_wcfg , sizeof( struct wave_cfg ) );
 
@@ -983,8 +983,8 @@ void * config_loader( void * app_data )
 
 					MM_BREAK_IF( ( waves_count = el_waves.value.as_object->count ) < 1 , errGeneral , 0 , "waves must be not zero" );
 
-					M_BREAK_IF( !( pWaves = NEWBUF( struct wave_cfg , el_waves.value.as_object->count ) ) , errMemoryLow , 0 );
-					MEMSET_ZERO( pWaves , struct wave_cfg , el_waves.value.as_object->count );
+					M_BREAK_IF( !( pWaves = MALLOC_AR( pWaves , el_waves.value.as_object->count ) ) , errMemoryLow , 0 );
+					MEMSET_ZERO( pWaves , el_waves.value.as_object->count );
 					
 
 					for ( int i = 0 ; i < el_waves.value.as_object->count ; i++ )
@@ -1055,7 +1055,7 @@ void * config_loader( void * app_data )
 			int initial_general_config = 0;
 			if ( _g->appcfg._general_config == NULL ) // TODO . make assignemnt atomic
 			{
-				M_BREAK_IF( !( _g->appcfg._general_config = malloc( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
+				M_BREAK_IF( !( _g->appcfg._general_config = MALLOC_AR( _g->appcfg._general_config , 1 ) ) , errMemoryLow , 0 );
 
 				memset( _g->appcfg._general_config , 0 , sizeof( struct Global_Config ) );
 				memcpy( _g->appcfg._general_config , &temp_config , sizeof( temp_config ) );
@@ -1070,7 +1070,7 @@ void * config_loader( void * app_data )
 				_g->appcfg._prev_general_config = _g->appcfg._general_config;
 				_g->appcfg._general_config = NULL;
 
-				M_BREAK_IF( !( _g->appcfg._general_config = malloc( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
+				M_BREAK_IF( !( _g->appcfg._general_config = MALLOC_AR( _g->appcfg._general_config , 1 ) ) , errMemoryLow , 0 );
 				memset( _g->appcfg._general_config , 0 , sizeof( struct Global_Config ) );
 				memcpy( _g->appcfg._general_config , &temp_config , sizeof( temp_config ) );
 				memset( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings

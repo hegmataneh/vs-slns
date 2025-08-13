@@ -1,21 +1,5 @@
 ﻿#pragma once
 
-////struct protocol_bridge_thread
-////{
-////	pthread_t trd_id;
-////	int base_config_change_applied;
-////	int do_close_thread; // command from outside to inside thread
-////
-////	AB *pb; // point to upper wave
-////};
-////int under_listen_udp_sockets_group_changed;
-////struct protocol_bridge_thread_holder
-////{
-////	struct protocol_bridge_thread * alc_thread; // one
-////};
-
-//
-
 typedef struct AB_thread // threads use to recv and send data
 {
 	struct bridges_thread_base
@@ -24,54 +8,69 @@ typedef struct AB_thread // threads use to recv and send data
 		int do_close_thread; // command from outside to inside thread
 		pthread_mutex_t creation_thread_race_cond; // prevent multi bridge create thread concurrently
 
-		int start_working; // because udp port may start after thread started
-		pthread_mutex_t start_working_race_cond; // prevent multi bridge create thread concurrently
+		int do_all_prerequisite_stablished; // because udp port may start after thread started . if all the condition is ready to bridge thread start
+		pthread_mutex_t do_all_prerequisite_stablished_race_cond; // prevent multi bridge create thread concurrently
 	} base;
 
-	struct bottleneck_thread // one thread for send and receive
+	union thread_u
 	{
-		pthread_t trd_id;
-	} *bottleneck_thread;
-
-	struct bidirection_thread // one thread for each direction
-	{
-		struct bidirection_thread_zero_init_memory
+		struct bottleneck_thread // one thread for send and receive
 		{
-			pthread_t income_trd_id;
-			pthread_t outgoing_trd_id;
-		} mem;
+			pthread_t trd_id;
+		} *bottleneck_thread;
 
-		struct PacketQueue queue;
-	} *bidirection_thread;
+		struct bidirection_thread // one thread for each direction
+		{
+			struct bidirection_thread_zero_init_memory
+			{
+				pthread_t income_trd_id;
+				pthread_t outgoing_trd_id;
+			} mem;
 
-	struct justIncoming_thread // one thread for send and receive
-	{
-		pthread_t trd_id;
-	} *justIncoming_thread;
+			struct PacketQueue queue;
+		} *bidirection_thread;
+
+		struct udp_counter_thread // one thread for send and receive
+		{
+			pthread_t trd_id;
+		} *p_udp_counter_thread;
+	} t;
 
 } ABtrd;
 
 //
 
+struct ActiveBridge;
+
+typedef struct AB_udp_connection
+{
+	int udp_sockfd;
+	int udp_connection_established; // udp socket established
+	int retry_to_connect_udp;
+	udp_cfg * __udp_cfg; // link to passive cfg
+	struct ActiveBridge * owner_pb; // upper struct
+
+} AB_udp;
+
+typedef struct AB_tcp_connection
+{
+	int tcp_sockfd;
+	int tcp_connection_established; // tcp connection established
+	int retry_to_connect_tcp;
+	tcp_cfg * __tcp_cfg; // link to passive cfg
+	struct ActiveBridge * owner_pb; // upper struct
+
+} AB_tcp;
+
 typedef struct ActiveBridge // protocol_bridge . each bridge define one or many input and output that recev data from that input
 {
 	// caution . make copy of allocation values
-	struct bridge_cfg ccfg;  // copy of applied cfg . active protocol_bridge config . یک دسته کامل از ترد ها یک کانفیگ را اعمال می کند
+	struct bridge_cfg cpy_cfg;  // copy of applied cfg . active protocol_bridge config . یک دسته کامل از ترد ها یک کانفیگ را اعمال می کند
 
-	struct AB_udps
-	{
-		int udp_sockfd;
-		int udp_connection_established; // udp socket established
-		int retry_to_connect_udp;
-	} *udps;
+	AB_udp *udps;
 	int udps_count;
 
-	struct AB_tcps
-	{
-		int tcp_sockfd;
-		int tcp_connection_established; // tcp connection established
-		int retry_to_connect_tcp;
-	} *tcps;
+	AB_tcp *tcps;
 	int tcps_count;
 
 	ABtrd trd;
@@ -95,5 +94,5 @@ typedef struct AB_holders
 _THREAD_FXN void * bottleneck_thread_proc( void * src_g );
 _THREAD_FXN void * income_thread_proc( void * src_g );
 _THREAD_FXN void * outgoing_thread_proc( void * src_g );
-_THREAD_FXN void * justIncoming_thread_proc( void * src_g );
+_THREAD_FXN void * udp_counter_thread_proc( void * src_g );
 _THREAD_FXN void * protocol_bridge_runner( void * src_pb );

@@ -1,5 +1,27 @@
 #pragma once
 
+typedef struct udp_conn_cfg_data
+{
+	char group[ 64 ];
+	char group_type[ 64 ];
+	char UDP_origin_ip[ 64 ];
+	int UDP_origin_port;
+	char UDP_origin_interface[ 64 ];
+	int enable;
+	int reset_connection;
+} udp_cfg;
+
+typedef struct tcp_conn_cfg_data
+{
+	char group[ 64 ];
+	char group_type[ 64 ];
+	char TCP_destination_ip[ 64 ];
+	int TCP_destination_port;
+	char TCP_destination_interface[ 64 ];
+	int enable;
+	int reset_connection;
+} tcp_cfg;
+
 typedef struct bridge_cfg_0
 {
 	struct bridge_cfg_id
@@ -15,17 +37,7 @@ typedef struct bridge_cfg_0
 		struct bridge_cfg_input_part
 		{
 			char name[ 64 ];
-
-			struct
-			{
-				char group[ 64 ];
-				char group_type[ 64 ];
-				char UDP_origin_ip[ 64 ];
-				int UDP_origin_port;
-				char UDP_origin_interface[ 64 ];
-				int enable;
-				int reset_connection;
-			} data;
+			udp_cfg data;
 
 		} *in;
 		int in_count;
@@ -33,17 +45,7 @@ typedef struct bridge_cfg_0
 		struct bridge_cfg_output_part
 		{
 			char name[ 64 ];
-
-			struct
-			{
-				char group[ 64 ];
-				char group_type[ 64 ];
-				char TCP_destination_ip[ 64 ];
-				int TCP_destination_port;
-				char TCP_destination_interface[ 64 ];
-				int enable;
-				int reset_connection;
-			} data;
+			tcp_cfg data;
 
 		} *out;
 		int out_count;

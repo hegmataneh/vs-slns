@@ -50,23 +50,23 @@ typedef struct App_Config // global config
 		int Minor; //Denotes new functionality added in a backwards - compatible manner.
 		int Build; //Represents the specific build number of the software.
 		int Revision_Patch; //Represents backwards - compatible bug fixes or minor updates.
-	} ___temp_ver /* not usable just to prevent reallocation*/
-		, * _ver; // app version
-	int _version_changed; // act like bool . this var indicate just load new config
+	} temp_ver /* not usable just to prevent reallocation*/ , * ver; // app version
+	int version_changed; // act like bool . this var indicate just load new config
 
 	// general
-	Gcfg * _prev_cfg;
-	Gcfg * _g_cfg;
-	int _g_cfg_changed;
+	Gcfg * prev_cfg;
+	Gcfg * g_cfg;
+	int g_cfg_changed;
 
 	// protocol_bridge 
 	Bcfg * old_bdj_psv_cfg; // maybe later in some condition we need to rollback to prev config
-	size_t _old_bdj_psv_cfg_count;
+	size_t old_bdj_psv_cfg_count;
 
-	Bcfg * _bdj_psv_cfg; // passive config
-	size_t _bdj_psv_cfg_count;
+	Bcfg * bdj_psv_cfg; // passive config
+	size_t bdj_psv_cfg_count;
 
-	int _psvcfg_changed; // act like bool . something is changed
+	int psv_cfg_changed; // somewhere in cfg something was changed
+
 } Acfg;
 
 _THREAD_FXN void * version_checker( void * app_data );
