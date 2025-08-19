@@ -1,3 +1,6 @@
+#define Uses_thrd_sleep
+#define Uses_errno
+#define Uses_AB_tcp
 #define Uses_fcntl
 #define Uses_socket
 #define Uses_strncpy
@@ -12,7 +15,7 @@
 
 extern G * __g;
 
-_THREAD_FXN void * stdout_bypass_thread( void * pdata )
+_THREAD_FXN void_p stdout_bypass_thread( void_p pdata )
 {
 	static TWD twd = { 0 };
 	if ( twd.threadId == 0 )
@@ -23,7 +26,7 @@ _THREAD_FXN void * stdout_bypass_thread( void * pdata )
 	}
 	if ( pdata == NULL )
 	{
-		return ( void * )&twd;
+		return ( void_p )&twd;
 	}
 	G * _g = ( G * )pdata;
 
@@ -62,7 +65,7 @@ void init_bypass_stdout( G * _g )
 	dup2( _g->stat.pipefds[ 1 ] , fileno( stderr ) );
 
 	pthread_t tid_stdout_bypass;
-	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( void * )_g );
+	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( void_p )_g );
 }
 
 void M_showMsg( const char * msg )
@@ -94,28 +97,28 @@ void init( G * _g )
 	////pthread_mutex_init( &_g->sync.mutex , NULL );
 	////pthread_cond_init( &_g->sync.cond , NULL );
 
-	circbuf_init( &_g->stat.round_init_set.udp_stat_5_sec_count , 5 );
-	circbuf_init( &_g->stat.round_init_set.udp_stat_10_sec_count , 10 );
-	circbuf_init( &_g->stat.round_init_set.udp_stat_40_sec_count , 40 );
-	circbuf_init( &_g->stat.round_init_set.udp_stat_120_sec_count , 120 );
+	cbuf_m_init( &_g->stat.round_init_set.udp_stat_5_sec_count , 5 );
+	cbuf_m_init( &_g->stat.round_init_set.udp_stat_10_sec_count , 10 );
+	cbuf_m_init( &_g->stat.round_init_set.udp_stat_40_sec_count , 40 );
+	cbuf_m_init( &_g->stat.round_init_set.udp_stat_120_sec_count , 120 );
 
-	circbuf_init( &_g->stat.round_init_set.udp_stat_5_sec_bytes , 5 );
-	circbuf_init( &_g->stat.round_init_set.udp_stat_10_sec_bytes , 10 );
-	circbuf_init( &_g->stat.round_init_set.udp_stat_40_sec_bytes , 40 );
-	circbuf_init( &_g->stat.round_init_set.udp_stat_120_sec_bytes , 120 );
+	cbuf_m_init( &_g->stat.round_init_set.udp_stat_5_sec_bytes , 5 );
+	cbuf_m_init( &_g->stat.round_init_set.udp_stat_10_sec_bytes , 10 );
+	cbuf_m_init( &_g->stat.round_init_set.udp_stat_40_sec_bytes , 40 );
+	cbuf_m_init( &_g->stat.round_init_set.udp_stat_120_sec_bytes , 120 );
 
-	circbuf_init( &_g->stat.round_init_set.tcp_stat_5_sec_count , 5 );
-	circbuf_init( &_g->stat.round_init_set.tcp_stat_10_sec_count , 10 );
-	circbuf_init( &_g->stat.round_init_set.tcp_stat_40_sec_count , 40 );
-	circbuf_init( &_g->stat.round_init_set.tcp_stat_120_sec_count , 120 );
+	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_5_sec_count , 5 );
+	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_10_sec_count , 10 );
+	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_40_sec_count , 40 );
+	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_count , 120 );
 
-	circbuf_init( &_g->stat.round_init_set.tcp_stat_5_sec_bytes , 5 );
-	circbuf_init( &_g->stat.round_init_set.tcp_stat_10_sec_bytes , 10 );
-	circbuf_init( &_g->stat.round_init_set.tcp_stat_40_sec_bytes , 40 );
-	circbuf_init( &_g->stat.round_init_set.tcp_stat_120_sec_bytes , 120 );
+	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_5_sec_bytes , 5 );
+	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_10_sec_bytes , 10 );
+	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_40_sec_bytes , 40 );
+	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_bytes , 120 );
 }
 
-_THREAD_FXN void * sync_thread( void * pdata ) // pause app until moment other app exist
+_THREAD_FXN void_p sync_thread( void_p pdata ) // pause app until moment other app exist
 {
 	//INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
@@ -127,7 +130,7 @@ _THREAD_FXN void * sync_thread( void * pdata ) // pause app until moment other a
 	}
 	if ( pdata == NULL )
 	{
-		return ( void * )&twd;
+		return ( void_p )&twd;
 	}
 
 	//G * _g = ( G * )pdata;
@@ -171,7 +174,7 @@ _THREAD_FXN void * sync_thread( void * pdata ) // pause app until moment other a
 	return NULL;
 }
 
-_THREAD_FXN void * input_thread( void * src_g )
+_THREAD_FXN void_p input_thread( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
@@ -183,7 +186,7 @@ _THREAD_FXN void * input_thread( void * src_g )
 	}
 	if ( src_g == NULL )
 	{
-		return ( void * )&twd;
+		return ( void_p )&twd;
 	}
 
 	G * _g = ( G * )src_g;
@@ -245,17 +248,13 @@ _THREAD_FXN void * input_thread( void * src_g )
 	return NULL;
 }
 
-
 // TODO . close connection after change in config
-
 
 /// <summary>
 /// this function stablish every udp that need to be stablished
 /// this callback call multitimes
 /// </summary>
-/// <param name="src_pb"></param>
-/// <returns></returns>
-_THREAD_FXN void * connect_udps_proc( void * src_pb )
+_THREAD_FXN void_p connect_udps_proc( void_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
 	////static TWD twd = { 0 };
@@ -267,7 +266,7 @@ _THREAD_FXN void * connect_udps_proc( void * src_pb )
 	////}
 	////if ( src_pb == NULL )
 	////{
-	////	return ( void * )&twd;
+	////	return ( void_p )&twd;
 	////}
 
 	AB * pb = ( AB * )src_pb;
@@ -284,15 +283,23 @@ _THREAD_FXN void * connect_udps_proc( void * src_pb )
 
 		MM_BREAK_IF( ( pb->udps[ i ].udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
 
-		int opt = 1;
-		MM_BREAK_IF( setsockopt( pb->udps[ i ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &opt , sizeof( opt ) ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
-		fcntl(pb->udps[ i ].udp_sockfd, F_SETFL, O_NONBLOCK);
+		int optval = 1;
+		//socklen_t optlen = sizeof( optval );
+		//MM_BREAK_IF( getsockopt( pb->udps[ i ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , &optlen ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
+		MM_BREAK_IF( setsockopt( pb->udps[ i ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , sizeof( optval ) ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
+
+		int flags = fcntl( pb->udps[ i ].udp_sockfd, F_GETFL );
+		fcntl( pb->udps[ i ].udp_sockfd , F_SETFL , flags | O_NONBLOCK );
 
 		// TODO . make it protocol independent
 		struct sockaddr_in server_addr;
 		memset( &server_addr , 0 , sizeof( server_addr ) );
 		server_addr.sin_family = AF_INET; // IPv4
-		server_addr.sin_port = htons( ( uint16_t )pb->udps[ i ].__udp_cfg->UDP_origin_port ); // Convert port to network byte order
+		
+		int port = 0;
+		M_BREAK_IF( string_to_int( pb->udps[ i ].__udp_cfg->UDP_origin_ports , &port ) , errGeneral , 0 );
+		ASSERT( port > 0 );
+		server_addr.sin_port = htons( ( uint16_t )port ); // Convert port to network byte order
 		if ( iSTR_SAME( pb->udps[ i ].__udp_cfg->UDP_origin_ip , "INADDR_ANY" ) )
 		{
 			server_addr.sin_addr.s_addr = INADDR_ANY; // Or use INADDR_ANY to bind to all available interfaces:
@@ -311,16 +318,6 @@ _THREAD_FXN void * connect_udps_proc( void * src_pb )
 		//_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
 	}
 
-	pthread_mutex_lock( &pb->trd.base.do_all_prerequisite_stablished_race_cond );
-	if ( iSTR_SAME( pb->cpy_cfg.m.m.id.out_type , "one" ) )
-	{
-		if ( pb->udps_count )
-		{
-			pb->trd.base.do_all_prerequisite_stablished = 1;
-		}
-	}
-	pthread_mutex_unlock( &pb->trd.base.do_all_prerequisite_stablished_race_cond );
-
 	BEGIN_RET
 	case 3: ;
 	case 2: ;
@@ -329,119 +326,293 @@ _THREAD_FXN void * connect_udps_proc( void * src_pb )
 	return NULL; // Threads can return a value, but this example returns NULL
 }
 
-int _connect_tcp( AB * pb )
+//int _connect_tcp( AB * pb )
+//{
+//	INIT_BREAKABLE_FXN();
+//	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
+//
+//	while ( 1 )
+//	{
+//
+//		// try to create TCP socket
+//		MM_BREAK_IF( ( pb->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
+//
+//		struct sockaddr_in tcp_addr;
+//		tcp_addr.sin_family = AF_INET;
+//		tcp_addr.sin_port = htons( ( uint16_t )pb->cpy_cfg.m.m.id.TCP_destination_port );
+//		MM_BREAK_IF( inet_pton( AF_INET , pb->cpy_cfg.m.m.id.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
+//
+//		if ( connect( pb->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
+//		{
+//			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
+//			{
+//				_close_socket( &pb->tcp_sockfd );
+//				slep( 2 ); // sec
+//				continue;
+//			}
+//
+//			MM_BREAK_IF( 1 , errGeneral , 1 , "Error connecting to TCP server" );
+//		}
+//		else
+//		{
+//			pb->tcp_connection_established = 1;
+//			_g->stat.tcp_connection_count++;
+//			_g->stat.total_retry_tcp_connection_count++;
+//
+//			//int flag = 1;
+//			//setsockopt( pb->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , ( char * )&flag , sizeof( int ) );
+//
+//			pthread_mutex_lock( &_g->bridges.thread_base.start_working_race_cond );
+//			switch ( _g->appcfg.g_cfg->c.c.atht )
+//			{
+//				case buttleneck:
+//				case bidirection:
+//				{
+//					if ( pb->udp_connection_established && pb->tcp_connection_established )
+//					{
+//						_g->bridges.thread_base.start_working = 1;
+//					}
+//					break;
+//				}
+//				default:
+//				case justIncoming:
+//				{
+//					if ( pb->udp_connection_established )
+//					{
+//						_g->bridges.thread_base.start_working = 1;
+//					}
+//					break;
+//				}
+//			}
+//			pthread_mutex_unlock( &_g->bridges.thread_base.start_working_race_cond );
+//
+//
+//			return 0;
+//		}
+//	}
+//	
+//	BEGIN_RET
+//		case 3: ;
+//		case 2: ;
+//		case 1:
+//		{
+//			_close_socket( &pb->tcp_sockfd );
+//			_g->stat.round_zero_set.syscal_err_count++;
+//		}
+//	M_V_END_RET
+//	return -1;
+//}
+
+int connect_one_tcp( AB_tcp * tcp )
 {
-	//INIT_BREAKABLE_FXN();
-	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
+	INIT_BREAKABLE_FXN();
+	G * _g = tcp->owner_pb->cpy_cfg.m.m.temp_data._g;
 
-	//while ( 1 )
-	//{
+	while ( 1 )
+	{
+		// try to create TCP socket
+		MM_BREAK_IF( ( tcp->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
 
-	//	// try to create TCP socket
-	//	MM_BREAK_IF( ( pb->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
+		struct sockaddr_in tcp_addr;
+		tcp_addr.sin_family = AF_INET;
 
-	//	struct sockaddr_in tcp_addr;
-	//	tcp_addr.sin_family = AF_INET;
-	//	tcp_addr.sin_port = htons( ( uint16_t )pb->cpy_cfg.m.m.id.TCP_destination_port );
-	//	MM_BREAK_IF( inet_pton( AF_INET , pb->cpy_cfg.m.m.id.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
+		int port = 0;
+		M_BREAK_IF( string_to_int( tcp->__tcp_cfg->TCP_destination_ports , &port ) , errGeneral , 1 );
+		ASSERT( port > 0 );
 
-	//	if ( connect( pb->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
-	//	{
-	//		if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
-	//		{
-	//			_close_socket( &pb->tcp_sockfd );
-	//			sleep( 2 ); // sec
-	//			continue;
-	//		}
+		tcp_addr.sin_port = htons( ( uint16_t )port );
+		MM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg->TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
 
-	//		MM_BREAK_IF( 1 , errGeneral , 1 , "Error connecting to TCP server" );
-	//	}
-	//	else
-	//	{
-	//		pb->tcp_connection_established = 1;
-	//		_g->stat.tcp_connection_count++;
-	//		_g->stat.total_retry_tcp_connection_count++;
+		if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
+		{
+			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
+			{
+				_close_socket( &tcp->tcp_sockfd );
+				mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+				continue;
+			}
 
-	//		//int flag = 1;
-	//		//setsockopt( pb->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , ( char * )&flag , sizeof( int ) );
+			MM_BREAK_IF( 1 , errGeneral , 1 , "Error connecting to TCP server" );
+		}
+		else
+		{
+			tcp->tcp_connection_established = 1;
+			_g->stat.tcp_connection_count++;
+			_g->stat.total_retry_tcp_connection_count++;
 
-	//		pthread_mutex_lock( &_g->bridges.thread_base.start_working_race_cond );
-	//		switch ( _g->appcfg.g_cfg->c.c.atht )
-	//		{
-	//			case buttleneck:
-	//			case bidirection:
-	//			{
-	//				if ( pb->udp_connection_established && pb->tcp_connection_established )
-	//				{
-	//					_g->bridges.thread_base.start_working = 1;
-	//				}
-	//				break;
-	//			}
-	//			default:
-	//			case justIncoming:
-	//			{
-	//				if ( pb->udp_connection_established )
-	//				{
-	//					_g->bridges.thread_base.start_working = 1;
-	//				}
-	//				break;
-	//			}
-	//		}
-	//		pthread_mutex_unlock( &_g->bridges.thread_base.start_working_race_cond );
+			//int flag = 1;
+			//setsockopt( pb->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , ( char * )&flag , sizeof( int ) );
 
+			return 0;
+		}
+	}
 
-	//		return 0;
-	//	}
-	//}
-	//
-	//BEGIN_RET
-	//	case 3: ;
-	//	case 2: ;
-	//	case 1:
-	//	{
-	//		_close_socket( &pb->tcp_sockfd );
-	//		_g->stat.round_zero_set.syscal_err_count++;
-	//	}
-	//M_V_END_RET
+	BEGIN_RET
+	case 3: ;
+	case 2: ;
+	case 1:
+	{
+		_close_socket( &tcp->tcp_sockfd );
+		_g->stat.round_zero_set.syscal_err_count++;
+	}
+	M_V_END_RET
 	return -1;
 }
 
-_THREAD_FXN void * thread_tcp_connection_proc( void * src_pb )
+_THREAD_FXN void_p thread_tcp_connection_proc( void_p src_pb )
 {
-	//INIT_BREAKABLE_FXN();
-	static TWD twd = { 0 };
-	if ( twd.threadId == 0 )
-	{
-		twd.threadId = pthread_self();
-		twd.cal = thread_tcp_connection_proc; // self function address
-		twd.callback_arg = src_pb;
-	}
-	if ( src_pb == NULL )
-	{
-		return ( void * )&twd;
-	}
+	INIT_BREAKABLE_FXN();
+	////static TWD twd = { 0 };
+	////if ( twd.threadId == 0 )
+	////{
+	////	twd.threadId = pthread_self();
+	////	twd.cal = thread_tcp_connection_proc; // self function address
+	////	twd.callback_arg = src_pb;
+	////}
+	////if ( src_pb == NULL )
+	////{
+	////	return ( void_p )&twd;
+	////}
 
-	//AB *pb = ( AB *)src_pb;
+	AB * pb = ( AB * )src_pb;
 	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
 
-	//if ( pb->tcp_connection_established )
-	//{
-	//	_close_socket( &pb->tcp_sockfd );
-	//	pb->tcp_connection_established = 0;
-	//	_g->stat.tcp_connection_count--;
-	//}
+	while( 1 )
+	{
+		int all_tcp_connected = 0;
+		for ( int i = 0 ; i < pb->tcps_count ; i++ )
+		{
+			if ( pb->tcps[ i ].tcp_connection_established )
+			{
+				all_tcp_connected++;
+				continue;
+			}
 
-	//if ( _connect_tcp( pb ) == 0 )
-	//{
+			connect_one_tcp( &pb->tcps[ i ] );
+		}
+		if ( all_tcp_connected == pb->tcps_count )
+		{
+			break;
+		}
+	}
 
-	//}
-	//BREAK_OK(0); // to just ignore gcc warning
+	BREAK_OK(0); // to just ignore gcc warning
 
-	//BEGIN_RET
-	//	case 3: ;
-	//	case 2: ;
-	//	case 1: ;
-	//M_V_END_RET
+	BEGIN_RET
+		case 3: ;
+		case 2: ;
+		case 1: ;
+	M_V_END_RET
 	return NULL; // Threads can return a value, but this example returns NULL
+}
+
+
+/// <summary>
+/// this thread must be as simple as possible and without exception and any error because it is resposible for checking other and making them up
+/// </summary>
+/// <param name="src_g"></param>
+/// <returns></returns>
+_THREAD_FXN void_p watchdog_executer( void_p src_g )
+{
+	INIT_BREAKABLE_FXN();
+	////static TWD twd = { 0 };
+	////if ( twd.threadId == 0 )
+	////{
+	////	twd.threadId = pthread_self();
+	////	twd.cal = watchdog_executer; // self function address
+	////	twd.callback_arg = src_g;
+	////}
+	////if ( src_g == NULL )
+	////{
+	////	return ( void_p )&twd;
+	////}
+
+	G * _g = ( G * )src_g;
+
+	while ( 1 )
+	{
+		if ( CLOSE_APP_VAR() ) break;
+
+		for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+		{
+			if ( _g->bridges.ABhs_masks[ i ] )
+			{
+				if ( !_g->bridges.ABs[ i ].single_AB->trd.base.bridg_prerequisite_stabled )
+				{
+					if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "kernel_default_stack_udp_counter" ) )
+					{
+						if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.out_type , "one" ) )
+						{
+							if ( _g->bridges.ABs[ i ].single_AB->udps_count > 0 && _g->bridges.ABs[ i ].single_AB->udps->udp_connection_established )
+							{
+								_g->bridges.ABs[ i ].single_AB->trd.base.bridg_prerequisite_stabled = 1;
+							}
+						}
+						else
+						{
+							ASSERT( 0 ); // implement on demand
+						}
+					}
+					else if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2kernelDefaultStack_S&F" ) )
+					{
+						if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.out_type , "one2one" ) )
+						{
+							if
+							(
+								_g->bridges.ABs[ i ].single_AB->udps_count > 0 && _g->bridges.ABs[ i ].single_AB->udps->udp_connection_established &&
+								_g->bridges.ABs[ i ].single_AB->tcps_count > 0 && _g->bridges.ABs[ i ].single_AB->tcps->tcp_connection_established
+							)
+							{
+								_g->bridges.ABs[ i ].single_AB->trd.base.bridg_prerequisite_stabled = 1;
+							}
+						}
+						else
+						{
+							ASSERT( 0 ); // implement on demand
+						}
+					}
+					else
+					{
+						ASSERT( 0 ); // implement on demand
+					}
+				}
+			}
+		}
+
+		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+	}
+
+	BEGIN_RET
+		case 1: ;
+	M_V_END_RET
+	return NULL; // Threads can return a value, but this time returns NULL
+}
+
+void mng_basic_thread_sleep( G * _g , int priority )
+{
+	struct timespec ts;
+	MEMSET_ZERO( &ts , 1 );
+	switch ( priority )
+	{
+		case LOW_PRIORITY_THREAD:
+		{
+			ts.tv_nsec = LOW_THREAD_DEFAULT_DELAY_NANOSEC();
+			break;
+		}
+		case NORMAL_PRIORITY_THREAD:
+		{
+			ts.tv_nsec = NORMAL_THREAD_DEFAULT_DELAY_NANOSEC();
+			break;
+		}
+		default:
+		case HI_PRIORITY_THREAD:
+		{
+			ts.tv_nsec = HI_THREAD_DEFAULT_DELAY_NANOSEC();
+			break;
+		}
+	}
+	ts.tv_sec = ts.tv_nsec / 1000000000L;   // seconds
+	ts.tv_nsec = ts.tv_nsec % 1000000000L;  // nanoseconds
+	thrd_sleep( &ts , NULL );
 }
 

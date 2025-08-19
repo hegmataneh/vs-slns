@@ -1,4 +1,3 @@
-#define Uses_sleep
 #define Uses_TWD
 #define Uses_pthread_t
 #define Uses_json
@@ -11,7 +10,7 @@
 
 // TODO . exit gracefully by auto mechanism
 // TODO . think about race condition
-_THREAD_FXN void * version_checker( void * app_data )
+_THREAD_FXN void_p version_checker( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
@@ -19,14 +18,14 @@ _THREAD_FXN void * version_checker( void * app_data )
 	{
 		twd.threadId = pthread_self();
 		twd.cal = version_checker;
-		twd.callback_arg = app_data;
+		twd.callback_arg = src_g;
 	}
-	if ( app_data == NULL )
+	if ( src_g == NULL )
 	{
-		return ( void * )&twd;
+		return ( void_p )&twd;
 	}
 
-	G * _g = ( G * )app_data;
+	G * _g = ( G * )src_g;
 	char buf[ 50 ] = { 0 };
 	time_t prev_time = { 0 } , cur_time = { 0 };
 	struct Config_ver temp_ver = { 0 };
@@ -45,12 +44,12 @@ _THREAD_FXN void * version_checker( void * app_data )
 			MM_BREAK_IF( !config_ver_file_content , errGeneral , 0 , "cannot open and read version file" );
 
 			result( json_element ) rs_config_ver = json_parse( config_ver_file_content );
-			//free( ( void * )config_ver_file_content );
-			MM_BREAK_IF( catch_error( &rs_config_ver , "config_ver" ) , errGeneral , 0 , "error in json_parse version file" );
+			//free( ( void_p )config_ver_file_content );
+			MM_BREAK_IF( catch_error( &rs_config_ver , "config_ver" , 1 ) , errGeneral , 0 , "error in json_parse version file" );
 			typed( json_element ) el_config_ver = result_unwrap( json_element )( &rs_config_ver );
 
 			result( json_element ) ver = json_object_find( el_config_ver.value.as_object , "ver" );
-			MM_BREAK_IF( catch_error( &ver , "ver" ) , errGeneral , 0 , "ver not found" );
+			MM_BREAK_IF( catch_error( &ver , "ver" , 1 ) , errGeneral , 0 , "ver not found" );
 
 			memset( &temp_ver , 0 , sizeof( temp_ver ) );
 
@@ -73,7 +72,7 @@ _THREAD_FXN void * version_checker( void * app_data )
 				//}
 			}
 		}
-		sleep( 1 );
+		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	}
 	BEGIN_RET
 		case 3: ;
@@ -85,7 +84,7 @@ _THREAD_FXN void * version_checker( void * app_data )
 
 // TODO . fix memory leak
 // TODO . echo acceptible config one time to inform user
-_THREAD_FXN void * config_loader( void * app_data )
+_THREAD_FXN void_p config_loader( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
@@ -93,32 +92,32 @@ _THREAD_FXN void * config_loader( void * app_data )
 	{
 		twd.threadId = pthread_self();
 		twd.cal = config_loader;
-		twd.callback_arg = app_data;
+		twd.callback_arg = src_g;
 	}
-	if ( app_data == NULL )
+	if ( src_g == NULL )
 	{
-		return ( void * )&twd;
+		return ( void_p )&twd;
 	}
 
-	G * _g = ( G * )app_data;
-	time_t prev_time , cur_time;
+	G * _g = ( G * )src_g;
+	//time_t prev_time , cur_time;
 	
 	while ( !_g->appcfg.version_changed ) // load after version loaded
 	{
 		if ( CLOSE_APP_VAR() ) break;
-		sleep( 1 );
+		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 	
 	typed( json_element ) el_Protocol_Bridge_config;
 	
 	while ( 1 )
 	{
-		cur_time = time( NULL );
+		//cur_time = time( NULL );
 		if ( CLOSE_APP_VAR() ) break;
 		if ( _g->appcfg.g_cfg == NULL || _g->appcfg.version_changed /* || difftime(cur_time , prev_time) > 15 * 60*/ )
 		{
-			prev_time = prev_time; // to ignore warning
-			prev_time = cur_time;
+			//prev_time = prev_time; // to ignore warning
+			//prev_time = cur_time;
 	
 			Gcfg temp_config = { 0 };
 			Gcfg0 * pGeneralConfiguration = ( Gcfg0 * )&temp_config;
@@ -129,27 +128,32 @@ _THREAD_FXN void * config_loader( void * app_data )
 				MM_BREAK_IF( !Protocol_Bridge_config_file_content , errGeneral , 0 , "cannot open config file" );
 					
 				result( json_element ) rs_Protocol_Bridge_config = json_parse( Protocol_Bridge_config_file_content );
-				free( ( void * )Protocol_Bridge_config_file_content );
-				MM_BREAK_IF( catch_error( &rs_Protocol_Bridge_config , "Protocol_Bridge_config" ) , errGeneral , 0 , "cannot parse config file" );
+				free( ( void_p )Protocol_Bridge_config_file_content );
+				MM_BREAK_IF( catch_error( &rs_Protocol_Bridge_config , "Protocol_Bridge_config" , 1 ) , errGeneral , 0 , "cannot parse config file" );
 				el_Protocol_Bridge_config = result_unwrap( json_element )( &rs_Protocol_Bridge_config );
 	
 				// load general configurations
 				if ( _g->appcfg.ver->Major >= 1 ) // first version of config file structure
 				{
 					result( json_element ) re_configurations = json_object_find( el_Protocol_Bridge_config.value.as_object , "configurations" );
-					MM_BREAK_IF( catch_error( &re_configurations , "configurations" ) , errGeneral , 0 , "configurations" );
+					MM_BREAK_IF( catch_error( &re_configurations , "configurations" , 1 ) , errGeneral , 0 , "configurations" );
 					typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 	
 					#define CFG_ELEM_STR( name )																			/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );									/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );									/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						NEWSTR( pGeneralConfiguration->name , el_##name.value.as_string , 0 );								/**/
 					#define CFG_ELEM_I( name )																				/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );									/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );									/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						pGeneralConfiguration->name = (int)el_##name.value.as_number.value.as_long;							/**/
+					#define CFG_ELEM_I64( name )																			/**/\
+						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );									/**/\
+						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
+						pGeneralConfiguration->name = (int64)el_##name.value.as_number.value.as_long;						/**/
 
 					CFG_ELEM_STR( create_date );																			/**/\
 					CFG_ELEM_STR( modify_date );																			/**/\
@@ -169,14 +173,19 @@ _THREAD_FXN void * config_loader( void * app_data )
 					CFG_ELEM_I( hi_frequent_log_interval_sec );																/**/\
 					CFG_ELEM_I( refresh_variable_from_scratch );															/**/\
 					CFG_ELEM_I( stat_referesh_interval_sec );																/**/\
-					
-																															/**/\
+
+
 					CFG_ELEM_I( synchronization_min_wait );																	/**/\
 					CFG_ELEM_I( synchronization_max_roundup );																/**/\
 					CFG_ELEM_I( show_line_hit );																			/**/\
 					CFG_ELEM_I( retry_unexpected_wait_for_sock );															/**/\
-					CFG_ELEM_I( number_in_short_form );																		/**/
-
+					CFG_ELEM_I( number_in_short_form );																		/**/\
+					CFG_ELEM_STR( NetworkStack_FilterType );																/**/\
+					
+					CFG_ELEM_I64( default_low_basic_thread_delay_nanosec );													/**/\
+					CFG_ELEM_I64( default_normal_basic_thread_delay_nanosec );												/**/\
+					CFG_ELEM_I64( default_hi_basic_thread_delay_nanosec );													/**/
+					
 
 					#undef CFG_ELEM_I
 					#undef CFG_ELEM_STR
@@ -185,7 +194,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 				// load Protocol_Bridges
 				{
 					result( json_element ) re_Protocol_Bridges = json_object_find( el_Protocol_Bridge_config.value.as_object , "Protocol_Bridges" );
-					MM_BREAK_IF( catch_error( &re_Protocol_Bridges , "Protocol_Bridges" ) , errGeneral , 0 , "Protocol_Bridges" );
+					MM_BREAK_IF( catch_error( &re_Protocol_Bridges , "Protocol_Bridges" , 1 ) , errGeneral , 0 , "Protocol_Bridges" );
 					typed( json_element ) el_Protocol_Bridges = result_unwrap( json_element )( &re_Protocol_Bridges );
 	
 					MM_BREAK_IF( ( Protocol_Bridges_count = el_Protocol_Bridges.value.as_object->count ) < 1 , errGeneral , 0 , "Protocol_Bridges must be not zero" );
@@ -195,24 +204,24 @@ _THREAD_FXN void * config_loader( void * app_data )
 						
 					for ( int i = 0 ; i < el_Protocol_Bridges.value.as_object->count ; i++ ) // each bridge
 					{
-						((Bcfg0 *)(pProtocol_Bridges + i))->temp_data._g = ( void * )_g; // each config must know global settings
+						((Bcfg0 *)(pProtocol_Bridges + i))->temp_data._g = ( void_p )_g; // each config must know global settings
 						const char * output_Protocol_Bridge_name = ( *( el_Protocol_Bridges.value.as_object->entries + i ) )->key;
 	
 						result( json_element ) re_each_bridge = json_object_find( el_Protocol_Bridges.value.as_object , output_Protocol_Bridge_name );
-						M_BREAK_IF( catch_error( &re_each_bridge , output_Protocol_Bridge_name ) , errGeneral , 0 );
+						M_BREAK_IF( catch_error( &re_each_bridge , output_Protocol_Bridge_name , 1 ) , errGeneral , 0 );
 						typed( json_element ) el_each_bridge = result_unwrap( json_element )( &re_each_bridge );
 	
 						strcpy( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->id.bridge_name , output_Protocol_Bridge_name );
 						
 						#define CFG_ELEM_STR( part , name )																	/**/\
 						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );		/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );									/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );									/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						strcpy(((Bcfg0 *)(pProtocol_Bridges + i))->part.name , el_##name.value.as_string );					/**/
 	
 						#define CFG_ELEM_I( part , name )																		/**/\
 						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );			/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );										/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );										/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );							/**/\
 						((Bcfg0 *)(pProtocol_Bridges + i))->part.name = (int)el_##name.value.as_number.value.as_long;			/**/
 	
@@ -222,7 +231,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 						
 						// bridge inputs
 						result( json_element ) re_inputs = json_object_find( el_each_bridge.value.as_object , "inputs" );
-						MM_BREAK_IF( catch_error( &re_inputs , "inputs" ) , errGeneral , 0 , "inputs" );
+						MM_BREAK_IF( catch_error( &re_inputs , "inputs" , 1 ) , errGeneral , 0 , "inputs" );
 						typed( json_element ) el_inputs = result_unwrap( json_element )( &re_inputs );
 												
 						((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in_count = el_inputs.value.as_object->count;
@@ -236,18 +245,18 @@ _THREAD_FXN void * config_loader( void * app_data )
 							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in + j )->name , output_input_name );
 
 							result( json_element ) re_inp = json_object_find( el_inputs.value.as_object , output_input_name );
-							M_BREAK_IF( catch_error( &re_inp , output_input_name ) , errGeneral , 0 );
+							M_BREAK_IF( catch_error( &re_inp , output_input_name , 1 ) , errGeneral , 0 );
 							typed( json_element ) el_inp = result_unwrap( json_element )( &re_inp );
 
 							#define IN_CFG_ELEM_STR( elem , namee )																		/**/\
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-							M_BREAK_IF( catch_error( &re_##namee , #namee ) , errGeneral , 0 );											/**/\
+							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );											/**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
 							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in + j )->data.namee , el_##namee.value.as_string );					/**/
 
 							#define IN_CFG_ELEM_I( elem , namee )																				/**/\
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
-							M_BREAK_IF( catch_error( &re_##namee , #namee ) , errGeneral , 0 );													/**/\
+							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );													/**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
 							( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in + j )->data.namee = (int)el_##namee.value.as_number.value.as_long;					/**/
 
@@ -256,7 +265,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 							IN_CFG_ELEM_STR( el_inp , UDP_origin_ip );
 							IN_CFG_ELEM_STR( el_inp , UDP_origin_interface );
 
-							IN_CFG_ELEM_I( el_inp , UDP_origin_port );
+							IN_CFG_ELEM_STR( el_inp , UDP_origin_ports );
 							IN_CFG_ELEM_I( el_inp , enable );
 							IN_CFG_ELEM_I( el_inp , reset_connection );
 
@@ -266,7 +275,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 						
 						// bridge outputs
 						result( json_element ) re_outputs = json_object_find( el_each_bridge.value.as_object , "outputs" );
-						if ( !catch_error( &re_outputs , "outputs" ) )
+						if ( !catch_error( &re_outputs , "outputs" , 0 ) )
 						{
 							typed( json_element ) el_outputs = result_unwrap( json_element )( &re_outputs );
 
@@ -278,21 +287,21 @@ _THREAD_FXN void * config_loader( void * app_data )
 							{
 								const char * output_outputs_name = ( *( el_outputs.value.as_object->entries + j ) )->key;
 
-								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in + j )->name , output_outputs_name );
+								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.out + j )->name , output_outputs_name );
 
 								result( json_element ) re_out = json_object_find( el_outputs.value.as_object , output_outputs_name );
-								M_BREAK_IF( catch_error( &re_out , output_outputs_name ) , errGeneral , 0 );
+								M_BREAK_IF( catch_error( &re_out , output_outputs_name , 1 ) , errGeneral , 0 );
 								typed( json_element ) el_out = result_unwrap( json_element )( &re_out );
 
 								#define IN_CFG_ELEM_STR( elem , namee )																		/**/\
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-								M_BREAK_IF( catch_error( &re_##namee , #namee ) , errGeneral , 0 );											/**/\
+								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );											/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
 								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.out + j )->data.namee , el_##namee.value.as_string );		/**/
 
 								#define IN_CFG_ELEM_I( elem , namee )																				/**/\
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
-								M_BREAK_IF( catch_error( &re_##namee , #namee ) , errGeneral , 0 );													/**/\
+								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );													/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
 								( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.out + j )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
 
@@ -301,7 +310,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 								IN_CFG_ELEM_STR( el_out , TCP_destination_ip );
 								IN_CFG_ELEM_STR( el_out , TCP_destination_interface );
 
-								IN_CFG_ELEM_I( el_out , TCP_destination_port );
+								IN_CFG_ELEM_STR( el_out , TCP_destination_ports );
 								IN_CFG_ELEM_I( el_out , enable );
 								IN_CFG_ELEM_I( el_out , reset_connection );
 
@@ -372,6 +381,12 @@ _THREAD_FXN void * config_loader( void * app_data )
 					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.show_line_hit == _g->appcfg.prev_cfg->c.c.show_line_hit );
 					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.retry_unexpected_wait_for_sock == _g->appcfg.prev_cfg->c.c.retry_unexpected_wait_for_sock );
 					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.number_in_short_form == _g->appcfg.prev_cfg->c.c.number_in_short_form );
+
+					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.NetworkStack_FilterType , _g->appcfg.prev_cfg->c.c.NetworkStack_FilterType );
+					
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.default_low_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_low_basic_thread_delay_nanosec );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.default_normal_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_normal_basic_thread_delay_nanosec );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.default_hi_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_hi_basic_thread_delay_nanosec );
 						
 				}
 			}
@@ -465,7 +480,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 			//	_ECHO( "protocol_bridge config changed" );
 			//}
 		}
-		sleep( 2 );
+		mng_basic_thread_sleep( _g , LOW_PRIORITY_THREAD );
 	}
 	
 	BEGIN_RET
@@ -476,7 +491,7 @@ _THREAD_FXN void * config_loader( void * app_data )
 }
 
 // TODO . aware of concurrency in config read and act on it
-_THREAD_FXN void * config_executer( void * app_data )
+_THREAD_FXN void_p config_executer( void_p app_data )
 {
 	INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
@@ -488,14 +503,14 @@ _THREAD_FXN void * config_executer( void * app_data )
 	}
 	if ( app_data == NULL )
 	{
-		return ( void * )&twd;
+		return ( void_p )&twd;
 	}
 	G * _g = ( G * )app_data;
 
 	while ( !_g->appcfg.bdj_psv_cfg_count ) // load after any config loaded
 	{
 		if ( CLOSE_APP_VAR() ) break;
-		sleep( 1 );
+		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
 	while ( 1 )
@@ -554,7 +569,7 @@ _THREAD_FXN void * config_executer( void * app_data )
 			}
 			_g->appcfg.psv_cfg_changed = 0; // changes applied
 		}
-		sleep( 5 );
+		mng_basic_thread_sleep( _g , LOW_PRIORITY_THREAD );
 	}
 	return NULL;
 }

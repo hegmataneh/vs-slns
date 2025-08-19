@@ -13,6 +13,10 @@
 
 //#define PARALLELISM_COUNT 1
 
+#define LOW_PRIORITY_THREAD 1
+#define NORMAL_PRIORITY_THREAD 2
+#define HI_PRIORITY_THREAD 3
+
 #define BUF_SIZE 2048
 
 #define PREALLOCAION_SIZE 10
@@ -21,6 +25,20 @@
 #define HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT 5
 #define STAT_REFERESH_INTERVAL_SEC_DEFUALT 1
 #define CLOSE_APP_VAR_DEFAULT 0
+
+#define DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC 3000000000
+#define DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC 1000000000
+#define DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC 1000000
+
+#define SNAP_LEN 1518  // max bytes per packet to capture
+
+// Ethernet header is always 14 bytes (for non-VLAN frames)
+#define SIZE_ETHERNET 14
+
+
+#define UDP_READER_THREAD_DEFAULT_INDEX 0 // in one store and forward bridge caller id could be constant
+#define TCP_READER_THREAD_DEFAULT_INDEX 1
+
 
 #define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
 
@@ -32,6 +50,10 @@
 
 
 #define NUMBER_IN_SHORT_FORM() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.number_in_short_form : 1 )
+
+#define LOW_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.default_low_basic_thread_delay_nanosec : DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC )
+#define NORMAL_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.default_normal_basic_thread_delay_nanosec : DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC )
+#define HI_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.default_hi_basic_thread_delay_nanosec : DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC )
 
 
 

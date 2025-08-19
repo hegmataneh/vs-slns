@@ -1,9 +1,29 @@
 
+#ifdef Uses_BT_one2one_pcap2kernelDefaultStack_SF
+	#define __INC_BT_one2one_pcap2kernelDefaultStack_SF
+#endif
+
+#ifdef Uses_kernel_default_stack_udp_counter_thread_proc
+	#define __INC_BT_kernel_default_stack_udp_counter
+#endif
+
+#ifdef Uses_pcap_udp_counter_thread_proc
+	#define __INC_BT_pcap_udp_counter
+#endif
+
+#ifdef Uses_AB_tcp
+	#define Uses_Bridge
+#endif
+
 #ifdef Uses_M_showMsg
 	#define __INC_msg
 #endif
 
 #ifdef Uses_Bridge
+	#define Uses_id_dict_t
+	#define Uses_cbuf_lf
+	#define Uses_Ba_al
+	#define Uses_pcap
 	#define Uses_WINDOW
 	#define Uses_BridgeConfig
 	#define Uses_pthread_t
@@ -34,7 +54,7 @@
 #ifdef Uses_statistics
 	#define Uses_definition
 	#define Uses_WINDOW
-	#define Uses_circbuf_t
+	#define Uses_cbuf_metr
 	#define Uses_helper
 	#define __INC_statistics
 #endif

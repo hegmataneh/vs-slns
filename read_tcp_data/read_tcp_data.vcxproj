@@ -92,7 +92,7 @@
     <ClCompile Include="src\main.c" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\General projects\general\general.vcxproj">
+    <ProjectReference Include="..\..\general-projects\general\general.vcxproj">
       <Project>{65d7d4b3-bbfa-4c50-adce-72911e410ca0}</Project>
     </ProjectReference>
   </ItemGroup>

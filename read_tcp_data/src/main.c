@@ -768,10 +768,10 @@ void apply_new_tcp_listener_config( struct App_Data * _g , struct tcp_listener *
 		int new_thread_count = old_thread_count + diff_count;
 
 		M_BREAK_IF( ( tl->tl_trds_masks = REALLOC( tl->tl_trds_masks , new_thread_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
-		MEMSET_ZERO( tl->tl_trds_masks + old_thread_count , int , diff_count );
+		MEMSET_ZERO_T( tl->tl_trds_masks + old_thread_count , int , diff_count );
 
 		M_BREAK_IF( ( tl->tl_trds = REALLOC( tl->tl_trds , new_thread_count * sizeof( struct tcp_listener_thread_holder ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
-		MEMSET_ZERO( tl->tl_trds + old_thread_count , struct tcp_listener_thread_holder , diff_count );
+		MEMSET_ZERO_T( tl->tl_trds + old_thread_count , struct tcp_listener_thread_holder , diff_count );
 
 		tl->tl_trds_masks_count = new_thread_count;
 	}
@@ -802,8 +802,8 @@ void apply_new_tcp_listener_config( struct App_Data * _g , struct tcp_listener *
 					tl->tl_trds_masks[ i ] = 1; // order is matter
 
 					DAC( tl->tl_trds[ i ].alc_thread );
-					M_BREAK_IF( ( tl->tl_trds[ i ].alc_thread = NEW( struct tcp_listener_thread ) ) == NEW_ERR , errMemoryLow , 0 );
-					MEMSET_ZERO( tl->tl_trds[ i ].alc_thread , struct tcp_listener_thread , 1 );
+					M_BREAK_IF( ( tl->tl_trds[ i ].alc_thread = MALLOC_AR( tl->tl_trds[ i ].alc_thread , 1 ) ) == NEW_ERR , errMemoryLow , 0 );
+					MEMSET_ZERO( tl->tl_trds[ i ].alc_thread , 1 );
 					tl->tl_trds[ i ].alc_thread->tl = tl;
 
 					// 3. create thread also
@@ -965,18 +965,18 @@ void add_new_tcp_listener( struct App_Data * _g , struct tcp_listener_cfg * new_
 			int new_tl_holders_masks_count = old_tl_holders_masks_count + PREALLOCAION_SIZE;
 
 			M_BREAK_IF( ( _g->listeners.tl_holders_masks = REALLOC( _g->listeners.tl_holders_masks , new_tl_holders_masks_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 2 );
-			MEMSET_ZERO( _g->listeners.tl_holders_masks + old_tl_holders_masks_count , int , PREALLOCAION_SIZE );
+			MEMSET_ZERO_T( _g->listeners.tl_holders_masks + old_tl_holders_masks_count , int , PREALLOCAION_SIZE );
 
 			M_BREAK_IF( ( _g->listeners.tl_holders = REALLOC( _g->listeners.tl_holders , new_tl_holders_masks_count * sizeof( struct tcp_listener_holder ) ) ) == REALLOC_ERR , errMemoryLow , 1 );
-			MEMSET_ZERO( _g->listeners.tl_holders + old_tl_holders_masks_count , struct tcp_listener_holder , PREALLOCAION_SIZE );
+			MEMSET_ZERO_T( _g->listeners.tl_holders + old_tl_holders_masks_count , struct tcp_listener_holder , PREALLOCAION_SIZE );
 
 			_g->listeners.tl_holders_masks_count = new_tl_holders_masks_count;
 		}
 	}
 
 	ASSERT( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl == NULL );
-	M_BREAK_IF( ( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl = NEW( struct tcp_listener ) ) == NEW_ERR , errMemoryLow , 0 );
-	MEMSET_ZERO( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl , struct tcp_listener , 1 );
+	M_BREAK_IF( ( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl = MALLOC_AR( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl , 1 ) ) == NEW_ERR , errMemoryLow , 0 );
+	MEMSET_ZERO( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl , 1 );
 	_g->listeners.tl_holders_masks[ new_tlcfg_placement_index ] = 1;
 	memcpy( &_g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl->tlcfg , new_tlcfg , sizeof( struct tcp_listener_cfg ) );
 
@@ -993,7 +993,7 @@ void add_new_tcp_listener( struct App_Data * _g , struct tcp_listener_cfg * new_
 
 #ifndef section_load_config
 
-#define CONFIG_ROOT_PATH "/home/my_projects/home-config/tcp_listener"
+#define CONFIG_ROOT_PATH "/root/my_projects/home-config/tcp_listener"
 
 // TODO . exit gracefully by auto mechanism
 // TODO . think about race condition
@@ -1021,11 +1021,11 @@ void * version_checker( void * app_data )
 
 			result( json_element ) rs_config_ver = json_parse( config_ver_file_content );
 			//free( ( void * )config_ver_file_content );
-			MM_BREAK_IF( catch_error( &rs_config_ver , "config_ver" ) , errGeneral , 0 , "error in json_parse version file" );
+			MM_BREAK_IF( catch_error( &rs_config_ver , "config_ver" , 1 ) , errGeneral , 0 , "error in json_parse version file" );
 			typed( json_element ) el_config_ver = result_unwrap( json_element )( &rs_config_ver );
 
 			result( json_element ) ver = json_object_find( el_config_ver.value.as_object , "ver" );
-			MM_BREAK_IF( catch_error( &ver , "ver" ) , errGeneral , 0 , "ver not found" );
+			MM_BREAK_IF( catch_error( &ver , "ver" , 1 ) , errGeneral , 0 , "ver not found" );
 
 			memset( &temp_ver , 0 , sizeof( temp_ver ) );
 
@@ -1094,24 +1094,24 @@ void * config_loader( void * app_data )
 
 				result( json_element ) rs_tcp_listener_config = json_parse( tcp_listener_config_file_content );
 				free( ( void * )tcp_listener_config_file_content );
-				MM_BREAK_IF( catch_error( &rs_tcp_listener_config , "tcp_listener_config" ) , errGeneral , 0 , "cannot parse config file" );
+				MM_BREAK_IF( catch_error( &rs_tcp_listener_config , "tcp_listener_config" , 1 ) , errGeneral , 0 , "cannot parse config file" );
 				el_tcp_listener_config = result_unwrap( json_element )( &rs_tcp_listener_config );
 
 				/*configurations*/
 				if ( _g->appcfg._ver->Major >= 1 ) // first version of config file structure
 				{
 					result( json_element ) re_configurations = json_object_find( el_tcp_listener_config.value.as_object , "configurations" );
-					MM_BREAK_IF( catch_error( &re_configurations , "configurations" ) , errGeneral , 0 , "configurations" );
+					MM_BREAK_IF( catch_error( &re_configurations , "configurations" , 1 ) , errGeneral , 0 , "configurations" );
 					typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 
 #define CFG_ELEM_STR( name ) \
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );\
-						M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 						NEWSTR( pGeneralConfiguration->name , el_##name.value.as_string , 0 );
 #define CFG_ELEM_I( name ) \
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );\
-						M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 						pGeneralConfiguration->name = (int)el_##name.value.as_number.value.as_long;
 
@@ -1148,13 +1148,13 @@ void * config_loader( void * app_data )
 				/*tcp_listeners*/
 				{
 					result( json_element ) re_tcp_listeners = json_object_find( el_tcp_listener_config.value.as_object , "TCP_listeners" );
-					MM_BREAK_IF( catch_error( &re_tcp_listeners , "tcp_listeners" ) , errGeneral , 0 , "tcp_listeners" );
+					MM_BREAK_IF( catch_error( &re_tcp_listeners , "tcp_listeners" , 1 ) , errGeneral , 0 , "tcp_listeners" );
 					typed( json_element ) el_tcp_listeners = result_unwrap( json_element )( &re_tcp_listeners );
 
 					MM_BREAK_IF( ( tcp_listeners_count = el_tcp_listeners.value.as_object->count ) < 1 , errGeneral , 0 , "tcp_listeners must be not zero" );
 
-					M_BREAK_IF( !( ptcp_listeners = NEWBUF( struct tcp_listener_cfg , el_tcp_listeners.value.as_object->count ) ) , errMemoryLow , 0 );
-					MEMSET_ZERO( ptcp_listeners , struct tcp_listener_cfg , el_tcp_listeners.value.as_object->count );
+					M_BREAK_IF( !( ptcp_listeners = MALLOC_AR( ptcp_listeners , el_tcp_listeners.value.as_object->count ) ) , errMemoryLow , 0 );
+					MEMSET_ZERO( ptcp_listeners , el_tcp_listeners.value.as_object->count );
 
 
 					for ( int i = 0 ; i < el_tcp_listeners.value.as_object->count ; i++ )
@@ -1166,36 +1166,36 @@ void * config_loader( void * app_data )
 						sprintf( output_tcp_listener_name , "listener%d" , i + 1 );
 
 						result( json_element ) re_output_tcp_listener = json_object_find( el_tcp_listeners.value.as_object , output_tcp_listener_name );
-						M_BREAK_IF( catch_error( &re_output_tcp_listener , output_tcp_listener_name ) , errGeneral , 0 );
+						M_BREAK_IF( catch_error( &re_output_tcp_listener , output_tcp_listener_name , 1 ) , errGeneral , 0 );
 						typed( json_element ) el_output_tcp_listener = result_unwrap( json_element )( &re_output_tcp_listener );
 
 #define CFG_ELEM_STR( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
-							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							strcpy(((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->name , el_##name.value.as_string );
 
 #define CFG_ID_ELEM_STR( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
-							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							strcpy(((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->id.name , el_##name.value.as_string );
 
 #define CFG_ELEM_I_maintained( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
-							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->maintained.name = (int)el_##name.value.as_number.value.as_long;
 
 #define CFG_ELEM_I_momentary( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
-							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->momentary.name = (int)el_##name.value.as_number.value.as_long;
 
 #define CFG_ID_ELEM_I( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
-							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->id.name = (int)el_##name.value.as_number.value.as_long;
 
@@ -1692,7 +1692,7 @@ void draw_table( struct App_Data * _g )
 
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
-	format_elapsed_time_with_millis( _g->stat.round_zero_set.t_begin , _g->stat.round_zero_set.t_end , buf2 , sizeof( buf2 ) );
+	format_elapsed_time_with_millis( _g->stat.round_zero_set.t_begin , _g->stat.round_zero_set.t_end , buf2 , sizeof( buf2 ) , 1 );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "itr duration" );

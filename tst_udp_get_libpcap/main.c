@@ -1,28 +1,34 @@
-#define _POSIX_C_SOURCE 200809L
+//#define _POSIX_C_SOURCE 200809L
 
-typedef unsigned char u_char;
-typedef unsigned int u_int;
-typedef unsigned short u_short;
+#define _GNU_SOURCE
 
+//typedef unsigned char u_char;
+//typedef unsigned int u_int;
+//typedef unsigned short u_short;
+#include <sys/types.h>
 #include <pthread.h>
 #include <pcap.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <string.h>
+//#include <string.h>
 #include <unistd.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <fcntl.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <sched.h>
-#include <sys/mman.h>
+//#include <errno.h>
+//#include <sys/types.h>
+//#include <sys/socket.h>
+//#include <netinet/in.h>
+//#include <arpa/inet.h>
+//#include <netdb.h>
+//#include <fcntl.h>
+//#include <sys/select.h>
+//#include <sys/time.h>
+//#include <sched.h>
+//#include <sys/mman.h>
 #include <time.h>
+
+#include <arpa/inet.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
 
 
 //static volatile sig_atomic_t packet_count = 0;
@@ -43,12 +49,46 @@ void * config_loader( void * )
 	return NULL;
 }
 
+#define SNAP_LEN 1518  // max bytes per packet to capture
+
+// Ethernet header is always 14 bytes (for non-VLAN frames)
+#define SIZE_ETHERNET 14
+
 void handle_packet( u_char * user , const struct pcap_pkthdr * hdr , const u_char * packet )
 {
-	( void )user;
-	( void )hdr;
-	( void )packet;
-	//packet_count++;
+	const struct ip * ip_hdr;
+	const struct udphdr * udp_hdr;
+	const u_char * payload;
+
+	int ip_header_len;
+	int udp_header_len = sizeof( struct udphdr );
+	int payload_len;
+
+	// Skip Ethernet header
+	ip_hdr = ( struct ip * )( packet + SIZE_ETHERNET );
+	ip_header_len = ip_hdr->ip_hl * 4;
+
+	// UDP header follows IP header
+	udp_hdr = ( struct udphdr * )( packet + SIZE_ETHERNET + ip_header_len );
+
+	// Payload starts after UDP header
+	payload = packet + SIZE_ETHERNET + ip_header_len + udp_header_len;
+	payload_len = ntohs( udp_hdr->uh_ulen ) - udp_header_len;
+
+	printf( " From %s:%d -> To %s:%d\n" ,
+		inet_ntoa( ip_hdr->ip_src ) , ntohs( udp_hdr->uh_sport ) ,
+		inet_ntoa( ip_hdr->ip_dst ) , ntohs( udp_hdr->uh_dport ) );
+
+	printf( " Payload (%d bytes): " , payload_len );
+	for ( int i = 0; i < payload_len; i++ )
+	{
+		if ( payload[ i ] >= 32 && payload[ i ] <= 126 ) // printable ASCII
+			putchar( payload[ i ] );
+		else
+			putchar( '.' );
+	}
+
+
 	_byte_counter1++;
 }
 

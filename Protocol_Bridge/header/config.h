@@ -28,6 +28,11 @@ typedef struct Global_Config_0
 	int show_line_hit;
 	int retry_unexpected_wait_for_sock;
 	int number_in_short_form;
+	const char * NetworkStack_FilterType;
+	int64 default_low_basic_thread_delay_nanosec;
+	int64 default_normal_basic_thread_delay_nanosec;
+	int64 default_hi_basic_thread_delay_nanosec;
+
 } Gcfg0;
 
 typedef struct Global_Config_n
@@ -69,6 +74,6 @@ typedef struct App_Config // global config
 
 } Acfg;
 
-_THREAD_FXN void * version_checker( void * app_data );
-_THREAD_FXN void * config_loader( void * app_data );
-_THREAD_FXN void * config_executer( void * app_data );
+_THREAD_FXN void_p version_checker( void_p app_data );
+_THREAD_FXN void_p config_loader( void_p app_data );
+_THREAD_FXN void_p config_executer( void_p app_data );

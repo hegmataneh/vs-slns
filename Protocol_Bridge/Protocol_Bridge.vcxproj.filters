@@ -19,6 +19,15 @@
     <ClCompile Include="src\statistics.c">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\BT_pcap_udp_counter.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BT_kernel_default_stack_udp_counter.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BT_one2one_pcap2kernelDefaultStack_SF.c">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="header">
@@ -62,6 +71,15 @@
       <Filter>header</Filter>
     </ClInclude>
     <ClInclude Include="header\helper.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\BT_pcap_udp_counter.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\BT_kernel_default_stack_udp_counter.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\BT_one2one_pcap2kernelDefaultStack_SF.h">
       <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>

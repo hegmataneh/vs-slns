@@ -383,8 +383,9 @@ void * wave_runner( void * src_pwave )
 		int buf_size = pwave->awcfg.m.m.maintained.packet_payload_size;
 		char * buffer = MALLOC_AR( buffer , buf_size );
 		MEMSET_ZERO( buffer , buf_size );
-		static int iii = 0;
-		__snprintf( buffer , buf_size , "a %d" , iii++ );
+		buff_fill_seq( buffer , buf_size );
+		//static int iii = 0;
+		//__snprintf( buffer , buf_size , "a %d" , iii++ );
 
 		ssize_t sz = 0;
 
@@ -848,11 +849,11 @@ void * version_checker( void * app_data )
 
 			result( json_element ) rs_config_ver = json_parse( config_ver_file_content );
 			//free( ( void * )config_ver_file_content );
-			MM_BREAK_IF( catch_error( &rs_config_ver , "config_ver" ) , errGeneral , 0 , "error in json_parse version file" );
+			MM_BREAK_IF( catch_error( &rs_config_ver , "config_ver" , 1 ) , errGeneral , 0 , "error in json_parse version file" );
 			typed( json_element ) el_config_ver = result_unwrap( json_element )( &rs_config_ver );
 
 			result( json_element ) ver = json_object_find( el_config_ver.value.as_object , "ver" );
-			MM_BREAK_IF( catch_error( &ver , "ver" ) , errGeneral , 0 , "ver not found" );
+			MM_BREAK_IF( catch_error( &ver , "ver" , 1 ) , errGeneral , 0 , "ver not found" );
 
 			memset( &temp_ver , 0 , sizeof( temp_ver ) );
 
@@ -921,24 +922,24 @@ void * config_loader( void * app_data )
 				
 				result( json_element ) rs_UDP_generator_config = json_parse( UDP_generator_config_file_content );
 				free( ( void * )UDP_generator_config_file_content );
-				MM_BREAK_IF( catch_error( &rs_UDP_generator_config , "UDP_generator_config" ) , errGeneral , 0 , "cannot parse config file" );
+				MM_BREAK_IF( catch_error( &rs_UDP_generator_config , "UDP_generator_config" , 1 ) , errGeneral , 0 , "cannot parse config file" );
 				el_UDP_generator_config = result_unwrap( json_element )( &rs_UDP_generator_config );
 
 				/*configurations*/
 				if ( _g->appcfg._ver->Major >= 1 ) // first version of config file structure
 				{
 					result( json_element ) re_configurations = json_object_find( el_UDP_generator_config.value.as_object , "configurations" );
-					MM_BREAK_IF( catch_error( &re_configurations , "configurations" ) , errGeneral , 0 , "configurations" );
+					MM_BREAK_IF( catch_error( &re_configurations , "configurations" , 1 ) , errGeneral , 0 , "configurations" );
 					typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 
 #define CFG_ELEM_STR( name ) \
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );\
-						M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 						NEWSTR( pGeneralConfiguration->name , el_##name.value.as_string , 0 );
 #define CFG_ELEM_I( name ) \
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );\
-						M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 						pGeneralConfiguration->name = (int)el_##name.value.as_number.value.as_long;
 
@@ -978,7 +979,7 @@ void * config_loader( void * app_data )
 				/*waves*/
 				{
 					result( json_element ) re_waves = json_object_find( el_UDP_generator_config.value.as_object , "waves" );
-					MM_BREAK_IF( catch_error( &re_waves , "waves" ) , errGeneral , 0 , "waves" );
+					MM_BREAK_IF( catch_error( &re_waves , "waves" , 1 ) , errGeneral , 0 , "waves" );
 					typed( json_element ) el_waves = result_unwrap( json_element )( &re_waves );
 
 					MM_BREAK_IF( ( waves_count = el_waves.value.as_object->count ) < 1 , errGeneral , 0 , "waves must be not zero" );
@@ -996,36 +997,36 @@ void * config_loader( void * app_data )
 						sprintf( output_wave_name , "wave%d" , i + 1 );
 
 						result( json_element ) re_output_wave = json_object_find( el_waves.value.as_object , output_wave_name );
-						M_BREAK_IF( catch_error( &re_output_wave , output_wave_name ) , errGeneral , 0 );
+						M_BREAK_IF( catch_error( &re_output_wave , output_wave_name , 1 ) , errGeneral , 0 );
 						typed( json_element ) el_output_wave = result_unwrap( json_element )( &re_output_wave );
 
 #define CFG_ELEM_STR( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
-							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							strcpy(((struct wave_cfg_0 *)(pWaves + i))->name , el_##name.value.as_string );
 
 #define CFG_ID_ELEM_STR( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
-							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							strcpy(((struct wave_cfg_0 *)(pWaves + i))->id.name , el_##name.value.as_string );
 
 #define CFG_ELEM_I_maintained( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
-							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct wave_cfg_0 *)(pWaves + i))->maintained.name = (int)el_##name.value.as_number.value.as_long;
 
 #define CFG_ELEM_I_momentary( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
-							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct wave_cfg_0 *)(pWaves + i))->momentary.name = (int)el_##name.value.as_number.value.as_long;
 
 #define CFG_ID_ELEM_I( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_wave.value.as_object , #name );\
-							M_BREAK_IF( catch_error( &re_##name , #name ) , errGeneral , 0 );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct wave_cfg_0 *)(pWaves + i))->id.name = (int)el_##name.value.as_number.value.as_long;
 

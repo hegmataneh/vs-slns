@@ -13,15 +13,20 @@ typedef struct App_Data
 	Acmd cmd;
 } G;
 
-_THREAD_FXN void * stdout_bypass_thread( void * pdata );
+_THREAD_FXN void_p stdout_bypass_thread( void_p pdata );
+_THREAD_FXN void_p sync_thread( void_p pdata ); // pause app until moment other app exist
+_THREAD_FXN void_p input_thread( void_p pdata );
+_THREAD_FXN void_p connect_udps_proc( void_p src_pb );
+_THREAD_FXN void_p thread_tcp_connection_proc( void_p src_pb );
+_THREAD_FXN void_p watchdog_executer( void_p src_g );
+
 void init_bypass_stdout( G * _g );
 void M_showMsg( const char * msg );
 void init( G * _g );
-_THREAD_FXN void * sync_thread( void * pdata ); // pause app until moment other app exist
-_THREAD_FXN void * input_thread( void * pdata );
-_THREAD_FXN void * connect_udps_proc( void * src_pb );
-int _connect_tcp( AB * pb );
-_THREAD_FXN void * thread_tcp_connection_proc( void * src_pb );
+
+//int _connect_tcp( AB * pb );
+int connect_one_tcp( AB_tcp * tcp );
+
 
 // because of recursive dependency declration come here
 void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg );
@@ -33,3 +38,5 @@ void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg );
 // because of recursive dependency declration come here
 void draw_table( G * _g );
 void init_windows( G * _g );
+
+void mng_basic_thread_sleep( G * _g , int priority );

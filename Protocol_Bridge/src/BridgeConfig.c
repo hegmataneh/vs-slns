@@ -22,7 +22,7 @@ void copy_bridge_cfg( Bcfg * dst , Bcfg * src )
 	DAC( dst->m.m.maintained.out );
 	M_BREAK_IF( !( dst->m.m.maintained.out = MALLOC_AR( dst->m.m.maintained.out , src->m.m.maintained.out_count ) ) , errMemoryLow , 0 );
 	MEMSET_ZERO( dst->m.m.maintained.out , src->m.m.maintained.out_count );
-	MEMCPY_AR( dst->m.m.maintained.out , src->m.m.maintained.in , src->m.m.maintained.out_count );
+	MEMCPY_AR( dst->m.m.maintained.out , src->m.m.maintained.out , src->m.m.maintained.out_count );
 	dst->m.m.maintained.out_count = src->m.m.maintained.out_count;
 
 	BEGIN_RET
@@ -73,6 +73,42 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 			{
 				exist = 1;
 				if ( MEMCMP( &( right->maintained.in + j )->data , &( left->maintained.in + i )->data ) != 0 ) return 0;
+				break;
+			}
+		}
+		if ( !exist )
+		{
+			return 0;
+		}
+	}
+
+	for ( int i = 0 ; i < left->maintained.out_count ; i++ )
+	{
+		int exist = 0;
+		for ( int j = 0 ; j < right->maintained.out_count ; j++ )
+		{
+			if ( STR_SAME( ( left->maintained.out + i )->name , ( right->maintained.out + j )->name ) )
+			{
+				exist = 1;
+				if ( MEMCMP( &( left->maintained.out + i )->data , &( right->maintained.out + j )->data ) != 0 ) return 0;
+				break;
+			}
+		}
+		if ( !exist )
+		{
+			return 0;
+		}
+	}
+
+	for ( int j = 0 ; j < right->maintained.out_count ; j++ )
+	{
+		int exist = 0;
+		for ( int i = 0 ; i < left->maintained.out_count ; i++ )
+		{
+			if ( STR_SAME( ( right->maintained.out + i )->name , ( left->maintained.out + j )->name ) )
+			{
+				exist = 1;
+				if ( MEMCMP( &( right->maintained.out + j )->data , &( left->maintained.out + i )->data ) != 0 ) return 0;
 				break;
 			}
 		}

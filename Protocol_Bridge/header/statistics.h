@@ -44,15 +44,15 @@ struct statistics_lock_data
 
 struct BenchmarkRound_initable_memory // must be init with own function
 {
-	struct circbuf_t udp_stat_5_sec_count , udp_stat_5_sec_bytes;
-	struct circbuf_t udp_stat_10_sec_count , udp_stat_10_sec_bytes;
-	struct circbuf_t udp_stat_40_sec_count , udp_stat_40_sec_bytes;
-	struct circbuf_t udp_stat_120_sec_count , udp_stat_120_sec_bytes;
+	cbuf_metr udp_stat_5_sec_count , udp_stat_5_sec_bytes;
+	cbuf_metr udp_stat_10_sec_count , udp_stat_10_sec_bytes;
+	cbuf_metr udp_stat_40_sec_count , udp_stat_40_sec_bytes;
+	cbuf_metr udp_stat_120_sec_count , udp_stat_120_sec_bytes;
 
-	struct circbuf_t tcp_stat_5_sec_count , tcp_stat_5_sec_bytes;
-	struct circbuf_t tcp_stat_10_sec_count , tcp_stat_10_sec_bytes;
-	struct circbuf_t tcp_stat_40_sec_count , tcp_stat_40_sec_bytes;
-	struct circbuf_t tcp_stat_120_sec_count , tcp_stat_120_sec_bytes;
+	cbuf_metr tcp_stat_5_sec_count , tcp_stat_5_sec_bytes;
+	cbuf_metr tcp_stat_10_sec_count , tcp_stat_10_sec_bytes;
+	cbuf_metr tcp_stat_40_sec_count , tcp_stat_40_sec_bytes;
+	cbuf_metr tcp_stat_120_sec_count , tcp_stat_120_sec_bytes;
 };
 
 struct BenchmarkRound_zero_init_memory // can be memset to zero all byte
@@ -103,4 +103,4 @@ typedef struct statistics
 
 void reset_nonuse_stat();
 void print_cell( WINDOW * win , int y , int x , int width , const char * text );
-_THREAD_FXN void * stats_thread( void * pdata );
+_THREAD_FXN void_p stats_thread( void_p pdata );

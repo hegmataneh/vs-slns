@@ -5,7 +5,7 @@ typedef struct udp_conn_cfg_data
 	char group[ 64 ];
 	char group_type[ 64 ];
 	char UDP_origin_ip[ 64 ];
-	int UDP_origin_port;
+	char UDP_origin_ports[ 64 ]; // singular port or ports ranje
 	char UDP_origin_interface[ 64 ];
 	int enable;
 	int reset_connection;
@@ -16,7 +16,7 @@ typedef struct tcp_conn_cfg_data
 	char group[ 64 ];
 	char group_type[ 64 ];
 	char TCP_destination_ip[ 64 ];
-	int TCP_destination_port;
+	char TCP_destination_ports[ 64 ]; // singular port or ports ranje
 	char TCP_destination_interface[ 64 ];
 	int enable;
 	int reset_connection;
@@ -55,7 +55,7 @@ typedef struct bridge_cfg_0
 
 	struct bridge_temp_data
 	{
-		void * _g; // just point to the main g
+		void_p _g; // just point to the main g
 		int pcfg_changed; // in passive cfg and active cfg that in alive protocol_bridge, in both it means something changed
 	} temp_data;
 

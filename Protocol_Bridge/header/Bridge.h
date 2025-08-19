@@ -2,38 +2,56 @@
 
 typedef struct AB_thread // threads use to recv and send data
 {
-	struct bridges_thread_base
+	struct s_bridges_thread_base
 	{
 		int thread_is_created;
 		int do_close_thread; // command from outside to inside thread
 		pthread_mutex_t creation_thread_race_cond; // prevent multi bridge create thread concurrently
 
-		int do_all_prerequisite_stablished; // because udp port may start after thread started . if all the condition is ready to bridge thread start
-		pthread_mutex_t do_all_prerequisite_stablished_race_cond; // prevent multi bridge create thread concurrently
+		int bridg_prerequisite_stabled; // because udp port may start after thread started . if all the condition is ready to bridge thread start
+		//pthread_mutex_t do_all_prerequisite_stablished_race_cond; // prevent multi bridge create thread concurrently
 	} base;
 
-	union thread_u
+	union u_thread
 	{
-		struct bottleneck_thread // one thread for send and receive
-		{
-			pthread_t trd_id;
-		} *bottleneck_thread;
+		//struct s_bottleneck_thread // one thread for send and receive
+		//{
+		//	pthread_t trd_id;
+		//} *bottleneck_thread;
 
-		struct bidirection_thread // one thread for each direction
-		{
-			struct bidirection_thread_zero_init_memory
-			{
-				pthread_t income_trd_id;
-				pthread_t outgoing_trd_id;
-			} mem;
+		//struct s_bidirection_thread // one thread for each direction
+		//{
+		//	struct bidirection_thread_zero_init_memory
+		//	{
+		//		pthread_t income_trd_id;
+		//		pthread_t outgoing_trd_id;
+		//	} mem;
 
-			struct PacketQueue queue;
-		} *bidirection_thread;
+		//	struct PacketQueue queue;
+		//} *bidirection_thread;
 
-		struct udp_counter_thread // one thread for send and receive
+		struct s_udp_counter_thread // one thread for send and receive
 		{
 			pthread_t trd_id;
 		} *p_udp_counter_thread;
+
+		struct s_pcap_udp_counter_thread // one thread for send and receive
+		{
+			pthread_t trd_id;
+			pcap_t * handle;
+		} *p_pcap_udp_counter_thread;
+
+		struct s_one2one_pcap2kernelDefaultStack_SF_thread // one thread for each direction with store & forward method
+		{
+			pthread_t income_trd_id;
+			pthread_t outgoing_trd_id;
+
+			l_pkg lock_pkg; // lock operator
+			Ba_al lockless_methd; // lock method
+			cbuf_lf cbuf; // buffer
+
+		} *p_one2one_pcap2kernelDefaultStack_SF_thread;
+
 	} t;
 
 } ABtrd;
@@ -49,6 +67,7 @@ typedef struct AB_udp_connection
 	int retry_to_connect_udp;
 	udp_cfg * __udp_cfg; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct
+	pcap_t * handle;
 
 } AB_udp;
 
@@ -91,8 +110,6 @@ typedef struct AB_holders
 } ABhs;
 
 
-_THREAD_FXN void * bottleneck_thread_proc( void * src_g );
-_THREAD_FXN void * income_thread_proc( void * src_g );
-_THREAD_FXN void * outgoing_thread_proc( void * src_g );
-_THREAD_FXN void * udp_counter_thread_proc( void * src_g );
-_THREAD_FXN void * protocol_bridge_runner( void * src_pb );
+//_THREAD_FXN void_p bottleneck_thread_proc( void_p src_g );
+//_THREAD_FXN void_p income_thread_proc( void_p src_g );
+//_THREAD_FXN void_p protocol_bridge_runner( void_p src_pb );
