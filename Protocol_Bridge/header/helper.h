@@ -25,7 +25,7 @@ void M_showMsg( const char * msg );
 void init( G * _g );
 
 //int _connect_tcp( AB * pb );
-int connect_one_tcp( AB_tcp * tcp );
+status connect_one_tcp( AB_tcp * tcp );
 
 
 // because of recursive dependency declration come here

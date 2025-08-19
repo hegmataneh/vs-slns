@@ -20,14 +20,11 @@
 #endif
 
 #ifdef Uses_Bridge
-	#define Uses_id_dict_t
-	#define Uses_cbuf_lf
-	#define Uses_Ba_al
+	#define Uses_vcbuf
 	#define Uses_pcap
 	#define Uses_WINDOW
 	#define Uses_BridgeConfig
 	#define Uses_pthread_t
-	#define Uses_PacketQueue
 	#define __INC_Bridge
 #endif
 

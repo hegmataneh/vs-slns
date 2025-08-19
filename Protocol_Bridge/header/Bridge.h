@@ -46,9 +46,7 @@ typedef struct AB_thread // threads use to recv and send data
 			pthread_t income_trd_id;
 			pthread_t outgoing_trd_id;
 
-			l_pkg lock_pkg; // lock operator
-			Ba_al lockless_methd; // lock method
-			cbuf_lf cbuf; // buffer
+			vcbuf cbuf; // buffer
 
 		} *p_one2one_pcap2kernelDefaultStack_SF_thread;
 

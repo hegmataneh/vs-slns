@@ -403,7 +403,7 @@ _THREAD_FXN void_p connect_udps_proc( void_p src_pb )
 //	return -1;
 //}
 
-int connect_one_tcp( AB_tcp * tcp )
+status connect_one_tcp( AB_tcp * tcp )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = tcp->owner_pb->cpy_cfg.m.m.temp_data._g;
@@ -443,7 +443,7 @@ int connect_one_tcp( AB_tcp * tcp )
 			//int flag = 1;
 			//setsockopt( pb->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , ( char * )&flag , sizeof( int ) );
 
-			return 0;
+			return errOK;
 		}
 	}
 
@@ -456,7 +456,7 @@ int connect_one_tcp( AB_tcp * tcp )
 		_g->stat.round_zero_set.syscal_err_count++;
 	}
 	M_V_END_RET
-	return -1;
+	return errGeneral;
 }
 
 _THREAD_FXN void_p thread_tcp_connection_proc( void_p src_pb )
@@ -552,6 +552,9 @@ _THREAD_FXN void_p watchdog_executer( void_p src_g )
 						{
 							ASSERT( 0 ); // implement on demand
 						}
+					}
+					else if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "pcap_udp_counter" ) )
+					{
 					}
 					else if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2kernelDefaultStack_S&F" ) )
 					{

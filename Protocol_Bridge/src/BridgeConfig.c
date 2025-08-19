@@ -82,6 +82,7 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 		}
 	}
 
+	// TOCHECK later 14040528
 	for ( int i = 0 ; i < left->maintained.out_count ; i++ )
 	{
 		int exist = 0;

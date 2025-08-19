@@ -32,6 +32,10 @@ void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr 
 	int udp_header_len = sizeof( struct udphdr );
 	int payload_len;
 
+	//dump_buffer( ( const buffer )packet , hdr->len );
+
+	//return;
+
 	// Skip Ethernet header
 	ip_hdr = ( struct ip * )( packet + SIZE_ETHERNET );
 	ip_header_len = ip_hdr->ip_hl * 4;
@@ -43,9 +47,9 @@ void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr 
 	payload = packet + SIZE_ETHERNET + ip_header_len + udp_header_len;
 	payload_len = ntohs( udp_hdr->uh_ulen ) - udp_header_len;
 
-	payload_len = 100; // HARD CODE . TODELETE
+	//payload_len = 1470; // HARD CODE . TODELETE
 
-	cbuf_lf_push( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , ( const void_p )payload , payload_len , UDP_READER_THREAD_DEFAULT_INDEX );
+	vcbuf_push( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , ( const buffer )payload , payload_len );
 
 	//printf( " Payload (%d bytes): " , payload_len );
 	//for ( int i = 0; i < payload_len; i++ )
@@ -78,11 +82,11 @@ void stablish_pcap_udp_connection( AB_udp * udp )
 	bpf_u_int32 net = 0 , mask = 0;
 	pcap_t ** handle = &udp->handle;
 
-	//MM_BREAK_IF( !( dev = pcap_lookupdev( errbuf ) ) , errGeneral , 0 , "Couldn't find default device: %s" , errbuf );
+	//MM_FMT_BREAK_IF( !( dev = pcap_lookupdev( errbuf ) ) , errGeneral , 0 , "Couldn't find default device: %s" , errbuf );
 	MM_FMT_BREAK_IF( pcap_lookupnet( dev , &net , &mask , errbuf ) == -1 , errGeneral , 1 , "Warning: couldn't get netmask for device %s\n" , errbuf );
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	MM_FMT_BREAK_IF( !( *handle = pcap_open_live( dev , 65535 , 1 , 1000 , errbuf ) ) , errGeneral , 1 , "Couldn't open device %s: %s\n" , dev , errbuf );
+	MM_FMT_BREAK_IF( !( *handle = pcap_open_live( dev , SNAP_LEN, 1, 1000, errbuf ) ) , errGeneral , 1 , "Couldn't open device %s: %s\n" , dev , errbuf );
 
 	// Compile and apply filter
 	MM_FMT_BREAK_IF( pcap_compile( *handle , &fp , udp->__udp_cfg->UDP_origin_ports , 1 , mask ) == -1 , errGeneral , 2 , "Couldn't parse filter %s\n" , pcap_geterr( *handle ) );
@@ -215,68 +219,64 @@ _THREAD_FXN void_p one_tcp_out_thread_proc( void_p src_pb )
 
 		tnow = time( NULL );
 		// tcp
-		//if ( difftime( tnow , _g->stat.round_zero_set.tcp_1_sec.t_tcp_throughput ) >= 1.0 )
-		//{
-		//	if ( _g->stat.round_zero_set.tcp_1_sec.t_tcp_throughput > 0 )
-		//	{
-		//		cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_5_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-		//		cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_5_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-		//		cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_10_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-		//		cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_10_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-		//		cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_40_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-		//		cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_40_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-		//		cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_120_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-		//		cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_120_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-		//		//_g->stat.round.tcp_1_sec.tcp_put_count_throughput = _g->stat.round.tcp_1_sec.calc_throughput_tcp_put_count;
-		//		//_g->stat.round.tcp_1_sec.tcp_put_byte_throughput = _g->stat.round.tcp_1_sec.calc_throughput_tcp_put_bytes;
-		//	}
-		//	_g->stat.round_zero_set.tcp_1_sec.t_tcp_throughput = tnow;
-		//	_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count = 0;
-		//	_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes = 0;
-		//}
-
-		while( !cbuf_lf_empty( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , TCP_READER_THREAD_DEFAULT_INDEX ) )
+		if ( difftime( tnow , _g->stat.round_zero_set.tcp_1_sec.t_tcp_throughput ) >= 1.0 )
 		{
-			if ( cbuf_lf_pop( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , buffer , &sz , TCP_READER_THREAD_DEFAULT_INDEX ) == errOK )
+			if ( _g->stat.round_zero_set.tcp_1_sec.t_tcp_throughput > 0 )
 			{
-				if ( pb->tcps_count && pb->tcps->tcp_connection_established )
-				{
-					if ( sendall( pb->tcps->tcp_sockfd , buffer , &sz ) != errOK )
-					{
-						_g->stat.round_zero_set.continuously_unsuccessful_send_error++;
-						_g->stat.round_zero_set.total_unsuccessful_send_error++;
+				cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_5_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+				cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_5_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
 
-						if ( ++output_tcp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-						{
-							output_tcp_socket_error_tolerance_count = 0;
-							if ( pb->tcps_count && pb->tcps->tcp_connection_established )
-							{
-								pb->tcps->retry_to_connect_tcp = 1;
-							}
-						}
-						continue;
-					}
-					_g->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
-					if ( sz > 0 )
+				cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_10_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+				cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_10_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+				cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_40_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+				cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_40_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+				cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_120_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+				cbuf_m_advance( &_g->stat.round_init_set.tcp_stat_120_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+				//_g->stat.round.tcp_1_sec.tcp_put_count_throughput = _g->stat.round.tcp_1_sec.calc_throughput_tcp_put_count;
+				//_g->stat.round.tcp_1_sec.tcp_put_byte_throughput = _g->stat.round.tcp_1_sec.calc_throughput_tcp_put_bytes;
+			}
+			_g->stat.round_zero_set.tcp_1_sec.t_tcp_throughput = tnow;
+			_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count = 0;
+			_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes = 0;
+		}
+
+		while( vcbuf_pop( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , buffer , &sz , 60 ) == errOK )
+		{
+			if ( pb->tcps_count && pb->tcps->tcp_connection_established )
+			{
+				if ( sendall( pb->tcps->tcp_sockfd , buffer , &sz ) != errOK )
+				{
+					_g->stat.round_zero_set.continuously_unsuccessful_send_error++;
+					_g->stat.round_zero_set.total_unsuccessful_send_error++;
+
+					if ( ++output_tcp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
 					{
-						_g->stat.round_zero_set.tcp.total_tcp_put_count++;
-						_g->stat.round_zero_set.tcp.total_tcp_put_byte += sz;
-						_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count++;
-						_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes += sz;
-						//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_count++;
-						//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_bytes += snd_ret;
-						//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_count++;
-						//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_bytes += snd_ret;
+						output_tcp_socket_error_tolerance_count = 0;
+						if ( pb->tcps_count && pb->tcps->tcp_connection_established )
+						{
+							pb->tcps->retry_to_connect_tcp = 1;
+						}
 					}
+					continue;
+				}
+				_g->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
+				if ( sz > 0 )
+				{
+					_g->stat.round_zero_set.tcp.total_tcp_put_count++;
+					_g->stat.round_zero_set.tcp.total_tcp_put_byte += sz;
+					_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count++;
+					_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes += sz;
+					//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_count++;
+					//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_bytes += snd_ret;
+					//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_count++;
+					//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_bytes += snd_ret;
 				}
 			}
 		}
 
-		sleep(1); // TODO . with signal
 	}
 
 	BREAK_OK( 0 ); // to just ignore gcc warning
@@ -291,25 +291,4 @@ _THREAD_FXN void_p one_tcp_out_thread_proc( void_p src_pb )
 	}
 	M_V_END_RET
 	return NULL;
-}
-
-void clb_init( void_p src_ABtrd )
-{
-	ABtrd * ptrd = ( ABtrd * )src_ABtrd;
-	ba_init( &ptrd->t.p_one2one_pcap2kernelDefaultStack_SF_thread->lockless_methd , 2 );
-}
-void clb_destroy( void_p src_ABtrd )
-{
-	ABtrd * ptrd = ( ABtrd * )src_ABtrd;
-	ba_destroy( &ptrd->t.p_one2one_pcap2kernelDefaultStack_SF_thread->lockless_methd );
-}
-void clb_lock( void_p src_ABtrd , int callerid )
-{
-	ABtrd * ptrd = ( ABtrd * )src_ABtrd;
-	ba_lock( &ptrd->t.p_one2one_pcap2kernelDefaultStack_SF_thread->lockless_methd , callerid );
-}
-void clb_unlock( void_p src_ABtrd , int callerid )
-{
-	ABtrd * ptrd = ( ABtrd * )src_ABtrd;
-	ba_lock( &ptrd->t.p_one2one_pcap2kernelDefaultStack_SF_thread->lockless_methd , callerid );
 }

@@ -891,13 +891,8 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 
-			pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->lock_pkg.clb_pdata = &pb->trd;
-			pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->lock_pkg.clb_init = clb_init;
-			pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->lock_pkg.clb_destroy = clb_destroy;
-			pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->lock_pkg.clb_lock = clb_lock;
-			pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->lock_pkg.clb_unlock = clb_unlock;
 
-			cbuf_lf_init( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , 1024 , 1550 , &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->lock_pkg );
+			vcbuf_init( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , 102400 , 1550 );
 
 			pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
 			if ( !pb->trd.base.thread_is_created )
