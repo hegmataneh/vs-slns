@@ -6,11 +6,14 @@
 #define Uses_ncurses
 #define Uses_statistics
 #define Uses_helper
+#define Uses_vcbuf_nb
 
 //#define DIRECT_ECHO_BUF _g->stat.last_command // just before include dep
 #include <Protocol_Bridge.dep>
 
 extern G * __g;
+
+extern vcbuf_nb * ppp;
 
 void reset_nonuse_stat()
 {
@@ -120,7 +123,10 @@ void draw_table( G * _g )
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "inp failure" );
-	snprintf( buf , sizeof( buf ) , "v%d Σv%d" , MAIN_STAT().round_zero_set.continuously_unsuccessful_receive_error , MAIN_STAT().round_zero_set.total_unsuccessful_receive_error );
+	
+	snprintf( buf , sizeof( buf ) , "%d %d %d" , ppp ? ppp->err_full : 0 , ppp ? ppp->head : 0 , ppp ? ppp->tail : 0 );
+
+	//snprintf( buf , sizeof( buf ) , "v%d Σv%d" , MAIN_STAT().round_zero_set.continuously_unsuccessful_receive_error , MAIN_STAT().round_zero_set.total_unsuccessful_receive_error);
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );

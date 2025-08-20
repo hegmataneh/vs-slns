@@ -12,6 +12,7 @@
 //static int _pc = 1; // step of each call globally
 
 G * __g;
+extern vcbuf_nb * ppp;
 
 int main()
 {
@@ -21,6 +22,8 @@ int main()
 	__g = _g;
 
 	init( _g );
+
+	ppp = NULL;
 
 	pthread_t tid_stats , tid_input;
 	pthread_create( &tid_stats , NULL , stats_thread , ( void_p )_g );

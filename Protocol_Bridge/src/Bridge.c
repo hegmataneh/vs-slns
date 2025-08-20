@@ -816,6 +816,8 @@ void init_ActiveBridge( G * _g , AB * pb )
 	M_V_END_RET
 }
 
+vcbuf_nb * ppp;
+
 void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 {
 	INIT_BREAKABLE_FXN();
@@ -892,7 +894,9 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 
 
-			vcbuf_init( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , 102400 , 1550 );
+			vcbuf_nb_init( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , 102400 , /*1470 -> + hdr = 1512*/1512 );
+
+			ppp = &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf;
 
 			pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
 			if ( !pb->trd.base.thread_is_created )

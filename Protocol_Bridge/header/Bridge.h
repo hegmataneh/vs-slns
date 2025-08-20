@@ -46,7 +46,7 @@ typedef struct AB_thread // threads use to recv and send data
 			pthread_t income_trd_id;
 			pthread_t outgoing_trd_id;
 
-			vcbuf cbuf; // buffer
+			vcbuf_nb cbuf; // buffer
 
 		} *p_one2one_pcap2kernelDefaultStack_SF_thread;
 

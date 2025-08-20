@@ -49,7 +49,7 @@ void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr 
 
 	//payload_len = 1470; // HARD CODE . TODELETE
 
-	vcbuf_push( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , ( const buffer )payload , payload_len );
+	if ( vcbuf_nb_push( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , ( const buffer )payload , payload_len ) != errOK ) return;
 
 	//printf( " Payload (%d bytes): " , payload_len );
 	//for ( int i = 0; i < payload_len; i++ )
@@ -243,7 +243,7 @@ _THREAD_FXN void_p one_tcp_out_thread_proc( void_p src_pb )
 			_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes = 0;
 		}
 
-		while( vcbuf_pop( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , buffer , &sz , 60 ) == errOK )
+		while( vcbuf_nb_pop( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , buffer , &sz , 60/*timeout*/) == errOK )
 		{
 			if ( pb->tcps_count && pb->tcps->tcp_connection_established )
 			{

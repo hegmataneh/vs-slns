@@ -20,7 +20,7 @@
 #endif
 
 #ifdef Uses_Bridge
-	#define Uses_vcbuf
+	#define Uses_vcbuf_nb
 	#define Uses_pcap
 	#define Uses_WINDOW
 	#define Uses_BridgeConfig
