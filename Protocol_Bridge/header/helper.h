@@ -21,7 +21,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( void_p src_pb );
 _THREAD_FXN void_p watchdog_executer( void_p src_g );
 
 void init_bypass_stdout( G * _g );
-void M_showMsg( const char * msg );
+void M_showMsg( LPCSTR msg );
 void init( G * _g );
 
 //int _connect_tcp( AB * pb );

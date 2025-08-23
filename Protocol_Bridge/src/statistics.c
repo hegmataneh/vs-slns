@@ -42,7 +42,7 @@ void reset_nonuse_stat()
 }
 
 // Centered cell printing
-void print_cell( WINDOW * win , int y , int x , int width , const char * text )
+void print_cell( WINDOW * win , int y , int x , int width , LPCSTR text )
 {
 	size_t len = strlen( text );
 	int pad = ( width - ( int )len ) / 2;
@@ -52,6 +52,28 @@ void print_cell( WINDOW * win , int y , int x , int width , const char * text )
 
 #define MAIN_STAT()  _g->stat
 #define MAIN_WIN  MAIN_STAT().main_win
+
+_CALLBACK_FXN void accept_thresholds( void_p data , int i , double d )
+{
+	G * _g = ( G * )data;
+	switch ( i )
+	{
+		case MAX_UDP_PACKET_DELAY:
+		{
+			_g->stat.max_udp_packet_delay = d;
+			break;
+		}
+		case MAX_TCP_PACKET_DELAY:
+		{
+			_g->stat.max_tcp_packet_delay = d;
+			break;
+		}
+	}
+}
+
+#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit ) ( NUMBER_IN_SHORT_FORM() ? \
+		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit ) :\
+		__snprintf( baaf , sizeof(baaf) , "%llu" , val ) )
 
 // Drawing the full table
 void draw_table( G * _g )
@@ -67,6 +89,7 @@ void draw_table( G * _g )
 
 	char buf[ 640 ];
 	char buf2[ 64 ];
+	char buf3[ 64 ];
 	struct timespec now;
 	clock_gettime( CLOCK_REALTIME , &now );
 	format_clock_time( &now , buf , sizeof( buf ) );
@@ -109,31 +132,39 @@ void draw_table( G * _g )
 	
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "UDP conn" );
-	snprintf( buf , sizeof( buf ) , "%d Σ%d" , MAIN_STAT().udp_connection_count , MAIN_STAT().total_retry_udp_connection_count );
+
+	snprintf( buf , sizeof( buf ) , "%d Σ%d %-*.*s" , MAIN_STAT().udp_connection_count , MAIN_STAT().total_retry_udp_connection_count , 10 , ( MAIN_STAT().udp_get_data_alive_indicator % 10 ) , "<<<<<<<<<<" );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP conn" );
-	snprintf( buf , sizeof( buf ) , "%d Σ%d" , MAIN_STAT().tcp_connection_count , MAIN_STAT().total_retry_tcp_connection_count );
+	snprintf( buf , sizeof( buf ) , "%d Σ%d %-*.*s" , MAIN_STAT().tcp_connection_count , MAIN_STAT().total_retry_tcp_connection_count , 10 , ( MAIN_STAT().tcp_send_data_alive_indicator % 10 ) , ">>>>>>>>>>" );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "inp failure" );
 	
-	snprintf( buf , sizeof( buf ) , "%d %d %d" , ppp ? ppp->err_full : 0 , ppp ? ppp->head : 0 , ppp ? ppp->tail : 0 );
-
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "inp failure" );
 	//snprintf( buf , sizeof( buf ) , "v%d Σv%d" , MAIN_STAT().round_zero_set.continuously_unsuccessful_receive_error , MAIN_STAT().round_zero_set.total_unsuccessful_receive_error);
+
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "full head tail" );
+	snprintf( buf , sizeof( buf ) , "%d %d %d" , ppp ? ppp->err_full : 0 , ppp ? ppp->head : 0 , ppp ? ppp->tail : 0 );
+	
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "out failure" );
-	snprintf( buf , sizeof( buf ) , "^%d Σ^%d" , MAIN_STAT().round_zero_set.continuously_unsuccessful_send_error , MAIN_STAT().round_zero_set.total_unsuccessful_send_error );
+	
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "out failure" );
+	//snprintf( buf , sizeof( buf ) , "^%d Σ^%d" , MAIN_STAT().round_zero_set.continuously_unsuccessful_send_error , MAIN_STAT().round_zero_set.total_unsuccessful_send_error );
+
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "max packet delay udp tcp" );
+	snprintf( buf , sizeof( buf ) , "%.0f %.0f" , MAIN_STAT().max_udp_packet_delay , MAIN_STAT().max_tcp_packet_delay );
+
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -172,9 +203,7 @@ void draw_table( G * _g )
 
 	///////////
 
-	#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit ) ( NUMBER_IN_SHORT_FORM() ? \
-		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit ) :\
-		__snprintf( baaf , sizeof(baaf) , "%llu" , val ) )
+	
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "syscal_err" );

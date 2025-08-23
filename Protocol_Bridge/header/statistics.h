@@ -70,9 +70,6 @@ struct BenchmarkRound_zero_init_memory // can be memset to zero all byte
 	struct udp_stat_1_sec udp_1_sec;
 	struct tcp_stat_1_sec tcp_1_sec;
 
-	//struct udp_stat_10_sec stat_10_sec;
-	//struct udp_stat_40_sec stat_40_sec;
-
 	struct udp_stat udp;
 	struct tcp_stat tcp;
 };
@@ -97,10 +94,18 @@ typedef struct statistics
 	int total_retry_udp_connection_count;
 	int total_retry_tcp_connection_count;
 
+	int udp_get_data_alive_indicator;
+	int tcp_send_data_alive_indicator;
+
+	distributor_t thresholds;
+	double max_udp_packet_delay;
+	double max_tcp_packet_delay;
+
 	struct BenchmarkRound_zero_init_memory  round_zero_set;
 	struct BenchmarkRound_initable_memory  round_init_set;
 } St;
 
 void reset_nonuse_stat();
-void print_cell( WINDOW * win , int y , int x , int width , const char * text );
+void print_cell( WINDOW * win , int y , int x , int width , LPCSTR text );
 _THREAD_FXN void_p stats_thread( void_p pdata );
+_CALLBACK_FXN void accept_thresholds( void_p data , int i , double d );

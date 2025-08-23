@@ -805,7 +805,6 @@ void init_ActiveBridge( G * _g , AB * pb )
 		}
 	}
 
-
 	BEGIN_RET // TODO . complete reverse on error
 	case 3: ;
 	case 2: ;
@@ -894,7 +893,7 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 
 
-			vcbuf_nb_init( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , 102400 , /*1470 -> + hdr = 1512*/1512 );
+			vcbuf_nb_init( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , 100000 , /*1470 -> + hdr = 1512*/1512 );
 
 			ppp = &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf;
 

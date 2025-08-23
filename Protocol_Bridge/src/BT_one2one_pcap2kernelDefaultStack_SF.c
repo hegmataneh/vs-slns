@@ -23,6 +23,8 @@ void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr 
 {
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._g;
+	ASSERT( pb->udps_count == 1 );
+	AB_udp * udp = pb->udps; // caution . in this type of bridge udp conn must be just one
 
 	const struct ip * ip_hdr;
 	const struct udphdr * udp_hdr;
@@ -66,6 +68,20 @@ void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr 
 	_g->stat.round_zero_set.udp.total_udp_get_byte += 1;
 	_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
 	_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += 1;
+
+	_g->stat.udp_get_data_alive_indicator++;
+
+	udp->pk_tm.prev_access = udp->pk_tm.last_access;
+	udp->pk_tm.last_access = time( NULL );
+	if ( udp->pk_tm.prev_access > 0 )
+	{
+		udp->pk_tm.curr_packet_delay = difftime( udp->pk_tm.last_access , udp->pk_tm.prev_access );
+		if ( udp->pk_tm.curr_packet_delay > udp->pk_tm.max_packet_delay )
+		{
+			udp->pk_tm.max_packet_delay = udp->pk_tm.curr_packet_delay;
+			distributor_publish_int_double( &_g->stat.thresholds , MAX_UDP_PACKET_DELAY , udp->pk_tm.max_packet_delay );
+		}
+	}
 
 }
 
@@ -195,6 +211,9 @@ _THREAD_FXN void_p one_tcp_out_thread_proc( void_p src_pb )
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
+	ASSERT( pb->tcps_count == 1 );
+	AB_tcp * tcp = pb->tcps; // caution . in this type of bridge udp conn must be just one
+
 	while ( 1 )
 	{
 
@@ -257,7 +276,10 @@ _THREAD_FXN void_p one_tcp_out_thread_proc( void_p src_pb )
 						output_tcp_socket_error_tolerance_count = 0;
 						if ( pb->tcps_count && pb->tcps->tcp_connection_established )
 						{
-							pb->tcps->retry_to_connect_tcp = 1;
+							if ( peerTcpClosed( pb->tcps->tcp_sockfd ) )
+							{
+								pb->tcps->retry_to_connect_tcp = 1;
+							}
 						}
 					}
 					continue;
@@ -273,7 +295,24 @@ _THREAD_FXN void_p one_tcp_out_thread_proc( void_p src_pb )
 					//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_bytes += snd_ret;
 					//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_count++;
 					//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_bytes += snd_ret;
+					
+					_g->stat.tcp_send_data_alive_indicator++;
 				}
+
+				/*keep tcp arrival timing*/
+				tcp->pk_tm.prev_access = tcp->pk_tm.last_access;
+				tcp->pk_tm.last_access = time( NULL );
+				if ( tcp->pk_tm.prev_access > 0 )
+				{
+					tcp->pk_tm.curr_packet_delay = difftime( tcp->pk_tm.last_access , tcp->pk_tm.prev_access );
+					if ( tcp->pk_tm.curr_packet_delay > tcp->pk_tm.max_packet_delay )
+					{
+						tcp->pk_tm.max_packet_delay = tcp->pk_tm.curr_packet_delay;
+						distributor_publish_int_double( &_g->stat.thresholds , MAX_TCP_PACKET_DELAY , tcp->pk_tm.max_packet_delay );
+					}
+				}
+				/*~keep tcp arrival timing*/
+
 			}
 		}
 

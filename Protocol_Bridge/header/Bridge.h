@@ -56,6 +56,12 @@ typedef struct AB_thread // threads use to recv and send data
 
 //
 
+typedef struct packet_timing
+{
+	time_t prev_access , last_access;
+	double curr_packet_delay , max_packet_delay;
+} pck_tm;
+
 struct ActiveBridge;
 
 typedef struct AB_udp_connection
@@ -67,6 +73,8 @@ typedef struct AB_udp_connection
 	struct ActiveBridge * owner_pb; // upper struct
 	pcap_t * handle;
 
+	pck_tm pk_tm; // to calculate elapse time between two arrival or send data
+
 } AB_udp;
 
 typedef struct AB_tcp_connection
@@ -76,6 +84,8 @@ typedef struct AB_tcp_connection
 	int retry_to_connect_tcp;
 	tcp_cfg * __tcp_cfg; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct
+
+	pck_tm pk_tm; // to calculate elapse time between two arrival or send data
 
 } AB_tcp;
 

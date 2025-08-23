@@ -1,3 +1,6 @@
+#ifdef Uses_accept_thresholds
+	#define Uses_statistics
+#endif
 
 #ifdef Uses_BT_one2one_pcap2kernelDefaultStack_SF
 	#define __INC_BT_one2one_pcap2kernelDefaultStack_SF
@@ -49,6 +52,7 @@
 #endif
 
 #ifdef Uses_statistics
+	#define Uses_distributor_t
 	#define Uses_definition
 	#define Uses_WINDOW
 	#define Uses_cbuf_metr

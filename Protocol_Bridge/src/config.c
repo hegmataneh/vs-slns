@@ -483,8 +483,7 @@ _THREAD_FXN void_p config_loader( void_p src_g )
 		mng_basic_thread_sleep( _g , LOW_PRIORITY_THREAD );
 	}
 	
-	BEGIN_RET
-		case 1: { break; }
+	BEGIN_SMPL
 	M_V_END_RET
 
 	return NULL;

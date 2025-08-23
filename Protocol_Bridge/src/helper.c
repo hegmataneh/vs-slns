@@ -1,3 +1,4 @@
+#define Uses_accept_thresholds
 #define Uses_thrd_sleep
 #define Uses_errno
 #define Uses_AB_tcp
@@ -68,7 +69,7 @@ void init_bypass_stdout( G * _g )
 	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( void_p )_g );
 }
 
-void M_showMsg( const char * msg )
+_STRONG_ATTR void M_showMsg( LPCSTR msg )
 {
 	if ( __g ) strcpy( __g->stat.last_command , msg );
 }
@@ -116,6 +117,9 @@ void init( G * _g )
 	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_10_sec_bytes , 10 );
 	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_40_sec_bytes , 40 );
 	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_bytes , 120 );
+
+	distributor_init( &_g->stat.thresholds , 5 );
+	distributor_subscribe( &_g->stat.thresholds , SUB_INT_DOUBLE , SUB_FXN( accept_thresholds ) , _g );
 }
 
 _THREAD_FXN void_p sync_thread( void_p pdata ) // pause app until moment other app exist
@@ -242,8 +246,7 @@ _THREAD_FXN void_p input_thread( void_p src_g )
 
 		pthread_mutex_unlock( &_g->stat.lock_data.lock );
 	}
-	BEGIN_RET
-	case 0:	;
+	BEGIN_SMPL
 	M_V_END_RET
 	return NULL;
 }
@@ -498,10 +501,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( void_p src_pb )
 
 	BREAK_OK(0); // to just ignore gcc warning
 
-	BEGIN_RET
-		case 3: ;
-		case 2: ;
-		case 1: ;
+	BEGIN_SMPL
 	M_V_END_RET
 	return NULL; // Threads can return a value, but this example returns NULL
 }
@@ -585,8 +585,7 @@ _THREAD_FXN void_p watchdog_executer( void_p src_g )
 		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	}
 
-	BEGIN_RET
-		case 1: ;
+	BEGIN_SMPL
 	M_V_END_RET
 	return NULL; // Threads can return a value, but this time returns NULL
 }

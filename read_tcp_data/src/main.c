@@ -619,7 +619,10 @@ void * tcp_listener_runner( void * src_tl )
 							{
 								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 								{
-									_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
+									//if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_client_connection_sockfd ) )
+									{
+										_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
+									}
 									break;
 								}
 							}
@@ -650,7 +653,10 @@ void * tcp_listener_runner( void * src_tl )
 							{
 								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 								{
-									_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
+									if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_client_connection_sockfd ) )
+									{
+										_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
+									}
 									break;
 								}
 							}
@@ -687,7 +693,10 @@ void * tcp_listener_runner( void * src_tl )
 								{
 									//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 									{
-										_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
+										if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_client_connection_sockfd ) )
+										{
+											_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
+										}
 										break;
 									}
 								}

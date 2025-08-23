@@ -255,6 +255,8 @@ _THREAD_FXN void_p kernel_default_stack_udp_counter_thread_proc( void_p src_pb )
 							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
 							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
 
+							_g->stat.udp_get_data_alive_indicator++;
+
 						}
 					}
 				}
@@ -266,14 +268,14 @@ _THREAD_FXN void_p kernel_default_stack_udp_counter_thread_proc( void_p src_pb )
 	BREAK_OK( 0 ); // to just ignore gcc warning
 
 	BEGIN_RET
-		case 3: ;
-		case 2: ;
-		case 1:
-		{
-			//_close_socket( &src_pb->tcp_sockfd );
-			_g->stat.round_zero_set.syscal_err_count++;
-		}
-		M_V_END_RET
+	case 3: ;
+	case 2: ;
+	case 1:
+	{
+		//_close_socket( &src_pb->tcp_sockfd );
+		_g->stat.round_zero_set.syscal_err_count++;
+	}
+	M_V_END_RET
 
-			return NULL;
+	return NULL;
 }

@@ -33,7 +33,8 @@ void handle_pcap_udp_counter( u_char * src_pb , const struct pcap_pkthdr * hdr ,
 	_g->stat.round_zero_set.udp.total_udp_get_byte += 1;
 	_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
 	_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += 1;
-
+	
+	_g->stat.udp_get_data_alive_indicator++;
 }
 
 _THREAD_FXN void_p pcap_udp_counter_thread_proc( void_p src_pb )

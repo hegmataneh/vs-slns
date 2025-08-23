@@ -52,6 +52,9 @@
 
 
 
+#define MAX_UDP_PACKET_DELAY 1
+#define MAX_TCP_PACKET_DELAY 2
+
 //#define FXN_HIT_COUNT 5000
 //#define PC_COUNT 10 // first for hit count and last alwayz zero
 
