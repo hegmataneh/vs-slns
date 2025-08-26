@@ -119,7 +119,7 @@ void init( G * _g )
 	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_bytes , 120 );
 
 	distributor_init( &_g->stat.thresholds , 5 );
-	distributor_subscribe( &_g->stat.thresholds , SUB_INT_DOUBLE , SUB_FXN( accept_thresholds ) , _g );
+	distributor_subscribe( &_g->stat.thresholds , 0 , SUB_INT_DOUBLE , SUB_FXN( accept_thresholds ) , _g );
 }
 
 _THREAD_FXN void_p sync_thread( void_p pdata ) // pause app until moment other app exist

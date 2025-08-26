@@ -70,7 +70,7 @@ int set_cpu_affinity( int cpu )
 #define PACKET_SIZE 1
 
 // 4
-//#define ALLOCATION_ALIGN_SIZE 128 /*64*/
+#define ALLOCATION_ALIGN_SIZE 64 /*64*/
 
 int main( void )
 {
@@ -81,21 +81,21 @@ int main( void )
 	struct sockaddr_storage their_addr;
 	
 	// 1
-	char buf[ PACKET_SIZE ];
-	//char * buf = ( char * )malloc( PACKET_SIZE );
+	//char buf[ PACKET_SIZE ];
+	char * buf = ( char * )malloc( PACKET_SIZE );
 
 	// 2. aligned allocation for potential cache benefits
-	//if ( posix_memalign( ( void ** )&buf , ALLOCATION_ALIGN_SIZE , PACKET_SIZE ) != 0 )
-	//{
-	//	fprintf( stderr , "posix_memalign failed\n" );
-	//	return 1;
-	//}
+	if ( posix_memalign( ( void ** )&buf , ALLOCATION_ALIGN_SIZE , PACKET_SIZE ) != 0 )
+	{
+		fprintf( stderr , "posix_memalign failed\n" );
+		return 1;
+	}
 
 	// 3
-	//if ( set_cpu_affinity( 0 ) != 0 )
-	//{
-	//	perror( "sched_setaffinity" );
-	//}
+	if ( set_cpu_affinity( 0 ) != 0 )
+	{
+		perror( "sched_setaffinity" );
+	}
 
 
 	socklen_t addr_len;
@@ -128,6 +128,14 @@ int main( void )
 			continue;
 		}
 
+		int val = 100; // microseconds to spin per syscall
+		if ( setsockopt( sockfd , SOL_SOCKET , SO_BUSY_POLL , &val , sizeof( val ) ) < 0 )
+		{
+			perror( "setsockopt SO_BUSY_POLL" );
+			close( sockfd );
+			pthread_exit( NULL );
+		}
+
 		if ( bind( sockfd , p->ai_addr , p->ai_addrlen ) == -1 )
 		{
 			close( sockfd );
@@ -146,9 +154,9 @@ int main( void )
 	freeaddrinfo( servinfo );
 
 	// 5. Enlarge the receive buffer; may require permissions to set very large.
-	//int iii = RX_BUF_BYTES;
-	//if ( setsockopt( sockfd , SOL_SOCKET , SO_RCVBUF , &iii , sizeof( iii ) ) != 0 )
-	//	perror( "SO_RCVBUF" );
+	int iii = RX_BUF_BYTES;
+	if ( setsockopt( sockfd , SOL_SOCKET , SO_RCVBUF , &iii , sizeof( iii ) ) != 0 )
+		perror( "SO_RCVBUF" );
 
 	//socklen_t optlen = sizeof(iii);
 
@@ -176,7 +184,7 @@ int main( void )
 	while(!stop)
 	{
 		// 9
-		numbytes = recvfrom( sockfd , buf , PACKET_SIZE , 0/*MSG_DONTWAIT*/ , ptheir_addr , paddr_len);
+		numbytes = recvfrom( sockfd , buf , PACKET_SIZE , MSG_DONTWAIT , ptheir_addr , paddr_len);
 
 		if ( numbytes <= 0 )
 		{

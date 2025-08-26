@@ -84,6 +84,14 @@ int main()
 		perror( "SO_REUSEPORT" );
 #endif
 
+	int val = 50; // microseconds to spin per syscall
+	if ( setsockopt( sock , SOL_SOCKET , SO_BUSY_POLL , &val , sizeof( val ) ) < 0 )
+	{
+		perror( "setsockopt SO_BUSY_POLL" );
+		close( sock );
+		pthread_exit( NULL );
+	}
+
 	// Enlarge the receive buffer; may require permissions to set very large.
 	int iii = RX_BUF_BYTES;
 	if ( setsockopt( sock , SOL_SOCKET , SO_RCVBUF , &iii , sizeof( iii ) ) != 0 )

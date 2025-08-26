@@ -1,3 +1,5 @@
+//#define Uses_dict_t
+#define Uses_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_pcap_udp_income_thread_proc
 #define Uses_MALLOC_AR
 #define Uses_BT_one2one_pcap2kernelDefaultStack_SF
 #define Uses_kernel_default_stack_udp_counter_thread_proc
@@ -817,6 +819,19 @@ void init_ActiveBridge( G * _g , AB * pb )
 
 vcbuf_nb * ppp;
 
+void mk_hlpr0( _IN AB * pb , _OUT abhelp * hlpr )
+{
+	ASSERT( pb && hlpr );
+	hlpr->pab = pb;
+	hlpr->in_count = &pb->cpy_cfg.m.m.maintained.in_count;
+	hlpr->out_count = &pb->cpy_cfg.m.m.maintained.out_count;
+	hlpr->thread_is_created = &pb->trd.base.thread_is_created;
+	hlpr->do_close_thread = &pb->trd.base.do_close_thread;
+	hlpr->creation_thread_race_cond = &pb->trd.base.creation_thread_race_cond;
+	hlpr->bridg_prerequisite_stabled = &pb->trd.base.bridg_prerequisite_stabled;
+	hlpr->buf_psh_distri = &pb->trd.base.buffer_push_distributor;
+}
+
 void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 {
 	INIT_BREAKABLE_FXN();
@@ -836,14 +851,16 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 	// when we arrive at this point we sure that somethings is changed
 	new_ccfg->m.m.temp_data.pcfg_changed = 0; // say to config that change applied to bridge
 	
+	// each thread action switched here
+
 	if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "pcap_udp_counter" ) )
 	{
 		if ( !pb->trd.t.p_pcap_udp_counter_thread )
 		{
 			init_ActiveBridge( _g , pb );
 
-			M_BREAK_IF( !( pb->trd.t.p_pcap_udp_counter_thread = MALLOC_AR( pb->trd.t.p_pcap_udp_counter_thread , 1 ) ) , errMemoryLow , 1 );
-			MEMSET_ZERO( pb->trd.t.p_pcap_udp_counter_thread , 1 );
+			M_BREAK_IF( !( pb->trd.t.p_pcap_udp_counter_thread = MALLOC_ONE( pb->trd.t.p_pcap_udp_counter_thread ) ) , errMemoryLow , 1 );
+			MEMSET_ZERO_O( pb->trd.t.p_pcap_udp_counter_thread );
 			pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 
@@ -863,8 +880,8 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 		{
 			init_ActiveBridge( _g , pb );
 
-			M_BREAK_IF( !( pb->trd.t.p_udp_counter_thread = MALLOC_AR( pb->trd.t.p_udp_counter_thread , 1 ) ) , errMemoryLow , 1 );
-			MEMSET_ZERO( pb->trd.t.p_udp_counter_thread , 1 );
+			M_BREAK_IF( !( pb->trd.t.p_udp_counter_thread = MALLOC_ONE( pb->trd.t.p_udp_counter_thread ) ) , errMemoryLow , 1 );
+			MEMSET_ZERO_O( pb->trd.t.p_udp_counter_thread );
 			pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 
@@ -887,21 +904,53 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 		{
 			init_ActiveBridge( _g , pb );
 
-			M_BREAK_IF( !( pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread = MALLOC_AR( pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread , 1 ) ) , errMemoryLow , 1 );
-			MEMSET_ZERO( pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread , 1 );
+			M_BREAK_IF( !( pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread = MALLOC_ONE( pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread ) ) , errMemoryLow , 1 );
+			MEMSET_ZERO_O( pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread );
 			pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 
+			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , 100000 , /*1470 -> + hdr = 1512*/1512 ) , 1 );
 
-			vcbuf_nb_init( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , 100000 , /*1470 -> + hdr = 1512*/1512 );
-
-			ppp = &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf;
+			ppp = &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf; // TEMP
 
 			pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
 			if ( !pb->trd.base.thread_is_created )
 			{
-				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->income_trd_id , NULL , pcap_udp_income_thread_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->outgoing_trd_id , NULL , one_tcp_out_thread_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->income_trd_id , NULL ,
+					one2one_pcap2kernelDefaultStack_SF_pcap_udp_income_thread_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->outgoing_trd_id , NULL ,
+					one2one_pcap2kernelDefaultStack_SF_one_tcp_out_thread_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				pb->trd.base.thread_is_created = 1;
+			}
+			pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
+
+			pthread_t trd_tcp_connection;
+			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+		}
+	}
+
+	else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "one2many_pcap2kernelDefaultStack_S&F_Mix_RR_Replicate" ) )
+	{
+		if ( !pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate )
+		{
+			init_ActiveBridge( _g , pb );
+
+			M_BREAK_IF( !( pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate = MALLOC_ONE( pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate ) ) , errMemoryLow , 1 );
+			MEMSET_ZERO_O( pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate );
+			pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
+			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
+
+			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->cbuf , 100000 , /*1470 -> + hdr = 1512*/1512 ) , 1 );
+
+			ppp = &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->cbuf; // TEMP . remove later
+
+			pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
+			if ( !pb->trd.base.thread_is_created )
+			{
+				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->income_trd_id , NULL ,
+					one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_pcap_udp_income_thread_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->outgoing_trd_id , NULL ,
+					one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_many_tcp_out_thread_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 				pb->trd.base.thread_is_created = 1;
 			}
 			pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
@@ -971,3 +1020,4 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 	}
 	M_V_END_RET
 }
+

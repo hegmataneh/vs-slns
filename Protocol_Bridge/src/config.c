@@ -648,8 +648,8 @@ void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg )
 	}
 
 	ASSERT( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB == NULL );
-	M_BREAK_IF( ( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB = MALLOC_AR( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB , 1 ) ) == NEW_ERR , errMemoryLow , 0 );
-	MEMSET_ZERO( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB , 1 );
+	M_BREAK_IF( ( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB = MALLOC_ONE( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB ) ) == NEW_ERR , errMemoryLow , 0 );
+	MEMSET_ZERO_O( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB );
 	_g->bridges.ABhs_masks[ new_ccfg_placement_index ] = 1;
 	copy_bridge_cfg( &_g->bridges.ABs[ new_ccfg_placement_index ].single_AB->cpy_cfg , new_ccfg );
 

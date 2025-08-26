@@ -12,7 +12,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 
-#define THREAD_COUNT 10
+#define THREAD_COUNT 4
 #define INTERFACE "enp0s3"
 
 #define BUF_SIZE 2048
@@ -70,8 +70,6 @@ void * recv_thread( void * arg )
 		pthread_exit( NULL );
 	}
 
-	SO_ATTACH_REUSEPORT_EBPF
-
 	// Enable PACKET_FANOUT
 	int fanout_type = PACKET_FANOUT_ROLLOVER;
 	int fanout_id = 0x1234; // all threads must share same ID
@@ -79,6 +77,14 @@ void * recv_thread( void * arg )
 	if ( setsockopt( sock , SOL_PACKET , PACKET_FANOUT , &fanout_arg , sizeof( fanout_arg ) ) < 0 )
 	{
 		perror( "setsockopt PACKET_FANOUT" );
+		close( sock );
+		pthread_exit( NULL );
+	}
+
+	int val = 50; // microseconds to spin per syscall
+	if ( setsockopt( sock , SOL_SOCKET , SO_BUSY_POLL , &val , sizeof( val ) ) < 0 )
+	{
+		perror( "setsockopt SO_BUSY_POLL" );
 		close( sock );
 		pthread_exit( NULL );
 	}

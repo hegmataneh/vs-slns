@@ -1,3 +1,8 @@
+﻿#define Uses_MEMSET_ZERO_O
+#define Uses_token_ring_p_t
+#define Uses_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_pcap_udp_income_thread_proc
+#define Uses_dict_o_t
+#define Uses_dict_t
 #define Uses_distributor_init
 #define Uses_stablish_pcap_udp_connection
 #define Uses_errno
@@ -6,26 +11,45 @@
 #define Uses_INIT_BREAKABLE_FXN
 #include <Protocol_Bridge.dep>
 
-_PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2one_pcap2kernelDefaultStack_SF( void_p data , buffer buf , int payload_len )
+void mk_hlpr1( _IN AB * pb , _OUT mix_helper * hlpr )
 {
-	AB * pb = ( AB * )data;
-	return vcbuf_nb_push( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , buf , payload_len );
+	ASSERT( pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate );
+
+	mk_hlpr0( pb , ( abhelp * )hlpr );
+
+	hlpr->income_trd_id = &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->income_trd_id;
+	hlpr->outgoing_trd_id = &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->outgoing_trd_id;
+	hlpr->cbuf = &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->cbuf;
+	hlpr->buf_pop_distr = &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->buffer_pop_distributor;
+	hlpr->dc_token_ring = &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->dc_token_ring;
 }
 
-_THREAD_FXN void_p one2one_pcap2kernelDefaultStack_SF_pcap_udp_income_thread_proc( void_p src_pb )
+#ifndef get_udp
+
+_PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate( void_p data , buffer buf , int payload_len )
+{
+	AB * pb = ( AB * )data;
+	return vcbuf_nb_push( &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->cbuf , buf , payload_len );
+}
+
+_THREAD_FXN void_p one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_pcap_udp_income_thread_proc( void_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._g;
 
-	ASSERT( pb->cpy_cfg.m.m.maintained.in_count == 1 );
+	mix_helper H;
+	mk_hlpr1( pb , &H );
+
+	ASSERT( *H.in_count == 1 );
 
 	// TODO . implement muti input
 
 	ASSERT( pb->udps_count == 1 );
 
-	M_BREAK_STAT( distributor_init( &pb->trd.base.buffer_push_distributor , 1 ) , 1 );
-	M_BREAK_STAT( distributor_subscribe( &pb->trd.base.buffer_push_distributor , 0 , SUB_DIRECT_ONE_CALL_BUFFER_INT , SUB_FXN( buffer_push_one2one_pcap2kernelDefaultStack_SF ) , src_pb ) , 1 );
+	M_BREAK_STAT( distributor_init( H.buf_psh_distri , 1 ) , 1 );
+	M_BREAK_STAT( distributor_subscribe( H.buf_psh_distri , 0 , SUB_DIRECT_ONE_CALL_BUFFER_INT ,
+		SUB_FXN( buffer_push_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate ) , src_pb ) , 1 );
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb->udps ) , 1 );
 
 	BEGIN_RET
@@ -37,7 +61,106 @@ _THREAD_FXN void_p one2one_pcap2kernelDefaultStack_SF_pcap_udp_income_thread_pro
 	return NULL;
 }
 
-_THREAD_FXN void_p one2one_pcap2kernelDefaultStack_SF_one_tcp_out_thread_proc( void_p src_pb )
+#endif
+
+#ifndef send_tcp
+
+status send_tcp_packet( void_p data , buffer buf , int i )
+{
+	return errOK;
+}
+
+void init_many_tcp( AB * pb )
+{
+	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
+
+	mix_helper H;
+	mk_hlpr1( pb , &H );
+
+	// enumorate group type
+	dict_t dc_enum_grp_type;
+	dict_init( &dc_enum_grp_type );
+	for ( int iout = 0 ; iout < *H.out_count ; iout++ )
+	{
+		dict_put( &dc_enum_grp_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group );
+	}
+	//size_t key_count = dict_count( &dc_enum_grp_type );
+	//ASSERT( key_count > 1 );
+	//
+
+	LPCSTR * pkeys = NULL;
+	int keys_count = 0;
+	dict_get_keys( &dc_enum_grp_type , &pkeys , &keys_count );
+
+	if ( strsistr( pkeys , keys_count , STR_RoundRobin ) >= 0 )
+	{
+		// TODO . i can make helper to reduce this path length
+		dict_o_init( H.dc_token_ring );
+	}
+
+	//ASSERT( keys_count == 2 );
+
+	// get group count and enum them	
+	dict_t dc_enum_grp;
+	dict_init( &dc_enum_grp );
+	for ( int i = 0 ; i < pb->cpy_cfg.m.m.maintained.out_count ; i++ )
+	{
+		dict_put( &dc_enum_grp , pb->cpy_cfg.m.m.maintained.out[ i ].data.group , pb->cpy_cfg.m.m.maintained.out[ i ].data.group );
+	}
+	LPCSTR * pgrps = NULL;
+	int grps_count = 0;
+	dict_get_keys( &dc_enum_grp , &pgrps , &grps_count );
+
+	// init pop distributor
+	distributor_init( H.buf_pop_distr , grps_count );
+
+	// اینجا در گروه ها می چرخد و هر مورد را به ساب اضافه می کند یعنی دریافت کننده یک دیتا
+	// در نتیجه وقتی دیتایی برای تی سی پی بود بین همه موارد توزیع می شود
+	// در راند رابین یک رینگ محافظت می کند که فقط اونی دیتا رو بگیره که توکن را داره
+	for ( int i = 0 ; i < grps_count ; i++ )
+	{
+		for ( int j = 0; j < *H.out_count ; j++ )
+		{
+			if ( iSTR_SAME( pgrps[ i ] , pb->cpy_cfg.m.m.maintained.out[ j ].data.group ) )
+			{
+				if ( iSTR_SAME( pb->cpy_cfg.m.m.maintained.out[ j ].data.group_type , STR_Replicate ) )
+				{
+					distributor_subscribe( H.buf_pop_distr , i , SUB_DIRECT_ONE_CALL_BUFFER_INT , SUB_FXN( send_tcp_packet ) , pb );
+				}
+				else if ( iSTR_SAME( pb->cpy_cfg.m.m.maintained.out[ j ].data.group_type , STR_RoundRobin ) )
+				{
+					if ( j == 0 )
+					{
+						// first elem spec group type
+						token_ring_p_t * tring = MALLOC_ONE( tring );
+						MEMSET_ZERO_O( tring );
+						token_ring_p_init( tring );
+
+						dict_o_put( H.dc_token_ring , i , tring ); // TODO . each values from dic should freed
+					}
+
+					void_p pring = dict_o_get( H.dc_token_ring , i );
+					ASSERT( pring );
+
+					distributor_subscribe_with_token( H.buf_pop_distr ,
+						i , SUB_DIRECT_ONE_CALL_BUFFER_INT , SUB_FXN( send_tcp_packet ) , pb , pring );
+				}
+				else
+				{
+					ASSERT( 0 );
+				}
+
+			}
+		}
+		
+
+	}
+
+	dict_free( &dc_enum_grp_type );
+
+}
+
+_THREAD_FXN void_p one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_many_tcp_out_thread_proc( void_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
 	//	static TWD twd = { 0 };
@@ -60,6 +183,8 @@ _THREAD_FXN void_p one2one_pcap2kernelDefaultStack_SF_one_tcp_out_thread_proc( v
 	size_t sz;
 	//ssize_t snd_ret;
 
+	init_many_tcp( pb );
+
 	int output_tcp_socket_error_tolerance_count = 0; // restart socket after many error accur
 
 	while ( !pb->trd.base.bridg_prerequisite_stabled )
@@ -74,19 +199,19 @@ _THREAD_FXN void_p one2one_pcap2kernelDefaultStack_SF_one_tcp_out_thread_proc( v
 	while ( 1 )
 	{
 
-	//	//pthread_mutex_lock( &_g->sync.mutex );
-	//	//while ( _g->sync.lock_in_progress )
-	//	//{
-	//	//	////struct timespec ts = { 0, 10L };
-	//	//	////thrd_slep( &ts , NULL );
-	//	//	pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
-	//	//}
-	//	//pthread_mutex_unlock( &_g->sync.mutex );
-	//	//if ( _g->sync.reset_static_after_lock )
-	//	//{
-	//	//	_g->sync.reset_static_after_lock = 0;
-	//	//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
-	//	//}
+		//	//pthread_mutex_lock( &_g->sync.mutex );
+		//	//while ( _g->sync.lock_in_progress )
+		//	//{
+		//	//	////struct timespec ts = { 0, 10L };
+		//	//	////thrd_slep( &ts , NULL );
+		//	//	pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
+		//	//}
+		//	//pthread_mutex_unlock( &_g->sync.mutex );
+		//	//if ( _g->sync.reset_static_after_lock )
+		//	//{
+		//	//	_g->sync.reset_static_after_lock = 0;
+		//	//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+		//	//}
 
 		if ( pb->trd.base.do_close_thread )
 		{
@@ -119,7 +244,7 @@ _THREAD_FXN void_p one2one_pcap2kernelDefaultStack_SF_one_tcp_out_thread_proc( v
 			_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes = 0;
 		}
 
-		while( vcbuf_nb_pop( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , buffer , &sz , 60/*timeout*/) == errOK )
+		while ( vcbuf_nb_pop( &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->cbuf , buffer , &sz , 60/*timeout*/ ) == errOK )
 		{
 			if ( pb->tcps_count && pb->tcps->tcp_connection_established )
 			{
@@ -152,11 +277,12 @@ _THREAD_FXN void_p one2one_pcap2kernelDefaultStack_SF_one_tcp_out_thread_proc( v
 					//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_bytes += snd_ret;
 					//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_count++;
 					//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_bytes += snd_ret;
-					
+
 					_g->stat.tcp_send_data_alive_indicator++;
 				}
 
 				/*keep tcp arrival timing*/
+				{
 				tcp->pk_tm.prev_access = tcp->pk_tm.last_access;
 				tcp->pk_tm.last_access = time( NULL );
 				if ( tcp->pk_tm.prev_access > 0 )
@@ -167,6 +293,7 @@ _THREAD_FXN void_p one2one_pcap2kernelDefaultStack_SF_one_tcp_out_thread_proc( v
 						tcp->pk_tm.max_packet_delay = tcp->pk_tm.curr_packet_delay;
 						distributor_publish_int_double( &_g->stat.thresholds , MAX_TCP_PACKET_DELAY , tcp->pk_tm.max_packet_delay );
 					}
+				}
 				}
 				/*~keep tcp arrival timing*/
 
@@ -188,3 +315,6 @@ _THREAD_FXN void_p one2one_pcap2kernelDefaultStack_SF_one_tcp_out_thread_proc( v
 	M_V_END_RET
 	return NULL;
 }
+
+#endif
+

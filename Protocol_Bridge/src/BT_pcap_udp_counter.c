@@ -70,6 +70,10 @@ _THREAD_FXN void_p pcap_udp_counter_thread_proc( void_p src_pb )
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
 	MM_FMT_BREAK_IF( !( *handle = pcap_open_live( dev , 65535 , 1 , 1000 , errbuf ) ) , errGeneral , 1 , "Couldn't open device %s: %s\n" , dev , errbuf );
 
+	int fd = pcap_get_selectable_fd( *handle );
+	int busy_poll_time = 50;  // microseconds per syscall spin budget
+	M_BREAK_IF( setsockopt( fd , SOL_SOCKET , SO_BUSY_POLL , &busy_poll_time , sizeof( busy_poll_time ) ) < 0 , errGeneral , 2 );
+
 	// Compile and apply filter
 	MM_FMT_BREAK_IF( pcap_compile( *handle , &fp , pb->cpy_cfg.m.m.maintained.in->data.UDP_origin_ports , 1 , mask ) == -1 , errGeneral , 2 , "Couldn't parse filter %s\n" , pcap_geterr( *handle ) );
 	MM_FMT_BREAK_IF( pcap_setfilter( *handle , &fp ) == -1 , errGeneral , 3 , "Couldn't install filter %s\n" , pcap_geterr( *handle ) );

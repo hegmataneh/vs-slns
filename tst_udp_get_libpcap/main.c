@@ -65,31 +65,33 @@ void handle_packet( u_char * user , const struct pcap_pkthdr * hdr , const u_cha
 	int payload_len;
 
 	// Skip Ethernet header
-	ip_hdr = ( struct ip * )( packet + SIZE_ETHERNET );
-	ip_header_len = ip_hdr->ip_hl * 4;
+	//ip_hdr = ( struct ip * )( packet + SIZE_ETHERNET );
+	//ip_header_len = ip_hdr->ip_hl * 4;
 
-	// UDP header follows IP header
-	udp_hdr = ( struct udphdr * )( packet + SIZE_ETHERNET + ip_header_len );
+	//// UDP header follows IP header
+	//udp_hdr = ( struct udphdr * )( packet + SIZE_ETHERNET + ip_header_len );
 
-	// Payload starts after UDP header
-	payload = packet + SIZE_ETHERNET + ip_header_len + udp_header_len;
-	payload_len = ntohs( udp_hdr->uh_ulen ) - udp_header_len;
+	//// Payload starts after UDP header
+	//payload = packet + SIZE_ETHERNET + ip_header_len + udp_header_len;
+	//payload_len = ntohs( udp_hdr->uh_ulen ) - udp_header_len;
 
-	printf( " From %s:%d -> To %s:%d\n" ,
-		inet_ntoa( ip_hdr->ip_src ) , ntohs( udp_hdr->uh_sport ) ,
-		inet_ntoa( ip_hdr->ip_dst ) , ntohs( udp_hdr->uh_dport ) );
+	//printf( " From %s:%d -> To %s:%d\n" ,
+	//	inet_ntoa( ip_hdr->ip_src ) , ntohs( udp_hdr->uh_sport ) ,
+	//	inet_ntoa( ip_hdr->ip_dst ) , ntohs( udp_hdr->uh_dport ) );
 
-	printf( " Payload (%d bytes): " , payload_len );
-	for ( int i = 0; i < payload_len; i++ )
-	{
-		if ( payload[ i ] >= 32 && payload[ i ] <= 126 ) // printable ASCII
-			putchar( payload[ i ] );
-		else
-			putchar( '.' );
-	}
+	//printf( " Payload (%d bytes): " , payload_len );
+	//for ( int i = 0; i < payload_len; i++ )
+	//{
+	//	if ( payload[ i ] >= 32 && payload[ i ] <= 126 ) // printable ASCII
+	//		putchar( payload[ i ] );
+	//	else
+	//		putchar( '.' );
+	//}
 
 
-	_byte_counter1++;
+	//_byte_counter1++;
+
+	_continue_counter++;
 }
 
 void cleanup_and_exit( int sig )
@@ -104,6 +106,14 @@ void cleanup_and_exit( int sig )
 	exit( 0 );
 }
 
+int set_cpu_affinity( int cpu )
+{
+	cpu_set_t cpus;
+	CPU_ZERO( &cpus );
+	CPU_SET( cpu , &cpus );
+	return sched_setaffinity( 0 , sizeof( cpus ) , &cpus );
+}
+
 int main( int argc , char * argv[] )
 {
 	char * dev = NULL;
@@ -111,6 +121,12 @@ int main( int argc , char * argv[] )
 	struct bpf_program fp;
 	char filter_exp[] = "udp and port 1234";
 	bpf_u_int32 net = 0 , mask = 0;
+
+	if ( set_cpu_affinity( 0 ) != 0 )
+	{
+		perror( "sched_setaffinity" );
+	}
+
 
 	pthread_t trd_config_loader;
 	pthread_create( &trd_config_loader , NULL , config_loader , NULL );
@@ -138,12 +154,44 @@ int main( int argc , char * argv[] )
 	}
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	handle = pcap_open_live( dev , 65535 , 1 , 1000 , errbuf );
+	handle = pcap_open_live( dev , 1520 , 0 , 100 , errbuf );
 	if ( !handle )
 	{
 		fprintf( stderr , "Couldn't open device %s: %s\n" , dev , errbuf );
 		return 1;
 	}
+
+
+	//pcap_set_immediate_mode(handle, 1);
+
+	int fd = pcap_get_selectable_fd( handle );
+	int busy_poll_time = 50;  // microseconds per syscall spin budget
+	if ( setsockopt( fd , SOL_SOCKET , SO_BUSY_POLL ,
+		&busy_poll_time , sizeof( busy_poll_time ) ) < 0 )
+	{
+		perror( "setsockopt(SO_BUSY_POLL) failed" );
+	}
+
+	//pcap_set_snaplen( handle , 1520 );
+
+	int cpu = 0;
+	setsockopt( fd , SOL_SOCKET , SO_INCOMING_CPU , &cpu , sizeof( cpu ) );
+
+
+	int rcvbuf = 64 * 1024 * 1024; // 64 MB
+	if ( setsockopt( fd , SOL_SOCKET , SO_RCVBUF ,
+		&rcvbuf , sizeof( rcvbuf ) ) < 0 )
+	{
+		perror( "SO_RCVBUF" );
+	}
+
+
+
+	//if ( pcap_activate( handle ) != 0 )
+	//{
+	//	fprintf( stderr , "Activate failed: %s\n" , pcap_geterr( handle ) );
+	//	return 1;
+	//}
 
 	// Compile and apply filter
 	if ( pcap_compile( handle , &fp , filter_exp , 1 , mask ) == -1 )

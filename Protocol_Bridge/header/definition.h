@@ -64,3 +64,5 @@
 
 
 
+#define STR_RoundRobin "RR"
+#define STR_Replicate "Replicate"

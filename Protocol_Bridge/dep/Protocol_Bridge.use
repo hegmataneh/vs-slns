@@ -1,3 +1,12 @@
+#ifdef Uses_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_pcap_udp_income_thread_proc
+	#define Uses_AB
+	#define __INC_BT_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate
+#endif
+
+#ifdef Uses_stablish_pcap_udp_connection
+	#define __INC_BT_async_pcap_udp_store
+#endif
+
 #ifdef Uses_accept_thresholds
 	#define Uses_statistics
 #endif
@@ -22,7 +31,13 @@
 	#define __INC_msg
 #endif
 
+#ifdef Uses_AB
+	#define Uses_Bridge
+#endif
+
 #ifdef Uses_Bridge
+	#define Uses_dict_o_t
+	#define Uses_distributor_t
 	#define Uses_vcbuf_nb
 	#define Uses_pcap
 	#define Uses_WINDOW

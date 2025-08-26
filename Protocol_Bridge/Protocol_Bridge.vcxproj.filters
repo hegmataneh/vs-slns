@@ -28,6 +28,12 @@
     <ClCompile Include="src\BT_one2one_pcap2kernelDefaultStack_SF.c">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\BT_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BT_async_pcap_udp_store.c">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="header">
@@ -80,6 +86,12 @@
       <Filter>header</Filter>
     </ClInclude>
     <ClInclude Include="header\BT_one2one_pcap2kernelDefaultStack_SF.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\BT_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\BT_async_pcap_udp_store.h">
       <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>

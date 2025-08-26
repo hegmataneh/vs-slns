@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE 200809L
+//#define _POSIX_C_SOURCE 200809L
 //#define _GNU_SOURCE
 
 #include <pthread.h>
@@ -20,6 +20,13 @@
 #include <sched.h>
 #include <sys/mman.h>
 #include <time.h>
+
+
+#include <linux/if_packet.h>
+#include <linux/if_ether.h>
+#include <linux/filter.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
 
 
 #define MYPORT "1234"
@@ -127,6 +134,14 @@ int main( void )
 		{
 			perror( "listener:socket" );
 			continue;
+		}
+
+		int val = 100; // microseconds to spin per syscall
+		if ( setsockopt( sockfd , SOL_SOCKET , SO_BUSY_POLL , &val , sizeof( val ) ) < 0 )
+		{
+			perror( "setsockopt SO_BUSY_POLL" );
+			close( sockfd );
+			pthread_exit( NULL );
 		}
 
 		if ( bind( sockfd , p->ai_addr , p->ai_addrlen ) == -1 )

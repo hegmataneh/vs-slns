@@ -38,3 +38,10 @@
 	#include "BT_one2one_pcap2kernelDefaultStack_SF.h"
 #endif
 
+#ifdef __INC_BT_async_pcap_udp_store
+	#include "BT_async_pcap_udp_store.h"
+#endif
+
+#ifdef __INC_BT_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate
+	#include "BT_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate.h"
+#endif
