@@ -275,24 +275,24 @@ _THREAD_FXN void_p connect_udps_proc( void_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
 
-	for ( int i = 0 ; i < pb->udps_count ; i++ )
+	for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 	{
-		if ( pb->udps[ i ].udp_connection_established )
+		if ( pb->udps[ iudp ].udp_connection_established )
 		{
-			_close_socket( &pb->udps[ i ].udp_sockfd );
-			pb->udps[ i ].udp_connection_established = 0;
+			_close_socket( &pb->udps[ iudp ].udp_sockfd );
+			pb->udps[ iudp ].udp_connection_established = 0;
 			_g->stat.udp_connection_count--;
 		}
 
-		MM_BREAK_IF( ( pb->udps[ i ].udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
+		MM_BREAK_IF( ( pb->udps[ iudp ].udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
 
 		int optval = 1;
 		//socklen_t optlen = sizeof( optval );
-		//MM_BREAK_IF( getsockopt( pb->udps[ i ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , &optlen ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
-		MM_BREAK_IF( setsockopt( pb->udps[ i ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , sizeof( optval ) ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
+		//MM_BREAK_IF( getsockopt( pb->udps[ iudp ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , &optlen ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
+		MM_BREAK_IF( setsockopt( pb->udps[ iudp ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , sizeof( optval ) ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
 
-		int flags = fcntl( pb->udps[ i ].udp_sockfd, F_GETFL );
-		fcntl( pb->udps[ i ].udp_sockfd , F_SETFL , flags | O_NONBLOCK );
+		int flags = fcntl( pb->udps[ iudp ].udp_sockfd, F_GETFL );
+		fcntl( pb->udps[ iudp ].udp_sockfd , F_SETFL , flags | O_NONBLOCK );
 
 		// TODO . make it protocol independent
 		struct sockaddr_in server_addr;
@@ -300,20 +300,20 @@ _THREAD_FXN void_p connect_udps_proc( void_p src_pb )
 		server_addr.sin_family = AF_INET; // IPv4
 		
 		int port = 0;
-		M_BREAK_IF( string_to_int( pb->udps[ i ].__udp_cfg->UDP_origin_ports , &port ) , errGeneral , 0 );
+		M_BREAK_IF( string_to_int( pb->udps[ iudp ].__udp_cfg_pak->data.UDP_origin_ports , &port ) , errGeneral , 0 );
 		ASSERT( port > 0 );
 		server_addr.sin_port = htons( ( uint16_t )port ); // Convert port to network byte order
-		if ( iSTR_SAME( pb->udps[ i ].__udp_cfg->UDP_origin_ip , "INADDR_ANY" ) )
+		if ( iSTR_SAME( pb->udps[ iudp ].__udp_cfg_pak->data.UDP_origin_ip , "INADDR_ANY" ) )
 		{
 			server_addr.sin_addr.s_addr = INADDR_ANY; // Or use INADDR_ANY to bind to all available interfaces:
 		}
 		else
 		{
-			server_addr.sin_addr.s_addr = inet_addr( pb->udps[ i ].__udp_cfg->UDP_origin_ip ); // Specify the IP address to bind to
+			server_addr.sin_addr.s_addr = inet_addr( pb->udps[ iudp ].__udp_cfg_pak->data.UDP_origin_ip ); // Specify the IP address to bind to
 		}
 
-		MM_BREAK_IF( bind( pb->udps[ i ].udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errGeneral , 1 , "bind sock error" );
-		pb->udps[ i ].udp_connection_established = 1;
+		MM_BREAK_IF( bind( pb->udps[ iudp ].udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errGeneral , 1 , "bind sock error" );
+		pb->udps[ iudp ].udp_connection_established = 1;
 
 		_g->stat.udp_connection_count++;
 		_g->stat.total_retry_udp_connection_count++;
@@ -420,11 +420,11 @@ status connect_one_tcp( AB_tcp * tcp )
 		tcp_addr.sin_family = AF_INET;
 
 		int port = 0;
-		M_BREAK_IF( string_to_int( tcp->__tcp_cfg->TCP_destination_ports , &port ) , errGeneral , 1 );
+		M_BREAK_IF( string_to_int( tcp->__tcp_cfg_pak->data.TCP_destination_ports , &port ) , errGeneral , 1 );
 		ASSERT( port > 0 );
 
 		tcp_addr.sin_port = htons( ( uint16_t )port );
-		MM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg->TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
+		MM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
 
 		if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
 		{
@@ -483,15 +483,15 @@ _THREAD_FXN void_p thread_tcp_connection_proc( void_p src_pb )
 	while( 1 )
 	{
 		int all_tcp_connected = 0;
-		for ( int i = 0 ; i < pb->tcps_count ; i++ )
+		for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 		{
-			if ( pb->tcps[ i ].tcp_connection_established )
+			if ( pb->tcps[ itcp ].tcp_connection_established )
 			{
 				all_tcp_connected++;
 				continue;
 			}
 
-			connect_one_tcp( &pb->tcps[ i ] );
+			connect_one_tcp( &pb->tcps[ itcp ] );
 		}
 		if ( all_tcp_connected == pb->tcps_count )
 		{
@@ -533,19 +533,19 @@ _THREAD_FXN void_p watchdog_executer( void_p src_g )
 	{
 		if ( CLOSE_APP_VAR() ) break;
 
-		for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+		for ( int imask = 0 ; imask < _g->bridges.ABhs_masks_count ; imask++ )
 		{
-			if ( _g->bridges.ABhs_masks[ i ] )
+			if ( _g->bridges.ABhs_masks[ imask ] )
 			{
-				if ( !_g->bridges.ABs[ i ].single_AB->trd.base.bridg_prerequisite_stabled )
+				if ( !_g->bridges.ABs[ imask ].single_AB->trd.base.bridg_prerequisite_stabled )
 				{
-					if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "kernel_default_stack_udp_counter" ) )
+					if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "kernel_default_stack_udp_counter" ) )
 					{
-						if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.out_type , "one" ) )
+						if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one" ) )
 						{
-							if ( _g->bridges.ABs[ i ].single_AB->udps_count > 0 && _g->bridges.ABs[ i ].single_AB->udps->udp_connection_established )
+							if ( _g->bridges.ABs[ imask ].single_AB->udps_count > 0 && _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established )
 							{
-								_g->bridges.ABs[ i ].single_AB->trd.base.bridg_prerequisite_stabled = 1;
+								_g->bridges.ABs[ imask ].single_AB->trd.base.bridg_prerequisite_stabled = 1;
 							}
 						}
 						else
@@ -553,21 +553,46 @@ _THREAD_FXN void_p watchdog_executer( void_p src_g )
 							ASSERT( 0 ); // implement on demand
 						}
 					}
-					else if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "pcap_udp_counter" ) )
+					else if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "pcap_udp_counter" ) )
 					{
 					}
-					else if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2kernelDefaultStack_S&F" ) )
+					else if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2kernelDefaultStack_S&F" ) )
 					{
-						if ( iSTR_SAME( _g->bridges.ABs[ i ].single_AB->cpy_cfg.m.m.id.out_type , "one2one" ) )
+						if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one2one" ) )
 						{
 							if
 							(
-								_g->bridges.ABs[ i ].single_AB->udps_count > 0 && _g->bridges.ABs[ i ].single_AB->udps->udp_connection_established &&
-								_g->bridges.ABs[ i ].single_AB->tcps_count > 0 && _g->bridges.ABs[ i ].single_AB->tcps->tcp_connection_established
+								_g->bridges.ABs[ imask ].single_AB->udps_count > 0 && _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established &&
+								_g->bridges.ABs[ imask ].single_AB->tcps_count > 0 && _g->bridges.ABs[ imask ].single_AB->tcps->tcp_connection_established
 							)
 							{
-								_g->bridges.ABs[ i ].single_AB->trd.base.bridg_prerequisite_stabled = 1;
+								_g->bridges.ABs[ imask ].single_AB->trd.base.bridg_prerequisite_stabled = 1;
 							}
+						}
+						else
+						{
+							ASSERT( 0 ); // implement on demand
+						}
+					}
+					else if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2many_pcap2kernelDefaultStack_S&F_Mix_RR_Replicate" ) )
+					{
+						if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one2many" ) )
+						{
+							ASSERT( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.in_count == 1 );
+							ASSERT( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.out_count > 1 );
+
+							int prerequisite_stablished = 1;
+							prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->udps_count );
+							prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->tcps_count );
+							if ( _g->bridges.ABs[ imask ].single_AB->udps_count )
+							{
+								prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established );
+							}
+							for ( int itcp = 0 ; itcp < _g->bridges.ABs[ imask ].single_AB->tcps_count ; itcp++ )
+							{
+								prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->tcps[ itcp ].tcp_connection_established );
+							}
+							_g->bridges.ABs[ imask ].single_AB->trd.base.bridg_prerequisite_stabled = prerequisite_stablished;
 						}
 						else
 						{

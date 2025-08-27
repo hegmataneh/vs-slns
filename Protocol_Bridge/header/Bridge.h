@@ -85,7 +85,7 @@ typedef struct AB_udp_connection
 	int udp_sockfd;
 	int udp_connection_established; // udp socket established
 	int retry_to_connect_udp;
-	udp_cfg * __udp_cfg; // link to passive cfg
+	udp_cfg_pak * __udp_cfg_pak; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct
 	pcap_t * handle;
 
@@ -98,7 +98,7 @@ typedef struct AB_tcp_connection
 	int tcp_sockfd;
 	int tcp_connection_established; // tcp connection established
 	int retry_to_connect_tcp;
-	tcp_cfg * __tcp_cfg; // link to passive cfg
+	tcp_cfg_pak * __tcp_cfg_pak; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct
 
 	pck_tm pk_tm; // to calculate elapse time between two arrival or send data

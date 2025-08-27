@@ -22,6 +22,20 @@ typedef struct tcp_conn_cfg_data
 	int reset_connection;
 } tcp_cfg;
 
+typedef struct bridge_cfg_input_part
+{
+	char name[ 64 ];
+	udp_cfg data;
+
+} udp_cfg_pak;
+
+typedef struct bridge_cfg_output_part
+{
+	char name[ 64 ];
+	tcp_cfg data;
+
+} tcp_cfg_pak;
+
 typedef struct bridge_cfg_0
 {
 	struct bridge_cfg_id
@@ -34,20 +48,10 @@ typedef struct bridge_cfg_0
 
 	struct bridge_maintained_parameter // options that stays in position
 	{
-		struct bridge_cfg_input_part
-		{
-			char name[ 64 ];
-			udp_cfg data;
-
-		} *in;
+		udp_cfg_pak *in;
 		int in_count;
 
-		struct bridge_cfg_output_part
-		{
-			char name[ 64 ];
-			tcp_cfg data;
-
-		} *out;
+		tcp_cfg_pak *out;
 		int out_count;
 
 		int enable;

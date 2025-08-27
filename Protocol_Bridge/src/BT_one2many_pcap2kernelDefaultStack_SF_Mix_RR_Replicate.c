@@ -1,8 +1,8 @@
-﻿#define Uses_MEMSET_ZERO_O
+﻿#define Uses_dict_s_i_t
+#define Uses_dict_s_s_t
+#define Uses_MEMSET_ZERO_O
 #define Uses_token_ring_p_t
 #define Uses_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_pcap_udp_income_thread_proc
-#define Uses_dict_o_t
-#define Uses_dict_t
 #define Uses_distributor_init
 #define Uses_stablish_pcap_udp_connection
 #define Uses_errno
@@ -65,7 +65,7 @@ _THREAD_FXN void_p one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_pcap_udp
 
 #ifndef send_tcp
 
-status send_tcp_packet( void_p data , buffer buf , int i )
+status send_tcp_packet( void_p data , buffer buf , int sz )
 {
 	return errOK;
 }
@@ -78,85 +78,86 @@ void init_many_tcp( AB * pb )
 	mk_hlpr1( pb , &H );
 
 	// enumorate group type
-	dict_t dc_enum_grp_type;
-	dict_init( &dc_enum_grp_type );
-	for ( int iout = 0 ; iout < *H.out_count ; iout++ )
 	{
-		dict_put( &dc_enum_grp_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group );
+		dict_s_s_t dc_enum_grp_type;
+		dict_init( &dc_enum_grp_type );
+		for ( int iout = 0 ; iout < *H.out_count ; iout++ )
+		{
+			dict_put( &dc_enum_grp_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group_type );
+		}
+		//size_t key_count = dict_count( &dc_enum_grp_type );
+		//ASSERT( key_count > 1 );
+
+		LPCSTR * pkeys = NULL;
+		int keys_count = 0;
+		dict_get_keys( &dc_enum_grp_type , &pkeys , &keys_count );
+
+		if ( strsistr( pkeys , keys_count , STR_RoundRobin ) >= 0 )
+		{
+			// TODO . i can make helper to reduce this path length 
+			dict_o_init( H.dc_token_ring );
+		}
+		dict_free( &dc_enum_grp_type );
 	}
-	//size_t key_count = dict_count( &dc_enum_grp_type );
-	//ASSERT( key_count > 1 );
-	//
 
-	LPCSTR * pkeys = NULL;
-	int keys_count = 0;
-	dict_get_keys( &dc_enum_grp_type , &pkeys , &keys_count );
+	dict_s_i_t map_grp_idx;
+	dict_s_i_init( &map_grp_idx );
+	int igrpcounter = 0;
 
-	if ( strsistr( pkeys , keys_count , STR_RoundRobin ) >= 0 )
+	for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 	{
-		// TODO . i can make helper to reduce this path length
-		dict_o_init( H.dc_token_ring );
+	//	dict_o_put( &dc_tcps , pb->tcps[ itcp ].__tcp_cfg_pak->name , pb->tcps[ itcp ].__tcp_cfg_pak );
+		dict_s_i_put( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , igrpcounter++ , 0 );
 	}
 
-	//ASSERT( keys_count == 2 );
-
-	// get group count and enum them	
-	dict_t dc_enum_grp;
-	dict_init( &dc_enum_grp );
-	for ( int i = 0 ; i < pb->cpy_cfg.m.m.maintained.out_count ; i++ )
-	{
-		dict_put( &dc_enum_grp , pb->cpy_cfg.m.m.maintained.out[ i ].data.group , pb->cpy_cfg.m.m.maintained.out[ i ].data.group );
-	}
-	LPCSTR * pgrps = NULL;
-	int grps_count = 0;
-	dict_get_keys( &dc_enum_grp , &pgrps , &grps_count );
+	dict_s_i_t init_grp;
+	dict_s_i_init( &init_grp );
 
 	// init pop distributor
-	distributor_init( H.buf_pop_distr , grps_count );
+	distributor_init( H.buf_pop_distr , ( int )dict_s_i_count( &map_grp_idx ) );
 
-	// اینجا در گروه ها می چرخد و هر مورد را به ساب اضافه می کند یعنی دریافت کننده یک دیتا
-	// در نتیجه وقتی دیتایی برای تی سی پی بود بین همه موارد توزیع می شود
-	// در راند رابین یک رینگ محافظت می کند که فقط اونی دیتا رو بگیره که توکن را داره
-	for ( int i = 0 ; i < grps_count ; i++ )
+	//// اینجا در گروه ها می چرخد و هر مورد را به ساب اضافه می کند یعنی دریافت کننده یک دیتا
+	//// در نتیجه وقتی دیتایی برای تی سی پی بود بین همه موارد توزیع می شود
+	//// در راند رابین یک رینگ محافظت می کند که فقط اونی دیتا رو بگیره که توکن را داره
+	for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 	{
-		for ( int j = 0; j < *H.out_count ; j++ )
+		if ( iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_Replicate ) )
 		{
-			if ( iSTR_SAME( pgrps[ i ] , pb->cpy_cfg.m.m.maintained.out[ j ].data.group ) )
-			{
-				if ( iSTR_SAME( pb->cpy_cfg.m.m.maintained.out[ j ].data.group_type , STR_Replicate ) )
-				{
-					distributor_subscribe( H.buf_pop_distr , i , SUB_DIRECT_ONE_CALL_BUFFER_INT , SUB_FXN( send_tcp_packet ) , pb );
-				}
-				else if ( iSTR_SAME( pb->cpy_cfg.m.m.maintained.out[ j ].data.group_type , STR_RoundRobin ) )
-				{
-					if ( j == 0 )
-					{
-						// first elem spec group type
-						token_ring_p_t * tring = MALLOC_ONE( tring );
-						MEMSET_ZERO_O( tring );
-						token_ring_p_init( tring );
-
-						dict_o_put( H.dc_token_ring , i , tring ); // TODO . each values from dic should freed
-					}
-
-					void_p pring = dict_o_get( H.dc_token_ring , i );
-					ASSERT( pring );
-
-					distributor_subscribe_with_token( H.buf_pop_distr ,
-						i , SUB_DIRECT_ONE_CALL_BUFFER_INT , SUB_FXN( send_tcp_packet ) , pb , pring );
-				}
-				else
-				{
-					ASSERT( 0 );
-				}
-
-			}
+			int igrp = -1;
+			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );
+			distributor_subscribe( H.buf_pop_distr , igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_INT , SUB_FXN( send_tcp_packet ) , pb->tcps + itcp );
 		}
-		
+		else if ( iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_RoundRobin ) )
+		{
+			int igrp = -1;
+			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );
+			int exist = 1;
+			dict_s_i_try_put( &init_grp , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , igrp , &exist );
 
+			if ( !exist )
+			{
+				// first elem spec group type
+				token_ring_p_t * tring = MALLOC_ONE( tring );
+				MEMSET_ZERO_O( tring );
+				token_ring_p_init( tring );
+
+				dict_o_put( H.dc_token_ring , igrp , tring ); // TODO . each values from dic should freed
+			}
+
+			void_p pring = dict_o_get( H.dc_token_ring , igrp );
+			ASSERT( pring );
+
+			distributor_subscribe_with_token( H.buf_pop_distr ,
+				igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_INT , SUB_FXN( send_tcp_packet ) , pb->tcps + itcp , pring );
+		}
+		else
+		{
+			ASSERT( 0 );
+		}
 	}
 
-	dict_free( &dc_enum_grp_type );
+	// TODO . call destroy or destructor of any dictionaries and collections
+
 
 }
 
@@ -178,6 +179,9 @@ _THREAD_FXN void_p one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_many_tcp
 	AB * pb = ( AB * )src_pb;
 	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
 
+	mix_helper H;
+	mk_hlpr1( pb , &H );
+
 	time_t tnow = 0;
 	char buffer[ BUFFER_SIZE ]; // Define a buffer to store received data
 	size_t sz;
@@ -193,12 +197,11 @@ _THREAD_FXN void_p one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_many_tcp
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
-	ASSERT( pb->tcps_count == 1 );
+	ASSERT( pb->tcps_count >= 1 );
 	AB_tcp * tcp = pb->tcps; // caution . in this type of bridge udp conn must be just one
 
 	while ( 1 )
 	{
-
 		//	//pthread_mutex_lock( &_g->sync.mutex );
 		//	//while ( _g->sync.lock_in_progress )
 		//	//{
@@ -246,43 +249,45 @@ _THREAD_FXN void_p one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_many_tcp
 
 		while ( vcbuf_nb_pop( &pb->trd.t.p_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate->cbuf , buffer , &sz , 60/*timeout*/ ) == errOK )
 		{
-			if ( pb->tcps_count && pb->tcps->tcp_connection_established )
+			// TODO . if connection lost i should do something here. but i dont know what should i do for now
+
+			distributor_publish_buffer_int( H.buf_pop_distr , buffer , sz );
+
+			//if ( sendall( pb->tcps->tcp_sockfd , buffer , &sz ) != errOK )
+			//{
+			//	_g->stat.round_zero_set.continuously_unsuccessful_send_error++;
+			//	_g->stat.round_zero_set.total_unsuccessful_send_error++;
+
+			//	if ( ++output_tcp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+			//	{
+			//		output_tcp_socket_error_tolerance_count = 0;
+			//		if ( pb->tcps_count && pb->tcps->tcp_connection_established )
+			//		{
+			//			if ( peerTcpClosed( pb->tcps->tcp_sockfd ) )
+			//			{
+			//				pb->tcps->retry_to_connect_tcp = 1;
+			//			}
+			//		}
+			//	}
+			//	continue;
+			//}
+			_g->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
+			if ( sz > 0 )
 			{
-				if ( sendall( pb->tcps->tcp_sockfd , buffer , &sz ) != errOK )
-				{
-					_g->stat.round_zero_set.continuously_unsuccessful_send_error++;
-					_g->stat.round_zero_set.total_unsuccessful_send_error++;
+				_g->stat.round_zero_set.tcp.total_tcp_put_count++;
+				_g->stat.round_zero_set.tcp.total_tcp_put_byte += sz;
+				_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count++;
+				_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes += sz;
+				//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_count++;
+				//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_bytes += snd_ret;
+				//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_count++;
+				//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_bytes += snd_ret;
 
-					if ( ++output_tcp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-					{
-						output_tcp_socket_error_tolerance_count = 0;
-						if ( pb->tcps_count && pb->tcps->tcp_connection_established )
-						{
-							if ( peerTcpClosed( pb->tcps->tcp_sockfd ) )
-							{
-								pb->tcps->retry_to_connect_tcp = 1;
-							}
-						}
-					}
-					continue;
-				}
-				_g->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
-				if ( sz > 0 )
-				{
-					_g->stat.round_zero_set.tcp.total_tcp_put_count++;
-					_g->stat.round_zero_set.tcp.total_tcp_put_byte += sz;
-					_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count++;
-					_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes += sz;
-					//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_count++;
-					//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_bytes += snd_ret;
-					//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_count++;
-					//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_bytes += snd_ret;
+				_g->stat.tcp_send_data_alive_indicator++;
+			}
 
-					_g->stat.tcp_send_data_alive_indicator++;
-				}
-
-				/*keep tcp arrival timing*/
-				{
+			/*keep tcp arrival timing*/
+			{
 				tcp->pk_tm.prev_access = tcp->pk_tm.last_access;
 				tcp->pk_tm.last_access = time( NULL );
 				if ( tcp->pk_tm.prev_access > 0 )
@@ -294,10 +299,9 @@ _THREAD_FXN void_p one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_many_tcp
 						distributor_publish_int_double( &_g->stat.thresholds , MAX_TCP_PACKET_DELAY , tcp->pk_tm.max_packet_delay );
 					}
 				}
-				}
-				/*~keep tcp arrival timing*/
-
 			}
+			/*~keep tcp arrival timing*/
+
 		}
 
 	}

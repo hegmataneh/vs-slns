@@ -94,7 +94,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB_udp * udp )
 	AB * pb = udp->owner_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._g;
 
-	char * dev = udp->__udp_cfg->UDP_origin_interface;
+	char * dev = udp->__udp_cfg_pak->data.UDP_origin_interface;
 	char errbuf[ PCAP_ERRBUF_SIZE ] = { 0 };
 	struct bpf_program fp;
 	//char filter_exp[] = "udp and port 1234";
@@ -108,7 +108,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB_udp * udp )
 	MM_FMT_BREAK_IF( !( *handle = pcap_open_live( dev , SNAP_LEN , 1 , 1000 , errbuf ) ) , errGeneral , 1 , "Couldn't open device %s: %s\n" , dev , errbuf );
 
 	// Compile and apply filter
-	MM_FMT_BREAK_IF( pcap_compile( *handle , &fp , udp->__udp_cfg->UDP_origin_ports , 1 , mask ) == -1 , errGeneral , 2 , "Couldn't parse filter %s\n" , pcap_geterr( *handle ) );
+	MM_FMT_BREAK_IF( pcap_compile( *handle , &fp , udp->__udp_cfg_pak->data.UDP_origin_ports , 1 , mask ) == -1 , errGeneral , 2 , "Couldn't parse filter %s\n" , pcap_geterr( *handle ) );
 	MM_FMT_BREAK_IF( pcap_setfilter( *handle , &fp ) == -1 , errGeneral , 3 , "Couldn't install filter %s\n" , pcap_geterr( *handle ) );
 
 	pcap_freecode( &fp );

@@ -786,12 +786,12 @@ void init_ActiveBridge( G * _g , AB * pb )
 	{
 		M_BREAK_IF( !( pb->udps = MALLOC_AR( pb->udps , pb->cpy_cfg.m.m.maintained.in_count ) ) , errMemoryLow , 1 );
 		MEMSET_ZERO( pb->udps , pb->cpy_cfg.m.m.maintained.in_count );
-		pb->udps_count = pb->cpy_cfg.m.m.maintained.in_count;
+		pb->udps_count = pb->cpy_cfg.m.m.maintained.in_count; // caution . count is always set after main ptr initialized
 
-		for ( int i = 0 ; i < pb->udps_count ; i++ )
+		for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 		{
-			pb->udps[ i ].owner_pb = pb;
-			pb->udps[ i ].__udp_cfg = &pb->cpy_cfg.m.m.maintained.in[ i ].data;
+			pb->udps[ iudp ].owner_pb = pb;
+			pb->udps[ iudp ].__udp_cfg_pak = pb->cpy_cfg.m.m.maintained.in + iudp;
 		}
 	}
 	if ( pb->cpy_cfg.m.m.maintained.out_count > 0 )
@@ -800,10 +800,10 @@ void init_ActiveBridge( G * _g , AB * pb )
 		MEMSET_ZERO( pb->tcps , pb->cpy_cfg.m.m.maintained.out_count );
 		pb->tcps_count = pb->cpy_cfg.m.m.maintained.out_count;
 
-		for ( int i = 0 ; i < pb->tcps_count ; i++ )
+		for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 		{
-			pb->tcps[ i ].owner_pb = pb;
-			pb->tcps[ i ].__tcp_cfg = &pb->cpy_cfg.m.m.maintained.out[ i ].data;
+			pb->tcps[ itcp ].owner_pb = pb;
+			pb->tcps[ itcp ].__tcp_cfg_pak = pb->cpy_cfg.m.m.maintained.out + itcp;
 		}
 	}
 

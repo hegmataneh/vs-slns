@@ -61,14 +61,14 @@ _THREAD_FXN void_p kernel_default_stack_udp_counter_thread_proc( void_p src_pb )
 		ssize_t sz;
 
 		int sockfd_max = -1; // for select compulsion
-		for ( int i = 0 ; i < pb->udps_count ; i++ )
+		for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 		{
-			if ( pb->udps[ i ].udp_connection_established )
+			if ( pb->udps[ iudp ].udp_connection_established )
 			{
-				FD_SET( pb->udps[ i ].udp_sockfd , &readfds );
-				if ( pb->udps[ i ].udp_sockfd > sockfd_max )
+				FD_SET( pb->udps[ iudp ].udp_sockfd , &readfds );
+				if ( pb->udps[ iudp ].udp_sockfd > sockfd_max )
 				{
-					sockfd_max = pb->udps[ i ].udp_sockfd;
+					sockfd_max = pb->udps[ iudp ].udp_sockfd;
 				}
 			}
 		}
@@ -210,16 +210,16 @@ _THREAD_FXN void_p kernel_default_stack_udp_counter_thread_proc( void_p src_pb )
 				_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
 			}
 
-			for ( int i = 0 ; i < pb->udps_count ; i++ )
+			for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 			{
-				if ( pb->udps[ i ].udp_connection_established )
+				if ( pb->udps[ iudp ].udp_connection_established )
 				{
-					if ( FD_ISSET( pb->udps[ i ].udp_sockfd , &readfds ) )
+					if ( FD_ISSET( pb->udps[ iudp ].udp_sockfd , &readfds ) )
 					{
 						while ( 1 ) // drain it
 						{
 
-							bytes_received = recvfrom( pb->udps[ i ].udp_sockfd , buffer , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
+							bytes_received = recvfrom( pb->udps[ iudp ].udp_sockfd , buffer , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
 							if ( bytes_received < 0 )
 							{
 								if ( errno == EAGAIN || errno == EWOULDBLOCK )

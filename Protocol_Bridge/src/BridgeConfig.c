@@ -45,15 +45,15 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 	if ( left->maintained.in_count != right->maintained.in_count ) return 0;
 	if ( left->maintained.out_count != right->maintained.out_count ) return 0;
 
-	for ( int i = 0 ; i < left->maintained.in_count ; i++ )
+	for ( int ilin = 0 ; ilin < left->maintained.in_count ; ilin++ )
 	{
 		int exist = 0;
-		for ( int j = 0 ; j < right->maintained.in_count ; j++ )
+		for ( int irin = 0 ; irin < right->maintained.in_count ; irin++ )
 		{
-			if ( STR_SAME( ( left->maintained.in + i )->name , ( right->maintained.in + j )->name ) )
+			if ( STR_SAME( ( left->maintained.in + ilin )->name , ( right->maintained.in + irin )->name ) )
 			{
 				exist = 1;
-				if ( MEMCMP( &( left->maintained.in + i )->data , &( right->maintained.in + j )->data ) != 0 ) return 0;
+				if ( MEMCMP( &( left->maintained.in + ilin )->data , &( right->maintained.in + irin )->data ) != 0 ) return 0;
 				break;
 			}
 		}
@@ -63,15 +63,15 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 		}
 	}
 
-	for ( int j = 0 ; j < right->maintained.in_count ; j++ )
+	for ( int irin = 0 ; irin < right->maintained.in_count ; irin++ )
 	{
 		int exist = 0;
-		for ( int i = 0 ; i < left->maintained.in_count ; i++ )
+		for ( int ilin = 0 ; ilin < left->maintained.in_count ; ilin++ )
 		{
-			if ( STR_SAME( ( right->maintained.in + i )->name , ( left->maintained.in + j )->name ) )
+			if ( STR_SAME( ( right->maintained.in + ilin )->name , ( left->maintained.in + irin )->name ) )
 			{
 				exist = 1;
-				if ( MEMCMP( &( right->maintained.in + j )->data , &( left->maintained.in + i )->data ) != 0 ) return 0;
+				if ( MEMCMP( &( right->maintained.in + irin )->data , &( left->maintained.in + ilin )->data ) != 0 ) return 0;
 				break;
 			}
 		}
@@ -82,15 +82,15 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 	}
 
 	// TOCHECK later 14040528
-	for ( int i = 0 ; i < left->maintained.out_count ; i++ )
+	for ( int ilin = 0 ; ilin < left->maintained.out_count ; ilin++ )
 	{
 		int exist = 0;
-		for ( int j = 0 ; j < right->maintained.out_count ; j++ )
+		for ( int irin = 0 ; irin < right->maintained.out_count ; irin++ )
 		{
-			if ( STR_SAME( ( left->maintained.out + i )->name , ( right->maintained.out + j )->name ) )
+			if ( STR_SAME( ( left->maintained.out + ilin )->name , ( right->maintained.out + irin )->name ) )
 			{
 				exist = 1;
-				if ( MEMCMP( &( left->maintained.out + i )->data , &( right->maintained.out + j )->data ) != 0 ) return 0;
+				if ( MEMCMP( &( left->maintained.out + ilin )->data , &( right->maintained.out + irin )->data ) != 0 ) return 0;
 				break;
 			}
 		}
@@ -100,15 +100,15 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 		}
 	}
 
-	for ( int j = 0 ; j < right->maintained.out_count ; j++ )
+	for ( int irin = 0 ; irin < right->maintained.out_count ; irin++ )
 	{
 		int exist = 0;
-		for ( int i = 0 ; i < left->maintained.out_count ; i++ )
+		for ( int ilin = 0 ; ilin < left->maintained.out_count ; ilin++ )
 		{
-			if ( STR_SAME( ( right->maintained.out + i )->name , ( left->maintained.out + j )->name ) )
+			if ( STR_SAME( ( right->maintained.out + ilin )->name , ( left->maintained.out + irin )->name ) )
 			{
 				exist = 1;
-				if ( MEMCMP( &( right->maintained.out + j )->data , &( left->maintained.out + i )->data ) != 0 ) return 0;
+				if ( MEMCMP( &( right->maintained.out + irin )->data , &( left->maintained.out + ilin )->data ) != 0 ) return 0;
 				break;
 			}
 		}

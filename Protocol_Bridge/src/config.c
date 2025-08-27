@@ -202,28 +202,28 @@ _THREAD_FXN void_p config_loader( void_p src_g )
 					M_BREAK_IF( !( pProtocol_Bridges = MALLOC_AR( pProtocol_Bridges , el_Protocol_Bridges.value.as_object->count ) ) , errMemoryLow , 0 );
 					MEMSET_ZERO( pProtocol_Bridges , el_Protocol_Bridges.value.as_object->count );
 						
-					for ( int i = 0 ; i < el_Protocol_Bridges.value.as_object->count ; i++ ) // each bridge
+					for ( int ibrj = 0 ; ibrj < el_Protocol_Bridges.value.as_object->count ; ibrj++ ) // each bridge
 					{
-						((Bcfg0 *)(pProtocol_Bridges + i))->temp_data._g = ( void_p )_g; // each config must know global settings
-						const char * output_Protocol_Bridge_name = ( *( el_Protocol_Bridges.value.as_object->entries + i ) )->key;
+						((Bcfg0 *)(pProtocol_Bridges + ibrj))->temp_data._g = ( void_p )_g; // each config must know global settings
+						const char * output_Protocol_Bridge_name = ( *( el_Protocol_Bridges.value.as_object->entries + ibrj ) )->key;
 	
 						result( json_element ) re_each_bridge = json_object_find( el_Protocol_Bridges.value.as_object , output_Protocol_Bridge_name );
 						M_BREAK_IF( catch_error( &re_each_bridge , output_Protocol_Bridge_name , 1 ) , errGeneral , 0 );
 						typed( json_element ) el_each_bridge = result_unwrap( json_element )( &re_each_bridge );
 	
-						strcpy( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->id.bridge_name , output_Protocol_Bridge_name );
+						strcpy( ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->id.bridge_name , output_Protocol_Bridge_name );
 						
 						#define CFG_ELEM_STR( part , name )																	/**/\
 						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );		/**/\
 						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );									/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
-						strcpy(((Bcfg0 *)(pProtocol_Bridges + i))->part.name , el_##name.value.as_string );					/**/
+						strcpy(((Bcfg0 *)(pProtocol_Bridges + ibrj))->part.name , el_##name.value.as_string );					/**/
 	
 						#define CFG_ELEM_I( part , name )																		/**/\
 						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );			/**/\
 						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );										/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );							/**/\
-						((Bcfg0 *)(pProtocol_Bridges + i))->part.name = (int)el_##name.value.as_number.value.as_long;			/**/
+						((Bcfg0 *)(pProtocol_Bridges + ibrj))->part.name = (int)el_##name.value.as_number.value.as_long;			/**/
 	
 						CFG_ELEM_STR( id , out_type );
 						CFG_ELEM_STR( id , thread_handler_act );
@@ -234,15 +234,15 @@ _THREAD_FXN void_p config_loader( void_p src_g )
 						MM_BREAK_IF( catch_error( &re_inputs , "inputs" , 1 ) , errGeneral , 0 , "inputs" );
 						typed( json_element ) el_inputs = result_unwrap( json_element )( &re_inputs );
 												
-						((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in_count = el_inputs.value.as_object->count;
+						((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in_count = el_inputs.value.as_object->count;
 						
-						M_BREAK_IF( !( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in = MALLOC_AR( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in , ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in_count ) ) , errMemoryLow , 0 );
-						MEMSET_ZERO( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in , ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in_count );
-						for ( int j = 0 ; j < ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in_count ; j++ )
+						M_BREAK_IF( !( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in = MALLOC_AR( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in , ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in_count ) ) , errMemoryLow , 0 );
+						MEMSET_ZERO( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in , ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in_count );
+						for ( int iin = 0 ; iin < ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in_count ; iin++ )
 						{
-							const char * output_input_name = ( *( el_inputs.value.as_object->entries + j ) )->key;
+							const char * output_input_name = ( *( el_inputs.value.as_object->entries + iin ) )->key;
 
-							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in + j )->name , output_input_name );
+							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in + iin )->name , output_input_name );
 
 							result( json_element ) re_inp = json_object_find( el_inputs.value.as_object , output_input_name );
 							M_BREAK_IF( catch_error( &re_inp , output_input_name , 1 ) , errGeneral , 0 );
@@ -252,13 +252,13 @@ _THREAD_FXN void_p config_loader( void_p src_g )
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
 							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );											/**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
-							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in + j )->data.namee , el_##namee.value.as_string );					/**/
+							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in + iin )->data.namee , el_##namee.value.as_string );					/**/
 
 							#define IN_CFG_ELEM_I( elem , namee )																				/**/\
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
 							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );													/**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
-							( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.in + j )->data.namee = (int)el_##namee.value.as_number.value.as_long;					/**/
+							( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in + iin )->data.namee = (int)el_##namee.value.as_number.value.as_long;					/**/
 
 							IN_CFG_ELEM_STR( el_inp , group );
 							IN_CFG_ELEM_STR( el_inp , group_type );
@@ -279,15 +279,15 @@ _THREAD_FXN void_p config_loader( void_p src_g )
 						{
 							typed( json_element ) el_outputs = result_unwrap( json_element )( &re_outputs );
 
-							( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count = el_outputs.value.as_object->count;
+							( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out_count = el_outputs.value.as_object->count;
 
-							M_BREAK_IF( !( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out = MALLOC_AR( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count ) ) , errMemoryLow , 0 );
-							MEMSET_ZERO( ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count );
-							for ( int j = 0 ; j < ( ( Bcfg0 * )( pProtocol_Bridges + i ) )->maintained.out_count ; j++ )
+							M_BREAK_IF( !( ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out = MALLOC_AR( ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out_count ) ) , errMemoryLow , 0 );
+							MEMSET_ZERO( ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out_count );
+							for ( int iout = 0 ; iout < ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out_count ; iout++ )
 							{
-								const char * output_outputs_name = ( *( el_outputs.value.as_object->entries + j ) )->key;
+								const char * output_outputs_name = ( *( el_outputs.value.as_object->entries + iout ) )->key;
 
-								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.out + j )->name , output_outputs_name );
+								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj ))->maintained.out + iout )->name , output_outputs_name );
 
 								result( json_element ) re_out = json_object_find( el_outputs.value.as_object , output_outputs_name );
 								M_BREAK_IF( catch_error( &re_out , output_outputs_name , 1 ) , errGeneral , 0 );
@@ -297,13 +297,13 @@ _THREAD_FXN void_p config_loader( void_p src_g )
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
 								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );											/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
-								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.out + j )->data.namee , el_##namee.value.as_string );		/**/
+								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj ))->maintained.out + iout )->data.namee , el_##namee.value.as_string );		/**/
 
 								#define IN_CFG_ELEM_I( elem , namee )																				/**/\
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
 								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );													/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
-								( ((Bcfg0 *)(pProtocol_Bridges + i))->maintained.out + j )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
+								( ((Bcfg0 *)(pProtocol_Bridges + ibrj ))->maintained.out + iout )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
 
 								IN_CFG_ELEM_STR( el_out , group );
 								IN_CFG_ELEM_STR( el_out , group_type );
@@ -416,26 +416,26 @@ _THREAD_FXN void_p config_loader( void_p src_g )
 			{
 				// all new ones
 				_g->appcfg.psv_cfg_changed = 1; // ham koli set mishavad change rokh dad
-				for ( int i = 0 ; i < _g->appcfg.bdj_psv_cfg_count ; i++ )
+				for ( int icfg = 0 ; icfg < _g->appcfg.bdj_psv_cfg_count ; icfg++ )
 				{
-					_g->appcfg.bdj_psv_cfg[ i ].m.m.temp_data.pcfg_changed = 1; // ham joz e set mishavad
+					_g->appcfg.bdj_psv_cfg[ icfg ].m.m.temp_data.pcfg_changed = 1; // ham joz e set mishavad
 				}
 			}
 			else if ( _g->appcfg.old_bdj_psv_cfg && _g->appcfg.bdj_psv_cfg ) // prev !null & curr !null
 			{
 				// from old perspective
-				for ( int i = 0 ; i < _g->appcfg.old_bdj_psv_cfg_count ; i++ )
+				for ( int ioldcfg = 0 ; ioldcfg < _g->appcfg.old_bdj_psv_cfg_count ; ioldcfg++ )
 				{
 					int prev_exist = 0;
-					for ( int j = 0 ; j < _g->appcfg.bdj_psv_cfg_count ; j++ )
+					for ( int icfg = 0 ; icfg < _g->appcfg.bdj_psv_cfg_count ; icfg++ )
 					{
-						if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] ) )
+						if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ ioldcfg ] , &_g->appcfg.bdj_psv_cfg[ icfg ] ) )
 						{
 							prev_exist = 1;
-							if ( !bridge_cfg_data_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] ) )
+							if ( !bridge_cfg_data_equlity( &_g->appcfg.old_bdj_psv_cfg[ ioldcfg ] , &_g->appcfg.bdj_psv_cfg[ icfg ] ) )
 							{
 								_g->appcfg.psv_cfg_changed = 1;
-								_g->appcfg.bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed = 1;
+								_g->appcfg.bdj_psv_cfg[ icfg ].m.m.temp_data.pcfg_changed = 1;
 							}
 							break;
 						}
@@ -443,23 +443,23 @@ _THREAD_FXN void_p config_loader( void_p src_g )
 					if ( !prev_exist )
 					{
 						_g->appcfg.psv_cfg_changed = 1;
-						_g->appcfg.old_bdj_psv_cfg[ i ].m.m.temp_data.pcfg_changed = 1;
+						_g->appcfg.old_bdj_psv_cfg[ ioldcfg ].m.m.temp_data.pcfg_changed = 1;
 						break;
 					}
 				}
 				// from new perspective
-				for ( int j = 0 ; j < _g->appcfg.bdj_psv_cfg_count ; j++ )
+				for ( int icfg = 0 ; icfg < _g->appcfg.bdj_psv_cfg_count ; icfg++ )
 				{
 					int new_exist = 0;
-					for ( int i = 0 ; i < _g->appcfg.old_bdj_psv_cfg_count ; i++ )
+					for ( int ioldcfg = 0 ; ioldcfg < _g->appcfg.old_bdj_psv_cfg_count ; ioldcfg++ )
 					{
-						if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] ) )
+						if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ ioldcfg ] , &_g->appcfg.bdj_psv_cfg[ icfg ] ) )
 						{
 							new_exist = 1;
-							if ( !bridge_cfg_data_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] ) )
+							if ( !bridge_cfg_data_equlity( &_g->appcfg.old_bdj_psv_cfg[ ioldcfg ] , &_g->appcfg.bdj_psv_cfg[ icfg ] ) )
 							{
 								_g->appcfg.psv_cfg_changed = 1;
-								_g->appcfg.bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed = 1;
+								_g->appcfg.bdj_psv_cfg[ icfg ].m.m.temp_data.pcfg_changed = 1;
 							}
 							break;
 						}
@@ -467,7 +467,7 @@ _THREAD_FXN void_p config_loader( void_p src_g )
 					if ( !new_exist )
 					{
 						_g->appcfg.psv_cfg_changed = 1;
-						_g->appcfg.bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed = 1;
+						_g->appcfg.bdj_psv_cfg[ icfg ].m.m.temp_data.pcfg_changed = 1;
 						break;
 					}
 				}
@@ -516,10 +516,10 @@ _THREAD_FXN void_p config_executer( void_p app_data )
 	{
 		if ( CLOSE_APP_VAR() )
 		{
-			for ( int j = 0 ; j < _g->appcfg.bdj_psv_cfg_count ; j++ )
+			for ( int icfg = 0 ; icfg < _g->appcfg.bdj_psv_cfg_count ; icfg++ )
 			{
-				_g->appcfg.bdj_psv_cfg[ j ].m.m.maintained.enable = 0;
-				apply_protocol_bridge_new_cfg_changes( _g , &_g->appcfg.bdj_psv_cfg[ j ] , &_g->appcfg.bdj_psv_cfg[ j ] );
+				_g->appcfg.bdj_psv_cfg[ icfg ].m.m.maintained.enable = 0;
+				apply_protocol_bridge_new_cfg_changes( _g , &_g->appcfg.bdj_psv_cfg[ icfg ] , &_g->appcfg.bdj_psv_cfg[ icfg ] );
 			}
 			break;
 		}
@@ -530,31 +530,31 @@ _THREAD_FXN void_p config_executer( void_p app_data )
 
 		if ( _g->appcfg.psv_cfg_changed )
 		{
-			for ( int i = 0 ; i < _g->appcfg.old_bdj_psv_cfg_count ; i++ )
+			for ( int ioldcfg = 0 ; ioldcfg < _g->appcfg.old_bdj_psv_cfg_count ; ioldcfg++ )
 			{
 				int exist = 0;
-				for ( int j = 0 ; j < _g->appcfg.bdj_psv_cfg_count ; j++ )
+				for ( int icfg = 0 ; icfg < _g->appcfg.bdj_psv_cfg_count ; icfg++ )
 				{
 					if ( exist ) break;
-					if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] ) && _g->appcfg.bdj_psv_cfg[ j ].m.m.temp_data.pcfg_changed )
+					if ( Bcfg_id_equlity( &_g->appcfg.old_bdj_psv_cfg[ ioldcfg ] , &_g->appcfg.bdj_psv_cfg[ icfg ] ) && _g->appcfg.bdj_psv_cfg[ icfg ].m.m.temp_data.pcfg_changed )
 					{
 						// existed cfg changed
-						apply_protocol_bridge_new_cfg_changes( _g , &_g->appcfg.old_bdj_psv_cfg[ i ] , &_g->appcfg.bdj_psv_cfg[ j ] );
+						apply_protocol_bridge_new_cfg_changes( _g , &_g->appcfg.old_bdj_psv_cfg[ ioldcfg ] , &_g->appcfg.bdj_psv_cfg[ icfg ] );
 						exist = 1;
 					}
 				}
 				if ( !exist )
 				{
 					// remove removed one
-					remove_protocol_bridge( _g , &_g->appcfg.old_bdj_psv_cfg[ i ] );
+					remove_protocol_bridge( _g , &_g->appcfg.old_bdj_psv_cfg[ ioldcfg ] );
 				}
 			}
-			for ( int i = 0 ; i < _g->appcfg.bdj_psv_cfg_count ; i++ )
+			for ( int icfg = 0 ; icfg < _g->appcfg.bdj_psv_cfg_count ; icfg++ )
 			{
 				int exist = 0;
-				for ( int j = 0 ; j < _g->appcfg.old_bdj_psv_cfg_count ; j++ )
+				for ( int ioldcfg = 0 ; ioldcfg < _g->appcfg.old_bdj_psv_cfg_count ; ioldcfg++ )
 				{
-					if ( Bcfg_id_equlity( &_g->appcfg.bdj_psv_cfg[ i ] , &_g->appcfg.old_bdj_psv_cfg[ j ] ) )
+					if ( Bcfg_id_equlity( &_g->appcfg.bdj_psv_cfg[ icfg ] , &_g->appcfg.old_bdj_psv_cfg[ ioldcfg ] ) )
 					{
 						exist = 1;
 						break;
@@ -563,7 +563,7 @@ _THREAD_FXN void_p config_executer( void_p app_data )
 				if ( !exist )
 				{
 					// start new cfg
-					add_new_protocol_bridge( _g , &_g->appcfg.bdj_psv_cfg[ i ] );
+					add_new_protocol_bridge( _g , &_g->appcfg.bdj_psv_cfg[ icfg ] );
 				}
 			}
 			_g->appcfg.psv_cfg_changed = 0; // changes applied
@@ -587,13 +587,13 @@ void apply_protocol_bridge_new_cfg_changes( G * _g , Bcfg * prev_pcfg , Bcfg * n
 {
 	//INIT_BREAKABLE_FXN();
 
-	for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+	for ( int imsk = 0 ; imsk < _g->bridges.ABhs_masks_count ; imsk++ )
 	{
-		if ( _g->bridges.ABhs_masks[ i ] )
+		if ( _g->bridges.ABhs_masks[ imsk ] )
 		{
-			if ( Bcfg_id_equlity( &_g->bridges.ABs[ i ].single_AB->cpy_cfg , prev_pcfg ) )
+			if ( Bcfg_id_equlity( &_g->bridges.ABs[ imsk ].single_AB->cpy_cfg , prev_pcfg ) )
 			{
-				apply_new_protocol_bridge_config( _g , _g->bridges.ABs[ i ].single_AB , new_ccfg );
+				apply_new_protocol_bridge_config( _g , _g->bridges.ABs[ imsk ].single_AB , new_ccfg );
 			}
 		}
 	}
@@ -603,15 +603,15 @@ void remove_protocol_bridge( G * _g , Bcfg * pcfg )
 {
 	////INIT_BREAKABLE_FXN();
 
-	for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+	for ( int imsk = 0 ; imsk < _g->bridges.ABhs_masks_count ; imsk++ )
 	{
-		if ( _g->bridges.ABhs_masks[ i ] )
+		if ( _g->bridges.ABhs_masks[ imsk ] )
 		{
-			if ( Bcfg_id_equlity( &_g->bridges.ABs[ i ].single_AB->cpy_cfg , pcfg ) )
+			if ( Bcfg_id_equlity( &_g->bridges.ABs[ imsk ].single_AB->cpy_cfg , pcfg ) )
 			{
-				stop_protocol_bridge( _g , _g->bridges.ABs[ i ].single_AB );
-				_g->bridges.ABhs_masks[ i ] = 0;
-				DAC( _g->bridges.ABs[ i ].single_AB );
+				stop_protocol_bridge( _g , _g->bridges.ABs[ imsk ].single_AB );
+				_g->bridges.ABhs_masks[ imsk ] = 0;
+				DAC( _g->bridges.ABs[ imsk ].single_AB );
 			}
 		}
 	}
@@ -624,11 +624,11 @@ void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg )
 	int new_ccfg_placement_index = -1;
 	while ( new_ccfg_placement_index < 0 ) // try to find one place for new wave
 	{
-		for ( int i = 0 ; i < _g->bridges.ABhs_masks_count ; i++ )
+		for ( int imsk = 0 ; imsk < _g->bridges.ABhs_masks_count ; imsk++ )
 		{
-			if ( !_g->bridges.ABhs_masks[ i ] )
+			if ( !_g->bridges.ABhs_masks[ imsk ] )
 			{
-				new_ccfg_placement_index = i;
+				new_ccfg_placement_index = imsk;
 				break;
 			}
 		}
