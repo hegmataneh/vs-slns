@@ -67,7 +67,9 @@ _THREAD_FXN void_p one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_pcap_udp
 
 status send_tcp_packet( void_p data , buffer buf , int sz )
 {
-	return errOK;
+	AB_tcp * tcp = ( AB_tcp * )data;
+	size_t sz_t = sz;
+	return sendall( tcp->tcp_sockfd , buf , &sz_t );
 }
 
 void init_many_tcp( AB * pb )
@@ -100,20 +102,21 @@ void init_many_tcp( AB * pb )
 		dict_free( &dc_enum_grp_type );
 	}
 
+	// make map of tcp grp name to index
 	dict_s_i_t map_grp_idx;
 	dict_s_i_init( &map_grp_idx );
 	int igrpcounter = 0;
-
 	for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 	{
 	//	dict_o_put( &dc_tcps , pb->tcps[ itcp ].__tcp_cfg_pak->name , pb->tcps[ itcp ].__tcp_cfg_pak );
 		dict_s_i_put( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , igrpcounter++ , 0 );
 	}
 
+	// to check weather first time grp take member. so we can init grp ring
 	dict_s_i_t init_grp;
 	dict_s_i_init( &init_grp );
 
-	// init pop distributor
+	// init pop distributor . each output distributor register here so they get arrived data
 	distributor_init( H.buf_pop_distr , ( int )dict_s_i_count( &map_grp_idx ) );
 
 	//// اینجا در گروه ها می چرخد و هر مورد را به ساب اضافه می کند یعنی دریافت کننده یک دیتا
@@ -129,9 +132,9 @@ void init_many_tcp( AB * pb )
 		}
 		else if ( iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_RoundRobin ) )
 		{
-			int igrp = -1;
+			int igrp = -1; // use map to add ring to right grp
 			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );
-			int exist = 1;
+			int exist = 1; // try to peek then if not insert grp to dic
 			dict_s_i_try_put( &init_grp , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , igrp , &exist );
 
 			if ( !exist )
@@ -142,11 +145,13 @@ void init_many_tcp( AB * pb )
 				token_ring_p_init( tring );
 
 				dict_o_put( H.dc_token_ring , igrp , tring ); // TODO . each values from dic should freed
+				// TODO . release this ring finally
 			}
 
-			void_p pring = dict_o_get( H.dc_token_ring , igrp );
+			void_p pring = dict_o_get( H.dc_token_ring , igrp ); // get grp ring
 			ASSERT( pring );
 
+			// add callback receiver of each tcp grp
 			distributor_subscribe_with_token( H.buf_pop_distr ,
 				igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_INT , SUB_FXN( send_tcp_packet ) , pb->tcps + itcp , pring );
 		}
@@ -251,7 +256,9 @@ _THREAD_FXN void_p one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate_many_tcp
 		{
 			// TODO . if connection lost i should do something here. but i dont know what should i do for now
 
-			distributor_publish_buffer_int( H.buf_pop_distr , buffer , sz );
+			// TODO . result must be seperated from each other to make right statistic
+
+			if ( distributor_publish_buffer_int( H.buf_pop_distr , buffer , sz ) != errOK ) continue;
 
 			//if ( sendall( pb->tcps->tcp_sockfd , buffer , &sz ) != errOK )
 			//{

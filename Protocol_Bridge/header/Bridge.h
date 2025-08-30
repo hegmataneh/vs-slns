@@ -82,7 +82,7 @@ struct ActiveBridge;
 
 typedef struct AB_udp_connection
 {
-	int udp_sockfd;
+	sockfd udp_sockfd;
 	int udp_connection_established; // udp socket established
 	int retry_to_connect_udp;
 	udp_cfg_pak * __udp_cfg_pak; // link to passive cfg
@@ -95,7 +95,7 @@ typedef struct AB_udp_connection
 
 typedef struct AB_tcp_connection
 {
-	int tcp_sockfd;
+	sockfd tcp_sockfd;
 	int tcp_connection_established; // tcp connection established
 	int retry_to_connect_tcp;
 	tcp_cfg_pak * __tcp_cfg_pak; // link to passive cfg

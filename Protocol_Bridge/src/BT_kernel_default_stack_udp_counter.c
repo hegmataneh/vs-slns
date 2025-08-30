@@ -60,7 +60,7 @@ _THREAD_FXN void_p kernel_default_stack_udp_counter_thread_proc( void_p src_pb )
 
 		ssize_t sz;
 
-		int sockfd_max = -1; // for select compulsion
+		sockfd sockfd_max = -1; // for select compulsion
 		for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 		{
 			if ( pb->udps[ iudp ].udp_connection_established )
