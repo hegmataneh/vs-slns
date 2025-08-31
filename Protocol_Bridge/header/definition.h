@@ -53,6 +53,7 @@
 
 #define STR_RoundRobin "RR"
 #define STR_Replicate "Replicate"
+#define STR_ONE_OUT "one_out"
 
 
 #define DIST_ERR() DO_WHILE( distributor_publish_str( &_g->distribute.pb_err_dist , __FUNCTION__ , ( pass_p )pb ) ) /*distribute error*/

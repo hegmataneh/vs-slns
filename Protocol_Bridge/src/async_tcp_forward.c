@@ -80,7 +80,11 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 	//// در راند رابین یک رینگ محافظت می کند که فقط اونی دیتا رو بگیره که توکن را داره
 	for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 	{
-		if ( iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_Replicate ) )
+		if
+		(
+			iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_Replicate ) ||
+			iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_ONE_OUT )
+		)
 		{
 			int igrp = -1;
 			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );

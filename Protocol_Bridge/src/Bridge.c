@@ -195,15 +195,12 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 	//	if ( !pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize )
 	//	{
 	//		init_ActiveBridge( _g , pb );
-
 	//		M_BREAK_IF( !( pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize = MALLOC_ONE( pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize ) ) , errMemoryLow , 1 );
 	//		MEMSET_ZERO_O( pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize );
 	//		//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 	//		//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
-
 	//		// TODO . buff size came from config
 	//		M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->cbuf , 100000 , /*1470 -> + hdr = 1512*/1512 ) , 1 );
-
 	//		//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
 	//		if ( !pb->trd.base.thread_is_created )
 	//		{
@@ -214,7 +211,6 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 	//			pb->trd.base.thread_is_created = 1;
 	//		}
 	//		//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
-
 	//		pthread_t trd_tcp_connection;
 	//		MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 	//	}
