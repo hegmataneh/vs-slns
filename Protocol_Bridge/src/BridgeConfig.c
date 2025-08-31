@@ -1,9 +1,7 @@
 #define Uses_memcpy
 #define Uses_malloc
 #define Uses_BridgeConfig
-
 #define Uses_INIT_BREAKABLE_FXN
-//#define DIRECT_ECHO_BUF _g->stat.last_command // just before include dep
 #include <Protocol_Bridge.dep>
 
 void copy_bridge_cfg( Bcfg * dst , Bcfg * src )

@@ -87,11 +87,12 @@
   <ItemGroup>
     <ClCompile Include="src\Bridge.c" />
     <ClCompile Include="src\BridgeConfig.c" />
-    <ClCompile Include="src\BT_async_pcap_udp_store.c" />
-    <ClCompile Include="src\BT_kernel_default_stack_udp_counter.c" />
-    <ClCompile Include="src\BT_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate.c" />
-    <ClCompile Include="src\BT_one2one_pcap2kernelDefaultStack_SF.c" />
-    <ClCompile Include="src\BT_pcap_udp_counter.c" />
+    <ClCompile Include="src\async_pcap_udp_store.c" />
+    <ClCompile Include="src\async_tcp_forward.c" />
+    <ClCompile Include="src\_2_NetStack_udp_counter.c" />
+    <ClCompile Include="src\_4_one2many_pcap2NetStack_SF.c" />
+    <ClCompile Include="src\_3_one2one_pcap2NetStack_SF.c" />
+    <ClCompile Include="src\_1_pcap_udp_counter.c" />
     <ClCompile Include="src\config.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </ExcludedFromBuild>
@@ -108,11 +109,13 @@
   <ItemGroup>
     <ClInclude Include="header\Bridge.h" />
     <ClInclude Include="header\BridgeConfig.h" />
-    <ClInclude Include="header\BT_async_pcap_udp_store.h" />
-    <ClInclude Include="header\BT_kernel_default_stack_udp_counter.h" />
-    <ClInclude Include="header\BT_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate.h" />
-    <ClInclude Include="header\BT_one2one_pcap2kernelDefaultStack_SF.h" />
-    <ClInclude Include="header\BT_pcap_udp_counter.h" />
+    <ClInclude Include="header\async_pcap_udp_store.h" />
+    <ClInclude Include="header\async_tcp_forward.h" />
+    <ClInclude Include="header\garage.h" />
+    <ClInclude Include="header\_2_NetStack_udp_counter.h" />
+    <ClInclude Include="header\_4_one2many_pcap2NetStack_SF.h" />
+    <ClInclude Include="header\_3_one2one_pcap2NetStack_SF.h" />
+    <ClInclude Include="header\_1_pcap_udp_counter.h" />
     <ClInclude Include="header\config.h" />
     <ClInclude Include="header\definition.h" />
     <ClInclude Include="header\helper.h" />

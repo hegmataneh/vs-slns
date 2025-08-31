@@ -29,6 +29,7 @@
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
+#include <linux/filter.h>
 
 
 //static volatile sig_atomic_t packet_count = 0;
@@ -114,13 +115,43 @@ int set_cpu_affinity( int cpu )
 	return sched_setaffinity( 0 , sizeof( cpus ) , &cpus );
 }
 
+struct port_item
+{
+	int port;
+};
+
+void make_udp_filter( const struct port_item * ports , int count , char * buf , size_t buflen )
+{
+	int i , n = 0;
+
+	// Start with "udp and ("
+	n += snprintf( buf + n , buflen - n , "udp and (" );
+
+	for ( i = 0; i < count; i++ )
+	{
+		if ( i > 0 )
+		{
+			n += snprintf( buf + n , buflen - n , " or " );
+		}
+		n += snprintf( buf + n , buflen - n , "port %d" , ports[ i ].port );
+	}
+
+	// close parenthesis
+	n += snprintf( buf + n , buflen - n , ")" );
+}
+
 int main( int argc , char * argv[] )
 {
 	char * dev = NULL;
 	char errbuf[ PCAP_ERRBUF_SIZE ];
 	struct bpf_program fp;
-	char filter_exp[] = "udp and port 1234";
+	//char filter_exp[] = "and (port in (1234,1235))";
 	bpf_u_int32 net = 0 , mask = 0;
+
+	struct port_item ports[] = { {1234}, {1235} };
+	char filter[ 256 ];
+
+	make_udp_filter( ports , 2 , filter , sizeof( filter ) );
 
 	if ( set_cpu_affinity( 0 ) != 0 )
 	{
@@ -172,10 +203,33 @@ int main( int argc , char * argv[] )
 		perror( "setsockopt(SO_BUSY_POLL) failed" );
 	}
 
+	//struct sock_filter filter[] = {
+	//		{ 0x28, 0, 0, 0x0000000c },  // ldh [12]   (ether proto)
+	//		{ 0x15, 0, 7, 0x00000800 },  // jeq #2048 jt 2 jf 9  (IP)
+	//		{ 0x30, 0, 0, 0x00000017 },  // ldb [23]   (IP proto)
+	//		{ 0x15, 0, 5, 0x00000011 },  // jeq #17 jt 4 jf 9   (UDP)
+	//		{ 0x28, 0, 0, 0x00000014 },  // ldh [20]   (IP len)
+	//		{ 0x45, 3, 0, 0x00001fff },  // jset #8191 jt 9 jf 7 (no frag)
+	//		{ 0xb1, 0, 0, 0x0000000e },  // ldx 4*([14]&0xf) (IP hdr len)
+	//		{ 0x48, 0, 0, 0x00000012 },  // ldh [x + 18] (UDP dest port, adjust offset if var hdr)
+	//		{ 0x15, 0, 0, 0x000004d2 },  // jeq #1234 jt 9 jf 9
+	//		{ 0x06, 0, 0, 0x00040000 },  // ret #262144 (accept)
+	//		{ 0x06, 0, 0, 0x00000000 },  // ret #0 (drop)
+	//};
+	//struct sock_fprog prog = { .len = sizeof( filter ) / sizeof( filter[ 0 ] ), .filter = filter };
+	//setsockopt( fd , SOL_SOCKET , SO_ATTACH_FILTER , &prog , sizeof( prog ) );
+
+	//int val = 50; // microseconds to spin per syscall
+	//if ( setsockopt( fd , SOL_SOCKET , SO_BUSY_POLL , &val , sizeof( val ) ) < 0 )
+	//{
+	//	fprintf( stderr , "Couldn't open device %s: %s\n" , dev , errbuf );
+	//	return 1;
+	//}
+
 	//pcap_set_snaplen( handle , 1520 );
 
-	int cpu = 0;
-	setsockopt( fd , SOL_SOCKET , SO_INCOMING_CPU , &cpu , sizeof( cpu ) );
+	//int cpu = 0;
+	//setsockopt( fd , SOL_SOCKET , SO_INCOMING_CPU , &cpu , sizeof( cpu ) );
 
 
 	int rcvbuf = 64 * 1024 * 1024; // 64 MB
@@ -194,15 +248,15 @@ int main( int argc , char * argv[] )
 	//}
 
 	// Compile and apply filter
-	if ( pcap_compile( handle , &fp , filter_exp , 1 , mask ) == -1 )
+	if ( pcap_compile( handle , &fp , filter , 1 , mask ) == -1 )
 	{
-		fprintf( stderr , "Couldn't parse filter \"%s\": %s\n" , filter_exp , pcap_geterr( handle ) );
+		fprintf( stderr , "Couldn't parse filter \"%s\": %s\n" , filter , pcap_geterr( handle ) );
 		pcap_close( handle );
 		return 1;
 	}
 	if ( pcap_setfilter( handle , &fp ) == -1 )
 	{
-		fprintf( stderr , "Couldn't install filter \"%s\": %s\n" , filter_exp , pcap_geterr( handle ) );
+		fprintf( stderr , "Couldn't install filter \"%s\": %s\n" , filter , pcap_geterr( handle ) );
 		pcap_freecode( &fp );
 		pcap_close( handle );
 		return 1;

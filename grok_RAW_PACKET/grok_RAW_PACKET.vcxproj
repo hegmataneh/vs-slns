@@ -35,9 +35,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{8793fda4-f3cd-443d-87c7-48a83b109817}</ProjectGuid>
+    <ProjectGuid>{68f3ea4d-d07d-4668-af06-fec6381d3a58}</ProjectGuid>
     <Keyword>Linux</Keyword>
-    <RootNamespace>tst_udp_get_libpcap</RootNamespace>
+    <RootNamespace>grok_RAW_PACKET</RootNamespace>
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
     <ApplicationType>Linux</ApplicationType>
     <ApplicationTypeRevision>1.0</ApplicationTypeRevision>
@@ -75,19 +75,11 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
-    <ClCompile Include="main.c" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
   </ItemGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Link>
-      <LibraryDependencies>pcap</LibraryDependencies>
-    </Link>
-  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <Link>
-      <LibraryDependencies>pcap</LibraryDependencies>
-    </Link>
     <ClCompile>
       <AdditionalOptions>-O3 -march=native %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>

@@ -1,5 +1,7 @@
 #pragma once
 
+#ifndef AB_base_stat
+
 struct udp_stat_1_sec
 {
 	time_t t_udp_throughput;
@@ -36,12 +38,6 @@ struct tcp_stat
 	__int64u total_tcp_put_byte;
 };
 
-struct statistics_lock_data
-{
-	pthread_mutex_t lock;
-};
-
-
 struct BenchmarkRound_initable_memory // must be init with own function
 {
 	cbuf_metr udp_stat_5_sec_count , udp_stat_5_sec_bytes;
@@ -72,6 +68,29 @@ struct BenchmarkRound_zero_init_memory // can be memset to zero all byte
 
 	struct udp_stat udp;
 	struct tcp_stat tcp;
+
+	int udp_connection_count;
+	int tcp_connection_count;
+	int total_retry_udp_connection_count;
+	int total_retry_tcp_connection_count;
+
+	int udp_get_data_alive_indicator;
+	int tcp_send_data_alive_indicator;
+};
+
+typedef struct s_bridge_stat
+{
+	struct BenchmarkRound_zero_init_memory  round_zero_set;
+	struct BenchmarkRound_initable_memory  round_init_set;
+} ABstat;
+
+#endif
+
+#ifndef main_section
+
+struct statistics_lock_data
+{
+	pthread_mutex_t lock;
 };
 
 typedef struct statistics
@@ -89,23 +108,11 @@ typedef struct statistics
 	int alive_check_counter;
 	struct statistics_lock_data lock_data;
 
-	int udp_connection_count;
-	int tcp_connection_count;
-	int total_retry_udp_connection_count;
-	int total_retry_tcp_connection_count;
-
-	int udp_get_data_alive_indicator;
-	int tcp_send_data_alive_indicator;
-
-	distributor_t thresholds;
-	double max_udp_packet_delay;
-	double max_tcp_packet_delay;
-
-	struct BenchmarkRound_zero_init_memory  round_zero_set;
-	struct BenchmarkRound_initable_memory  round_init_set;
 } St;
 
 void reset_nonuse_stat();
 void print_cell( WINDOW * win , int y , int x , int width , LPCSTR text );
-_THREAD_FXN void_p stats_thread( void_p pdata );
-_CALLBACK_FXN void accept_thresholds( void_p data , int i , double d );
+_THREAD_FXN void_p stats_thread( pass_p pdata );
+
+
+#endif

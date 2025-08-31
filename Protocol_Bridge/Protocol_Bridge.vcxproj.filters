@@ -19,19 +19,22 @@
     <ClCompile Include="src\statistics.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\BT_pcap_udp_counter.c">
+    <ClCompile Include="src\_1_pcap_udp_counter.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\BT_kernel_default_stack_udp_counter.c">
+    <ClCompile Include="src\_2_NetStack_udp_counter.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\BT_one2one_pcap2kernelDefaultStack_SF.c">
+    <ClCompile Include="src\_3_one2one_pcap2NetStack_SF.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\BT_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate.c">
+    <ClCompile Include="src\async_pcap_udp_store.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\BT_async_pcap_udp_store.c">
+    <ClCompile Include="src\async_tcp_forward.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\_4_one2many_pcap2NetStack_SF.c">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
@@ -79,19 +82,25 @@
     <ClInclude Include="header\helper.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\BT_pcap_udp_counter.h">
+    <ClInclude Include="header\_1_pcap_udp_counter.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\BT_kernel_default_stack_udp_counter.h">
+    <ClInclude Include="header\_2_NetStack_udp_counter.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\BT_one2one_pcap2kernelDefaultStack_SF.h">
+    <ClInclude Include="header\_3_one2one_pcap2NetStack_SF.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\BT_one2many_pcap2kernelDefaultStack_SF_Mix_RR_Replicate.h">
+    <ClInclude Include="header\async_pcap_udp_store.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\BT_async_pcap_udp_store.h">
+    <ClInclude Include="header\async_tcp_forward.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\_4_one2many_pcap2NetStack_SF.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\garage.h">
       <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>

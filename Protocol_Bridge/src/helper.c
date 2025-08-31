@@ -1,4 +1,4 @@
-#define Uses_accept_thresholds
+#define Uses_signal
 #define Uses_thrd_sleep
 #define Uses_errno
 #define Uses_AB_tcp
@@ -10,26 +10,24 @@
 #define Uses_pthread_t
 #define Uses_helper
 #define Uses_statistics
-
-//#define DIRECT_ECHO_BUF _g->stat.last_command // just before include dep
 #include <Protocol_Bridge.dep>
 
-extern G * __g;
+extern G * _g;
 
-_THREAD_FXN void_p stdout_bypass_thread( void_p pdata )
+_THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
 {
 	static TWD twd = { 0 };
 	if ( twd.threadId == 0 )
 	{
 		twd.threadId = pthread_self();
 		twd.cal = stdout_bypass_thread; // self function address
-		twd.callback_arg = pdata;
+		twd.callback_arg = src_g;
 	}
-	if ( pdata == NULL )
+	if ( src_g == NULL )
 	{
 		return ( void_p )&twd;
 	}
-	G * _g = ( G * )pdata;
+	G * _g = ( G * )src_g;
 
 	fd_set readfds;
 	char buffer[ BUF_SIZE ];
@@ -66,12 +64,57 @@ void init_bypass_stdout( G * _g )
 	dup2( _g->stat.pipefds[ 1 ] , fileno( stderr ) );
 
 	pthread_t tid_stdout_bypass;
-	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( void_p )_g );
+	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( pass_p )_g );
 }
 
 _STRONG_ATTR void M_showMsg( LPCSTR msg )
 {
-	if ( __g ) strcpy( __g->stat.last_command , msg );
+	if ( _g ) strcpy( _g->stat.last_command , msg );
+}
+
+_CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg )
+{
+	AB * pb = ( AB * )src_pb;
+	G * _g = pb->cpy_cfg.m.m.temp_data._g;
+	pb->stat.round_zero_set.syscal_err_count++;
+	distributor_publish_str( &_g->distribute.ground_err_dist , msg , ( pass_p )_g );
+}
+
+_CALLBACK_FXN void ground_err_dist( pass_p src_g , LPCSTR msg )
+{
+	//G * _g = ( G * )src_g;
+	// TODO
+}
+
+_CALLBACK_FXN void udp_connected( pass_p src_pb , int v )
+{
+	AB * pb = ( AB * )src_pb;
+	pb->stat.round_zero_set.udp_connection_count++;
+	pb->stat.round_zero_set.total_retry_udp_connection_count++;
+}
+
+_CALLBACK_FXN void udp_disconnected( pass_p src_pb , int v )
+{
+	AB * pb = ( AB * )src_pb;
+	pb->stat.round_zero_set.udp_connection_count--;
+}
+_CALLBACK_FXN void tcp_connected( pass_p src_pb , int v )
+{
+	AB * pb = ( AB * )src_pb;
+	pb->stat.round_zero_set.tcp_connection_count++;
+	pb->stat.round_zero_set.total_retry_tcp_connection_count++;
+}
+_CALLBACK_FXN void tcp_disconnected( pass_p src_pb , int v )
+{
+	AB * pb = ( AB * )src_pb;
+	pb->stat.round_zero_set.tcp_connection_count--;
+}
+
+void quit_interrupt( int sig )
+{
+	if ( sig ) ( void )sig;
+	distributor_publish_int( &_g->distribute.quit_interrupt_dist , sig , NULL );
+	exit( 0 );
 }
 
 void init( G * _g )
@@ -95,34 +138,57 @@ void init( G * _g )
 	init_windows( _g );
 	init_bypass_stdout( _g );
 
+	//MEMSET_ZERO_O( &_g->handles );
+
 	////pthread_mutex_init( &_g->sync.mutex , NULL );
 	////pthread_cond_init( &_g->sync.cond , NULL );
 
-	cbuf_m_init( &_g->stat.round_init_set.udp_stat_5_sec_count , 5 );
-	cbuf_m_init( &_g->stat.round_init_set.udp_stat_10_sec_count , 10 );
-	cbuf_m_init( &_g->stat.round_init_set.udp_stat_40_sec_count , 40 );
-	cbuf_m_init( &_g->stat.round_init_set.udp_stat_120_sec_count , 120 );
+	distributor_init( &_g->distribute.pb_err_dist , 1 ); // error counter anywhere occured in app
+	distributor_init( &_g->distribute.ground_err_dist , 1 ); // error counter anywhere occured in app
+	distributor_subscribe( &_g->distribute.pb_err_dist , SUB_STRING , SUB_FXN( pb_err_dist ) , NULL );
+	distributor_subscribe( &_g->distribute.ground_err_dist , SUB_STRING , SUB_FXN( ground_err_dist ) , ( pass_p )_g );
 
-	cbuf_m_init( &_g->stat.round_init_set.udp_stat_5_sec_bytes , 5 );
-	cbuf_m_init( &_g->stat.round_init_set.udp_stat_10_sec_bytes , 10 );
-	cbuf_m_init( &_g->stat.round_init_set.udp_stat_40_sec_bytes , 40 );
-	cbuf_m_init( &_g->stat.round_init_set.udp_stat_120_sec_bytes , 120 );
 
-	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_5_sec_count , 5 );
-	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_10_sec_count , 10 );
-	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_40_sec_count , 40 );
-	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_count , 120 );
+	distributor_init( &_g->distribute.pb_udp_connected_dist , 1 );
+	distributor_init( &_g->distribute.pb_udp_disconnected_dist , 1 );
+	distributor_init( &_g->distribute.pb_tcp_connected_dist , 1 );
+	distributor_init( &_g->distribute.pb_tcp_disconnected_dist , 1 );
 
-	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_5_sec_bytes , 5 );
-	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_10_sec_bytes , 10 );
-	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_40_sec_bytes , 40 );
-	cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_bytes , 120 );
+	distributor_subscribe( &_g->distribute.pb_udp_connected_dist , SUB_INT , SUB_FXN( udp_connected ) , NULL );
+	distributor_subscribe( &_g->distribute.pb_udp_disconnected_dist , SUB_INT , SUB_FXN( udp_disconnected ) , NULL );
+	distributor_subscribe( &_g->distribute.pb_tcp_connected_dist , SUB_INT , SUB_FXN( tcp_connected ) , NULL );
+	distributor_subscribe( &_g->distribute.pb_tcp_disconnected_dist , SUB_INT , SUB_FXN( tcp_disconnected ) , NULL );
 
-	distributor_init( &_g->stat.thresholds , 5 );
-	distributor_subscribe( &_g->stat.thresholds , 0 , SUB_INT_DOUBLE , SUB_FXN( accept_thresholds ) , _g );
+	distributor_init( &_g->distribute.quit_interrupt_dist , 1 );
+
+	signal( SIGINT , quit_interrupt );
+	signal( SIGTERM , quit_interrupt );
+
+	
+
+	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_5_sec_count , 5 );
+	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_10_sec_count , 10 );
+	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_40_sec_count , 40 );
+	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_120_sec_count , 120 );
+
+	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_5_sec_bytes , 5 );
+	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_10_sec_bytes , 10 );
+	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_40_sec_bytes , 40 );
+	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_120_sec_bytes , 120 );
+
+	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_5_sec_count , 5 );
+	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_10_sec_count , 10 );
+	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_40_sec_count , 40 );
+	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_count , 120 );
+
+	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_5_sec_bytes , 5 );
+	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_10_sec_bytes , 10 );
+	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_40_sec_bytes , 40 );
+	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_bytes , 120 );
+
 }
 
-_THREAD_FXN void_p sync_thread( void_p pdata ) // pause app until moment other app exist
+_THREAD_FXN void_p sync_thread( pass_p src_g ) // pause app until moment other app exist
 {
 	//INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
@@ -130,14 +196,14 @@ _THREAD_FXN void_p sync_thread( void_p pdata ) // pause app until moment other a
 	{
 		twd.threadId = pthread_self();
 		twd.cal = sync_thread; // self function address
-		twd.callback_arg = pdata;
+		twd.callback_arg = src_g;
 	}
-	if ( pdata == NULL )
+	if ( src_g == NULL )
 	{
 		return ( void_p )&twd;
 	}
 
-	//G * _g = ( G * )pdata;
+	//G * _g = ( G * )src_g;
 	////if ( _g->sync.lock_in_progress ) return NULL;
 
 	//struct timespec now , next_round_time;
@@ -178,7 +244,7 @@ _THREAD_FXN void_p sync_thread( void_p pdata ) // pause app until moment other a
 	return NULL;
 }
 
-_THREAD_FXN void_p input_thread( void_p src_g )
+_THREAD_FXN void_p input_thread( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
@@ -257,20 +323,9 @@ _THREAD_FXN void_p input_thread( void_p src_g )
 /// this function stablish every udp that need to be stablished
 /// this callback call multitimes
 /// </summary>
-_THREAD_FXN void_p connect_udps_proc( void_p src_pb )
+_THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
-	////static TWD twd = { 0 };
-	////if ( twd.threadId == 0 )
-	////{
-	////	twd.threadId = pthread_self();
-	////	twd.cal = connect_udps_proc; // self function address
-	////	twd.callback_arg = src_pb;
-	////}
-	////if ( src_pb == NULL )
-	////{
-	////	return ( void_p )&twd;
-	////}
 
 	AB * pb = ( AB * )src_pb;
 	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
@@ -281,7 +336,8 @@ _THREAD_FXN void_p connect_udps_proc( void_p src_pb )
 		{
 			_close_socket( &pb->udps[ iudp ].udp_sockfd );
 			pb->udps[ iudp ].udp_connection_established = 0;
-			_g->stat.udp_connection_count--;
+			//_g->stat.udp_connection_count--;
+			// TODO
 		}
 
 		MM_BREAK_IF( ( pb->udps[ iudp ].udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
@@ -315,100 +371,21 @@ _THREAD_FXN void_p connect_udps_proc( void_p src_pb )
 		MM_BREAK_IF( bind( pb->udps[ iudp ].udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errGeneral , 1 , "bind sock error" );
 		pb->udps[ iudp ].udp_connection_established = 1;
 
-		_g->stat.udp_connection_count++;
-		_g->stat.total_retry_udp_connection_count++;
+		distributor_publish_int( &_g->distribute.pb_udp_connected_dist , 0 , ( pass_p )pb );
 
 		//_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
 	}
 
 	BEGIN_RET
-	case 3: ;
-	case 2: ;
-	case 1:	_g->stat.round_zero_set.syscal_err_count++;
+	case 1:	DIST_ERR();
 	M_V_END_RET
 	return NULL; // Threads can return a value, but this example returns NULL
 }
 
-//int _connect_tcp( AB * pb )
-//{
-//	INIT_BREAKABLE_FXN();
-//	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
-//
-//	while ( 1 )
-//	{
-//
-//		// try to create TCP socket
-//		MM_BREAK_IF( ( pb->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
-//
-//		struct sockaddr_in tcp_addr;
-//		tcp_addr.sin_family = AF_INET;
-//		tcp_addr.sin_port = htons( ( uint16_t )pb->cpy_cfg.m.m.id.TCP_destination_port );
-//		MM_BREAK_IF( inet_pton( AF_INET , pb->cpy_cfg.m.m.id.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
-//
-//		if ( connect( pb->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
-//		{
-//			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
-//			{
-//				_close_socket( &pb->tcp_sockfd );
-//				slep( 2 ); // sec
-//				continue;
-//			}
-//
-//			MM_BREAK_IF( 1 , errGeneral , 1 , "Error connecting to TCP server" );
-//		}
-//		else
-//		{
-//			pb->tcp_connection_established = 1;
-//			_g->stat.tcp_connection_count++;
-//			_g->stat.total_retry_tcp_connection_count++;
-//
-//			//int flag = 1;
-//			//setsockopt( pb->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , ( char * )&flag , sizeof( int ) );
-//
-//			pthread_mutex_lock( &_g->bridges.thread_base.start_working_race_cond );
-//			switch ( _g->appcfg.g_cfg->c.c.atht )
-//			{
-//				case buttleneck:
-//				case bidirection:
-//				{
-//					if ( pb->udp_connection_established && pb->tcp_connection_established )
-//					{
-//						_g->bridges.thread_base.start_working = 1;
-//					}
-//					break;
-//				}
-//				default:
-//				case justIncoming:
-//				{
-//					if ( pb->udp_connection_established )
-//					{
-//						_g->bridges.thread_base.start_working = 1;
-//					}
-//					break;
-//				}
-//			}
-//			pthread_mutex_unlock( &_g->bridges.thread_base.start_working_race_cond );
-//
-//
-//			return 0;
-//		}
-//	}
-//	
-//	BEGIN_RET
-//		case 3: ;
-//		case 2: ;
-//		case 1:
-//		{
-//			_close_socket( &pb->tcp_sockfd );
-//			_g->stat.round_zero_set.syscal_err_count++;
-//		}
-//	M_V_END_RET
-//	return -1;
-//}
-
 status connect_one_tcp( AB_tcp * tcp )
 {
 	INIT_BREAKABLE_FXN();
+	AB * pb = tcp->owner_pb;
 	G * _g = tcp->owner_pb->cpy_cfg.m.m.temp_data._g;
 
 	while ( 1 )
@@ -440,42 +417,24 @@ status connect_one_tcp( AB_tcp * tcp )
 		else
 		{
 			tcp->tcp_connection_established = 1;
-			_g->stat.tcp_connection_count++;
-			_g->stat.total_retry_tcp_connection_count++;
-
-			//int flag = 1;
-			//setsockopt( pb->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , ( char * )&flag , sizeof( int ) );
-
+			distributor_publish_int( &_g->distribute.pb_tcp_connected_dist , 0 , ( pass_p )pb );
 			return errOK;
 		}
 	}
 
 	BEGIN_RET
-	case 3: ;
-	case 2: ;
 	case 1:
 	{
 		_close_socket( &tcp->tcp_sockfd );
-		_g->stat.round_zero_set.syscal_err_count++;
+		DIST_ERR();
 	}
 	M_V_END_RET
 	return errGeneral;
 }
 
-_THREAD_FXN void_p thread_tcp_connection_proc( void_p src_pb )
+_THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
-	////static TWD twd = { 0 };
-	////if ( twd.threadId == 0 )
-	////{
-	////	twd.threadId = pthread_self();
-	////	twd.cal = thread_tcp_connection_proc; // self function address
-	////	twd.callback_arg = src_pb;
-	////}
-	////if ( src_pb == NULL )
-	////{
-	////	return ( void_p )&twd;
-	////}
 
 	AB * pb = ( AB * )src_pb;
 	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
@@ -512,20 +471,9 @@ _THREAD_FXN void_p thread_tcp_connection_proc( void_p src_pb )
 /// </summary>
 /// <param name="src_g"></param>
 /// <returns></returns>
-_THREAD_FXN void_p watchdog_executer( void_p src_g )
+_THREAD_FXN void_p watchdog_executer( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
-	////static TWD twd = { 0 };
-	////if ( twd.threadId == 0 )
-	////{
-	////	twd.threadId = pthread_self();
-	////	twd.cal = watchdog_executer; // self function address
-	////	twd.callback_arg = src_g;
-	////}
-	////if ( src_g == NULL )
-	////{
-	////	return ( void_p )&twd;
-	////}
 
 	G * _g = ( G * )src_g;
 
@@ -539,7 +487,7 @@ _THREAD_FXN void_p watchdog_executer( void_p src_g )
 			{
 				if ( !_g->bridges.ABs[ imask ].single_AB->trd.base.bridg_prerequisite_stabled )
 				{
-					if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "kernel_default_stack_udp_counter" ) )
+					if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "NetStack_udp_counter" ) )
 					{
 						if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one" ) )
 						{
@@ -556,7 +504,7 @@ _THREAD_FXN void_p watchdog_executer( void_p src_g )
 					else if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "pcap_udp_counter" ) )
 					{
 					}
-					else if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2kernelDefaultStack_S&F" ) )
+					else if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2NetStack_SF" ) )
 					{
 						if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one2one" ) )
 						{
@@ -574,19 +522,28 @@ _THREAD_FXN void_p watchdog_executer( void_p src_g )
 							ASSERT( 0 ); // implement on demand
 						}
 					}
-					else if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2many_pcap2kernelDefaultStack_S&F_Mix_RR_Replicate" ) )
+					else if
+					(
+						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2many_pcap2NetStack_SF" ) ||
+						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "many2one_pcap2kernelDefaultStack_S&F_serialize" )
+					)
 					{
-						if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one2many" ) )
+						if
+						(
+							iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one2many" ) ||
+							iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "many2one" )
+						)
 						{
-							ASSERT( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.in_count == 1 );
-							ASSERT( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.out_count > 1 );
+							ASSERT( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.in_count >= 1 );
+							ASSERT( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.out_count >= 1 );
 
 							int prerequisite_stablished = 1;
 							prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->udps_count );
 							prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->tcps_count );
-							if ( _g->bridges.ABs[ imask ].single_AB->udps_count )
+							
+							for ( int iudp = 0 ; iudp < _g->bridges.ABs[ imask ].single_AB->udps_count ; iudp++ )
 							{
-								prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established );
+								prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->udps[ iudp ].udp_connection_established );
 							}
 							for ( int itcp = 0 ; itcp < _g->bridges.ABs[ imask ].single_AB->tcps_count ; itcp++ )
 							{
@@ -643,3 +600,41 @@ void mng_basic_thread_sleep( G * _g , int priority )
 	thrd_sleep( &ts , NULL );
 }
 
+_REGULAR_FXN void compile_udps_config_for_pcap_filter( _IN AB * abs
+	, _OUT string interface_filter , _OUT int * interface_filter_sz
+	, _OUT string port_filter , _OUT int * port_filter_sz )
+{
+	*interface_filter_sz = 0;
+	*port_filter_sz = 0;
+
+	int n = 0;
+	// Start with "udp and ("
+	n += sprintf( port_filter + n , "udp and (" );
+
+	for ( int iinp = 0 ; iinp < abs->udps_count ; iinp++ )
+	{
+		if ( *interface_filter_sz == 0 )
+		{
+			*interface_filter_sz = ( int )strlen( strcpy( interface_filter , abs->udps[ iinp ].__udp_cfg_pak->data.UDP_origin_interface ) );
+		}
+		if ( iinp > 0 )
+		{
+			n += sprintf( port_filter + n , " or " );
+		}
+
+		if ( strchr( abs->udps[ iinp ].__udp_cfg_pak->data.UDP_origin_ports , '-' ) != NULL )
+		{
+			// it's a range
+			n += sprintf( port_filter + n , "portrange %s" , abs->udps[ iinp ].__udp_cfg_pak->data.UDP_origin_ports );
+		}
+		else
+		{
+			// it's a single port
+			n += sprintf( port_filter + n , "port %s" , abs->udps[ iinp ].__udp_cfg_pak->data.UDP_origin_ports );
+		}
+	}
+
+	// close parenthesis
+	n += sprintf( port_filter + n , ")" );
+	*port_filter_sz = ( int )strlen( port_filter );
+}

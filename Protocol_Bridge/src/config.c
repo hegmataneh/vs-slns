@@ -4,13 +4,11 @@
 #define Uses_config
 #define Uses_helper
 #define Uses_memset
-
-//#define DIRECT_ECHO_BUF _g->stat.last_command // just before include dep
 #include <Protocol_Bridge.dep>
 
 // TODO . exit gracefully by auto mechanism
 // TODO . think about race condition
-_THREAD_FXN void_p version_checker( void_p src_g )
+_THREAD_FXN void_p version_checker( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
@@ -75,16 +73,14 @@ _THREAD_FXN void_p version_checker( void_p src_g )
 		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	}
 	BEGIN_RET
-		case 3: ;
-		case 2: ;
-		case 1: _g->stat.round_zero_set.syscal_err_count++;
+		case 1: DIST_ERR_G();
 	M_V_END_RET
 	return VOID_RET;
 }
 
 // TODO . fix memory leak
 // TODO . echo acceptible config one time to inform user
-_THREAD_FXN void_p config_loader( void_p src_g )
+_THREAD_FXN void_p config_loader( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
@@ -485,12 +481,11 @@ _THREAD_FXN void_p config_loader( void_p src_g )
 	
 	BEGIN_SMPL
 	M_V_END_RET
-
 	return NULL;
 }
 
 // TODO . aware of concurrency in config read and act on it
-_THREAD_FXN void_p config_executer( void_p app_data )
+_THREAD_FXN void_p config_executer( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	static TWD twd = { 0 };
@@ -498,13 +493,13 @@ _THREAD_FXN void_p config_executer( void_p app_data )
 	{
 		twd.threadId = pthread_self();
 		twd.cal = config_executer;
-		twd.callback_arg = app_data;
+		twd.callback_arg = src_g;
 	}
-	if ( app_data == NULL )
+	if ( src_g == NULL )
 	{
 		return ( void_p )&twd;
 	}
-	G * _g = ( G * )app_data;
+	G * _g = ( G * )src_g;
 
 	while ( !_g->appcfg.bdj_psv_cfg_count ) // load after any config loaded
 	{
@@ -658,6 +653,6 @@ void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg )
 	BEGIN_RET
 		case 3: DAC( _g->bridges.ABs );
 		case 2: DAC( _g->bridges.ABhs_masks );
-		case 1: _g->stat.round_zero_set.syscal_err_count++;
+		case 1: DIST_ERR_G();
 	M_V_END_RET
 } // TODO . return value

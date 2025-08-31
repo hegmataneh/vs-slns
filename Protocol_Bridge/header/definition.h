@@ -51,18 +51,10 @@
 #define HI_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.default_hi_basic_thread_delay_nanosec : DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC )
 
 
-
-#define MAX_UDP_PACKET_DELAY 1
-#define MAX_TCP_PACKET_DELAY 2
-
-//#define FXN_HIT_COUNT 5000
-//#define PC_COUNT 10 // first for hit count and last alwayz zero
-
-//#define SYS_ALIVE_CHECK() do {\
-//	int __function_line = __LINE__; _g->stat.last_line_meet = __LINE__; _g->stat.alive_check_counter = ( _g->stat.alive_check_counter + 1 ) % 10; __FXN_HIT[__function_line][0]++; static int pc = 0;/*each line hit*/ if ( pc <= PC_COUNT-1 ) __FXN_HIT[__function_line][1+pc++] = _pc++; \
-//	} while(0)
-
-
-
 #define STR_RoundRobin "RR"
 #define STR_Replicate "Replicate"
+
+
+#define DIST_ERR() DO_WHILE( distributor_publish_str( &_g->distribute.pb_err_dist , __FUNCTION__ , ( pass_p )pb ) ) /*distribute error*/
+#define DIST_ERR_G() DO_WHILE( distributor_publish_str( &_g->distribute.ground_err_dist , __FUNCTION__ , ( pass_p )_g ) ) /*distribute error*/
+

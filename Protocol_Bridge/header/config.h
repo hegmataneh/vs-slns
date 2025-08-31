@@ -74,6 +74,6 @@ typedef struct App_Config // global config
 
 } Acfg;
 
-_THREAD_FXN void_p version_checker( void_p app_data );
-_THREAD_FXN void_p config_loader( void_p app_data );
-_THREAD_FXN void_p config_executer( void_p app_data );
+_THREAD_FXN void_p version_checker( pass_p src_g );
+_THREAD_FXN void_p config_loader( pass_p src_g );
+_THREAD_FXN void_p config_executer( pass_p src_g );

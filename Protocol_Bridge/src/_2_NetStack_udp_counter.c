@@ -9,20 +9,9 @@
 /// </summary>
 /// <param name="src_AB_udp"></param>
 /// <returns></returns>
-_THREAD_FXN void_p kernel_default_stack_udp_counter_thread_proc( void_p src_pb )
+_THREAD_FXN void_p proc_NetStack_udp_counter( void_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
-	//static TWD twd = { 0 }; // static not allowed on shared fxn
-	//if ( twd.threadId == 0 )
-	//{
-	//	twd.threadId = pthread_self();
-	//	twd.cal = udp_counter_thread_proc; // self function address
-	//	twd.callback_arg = src_pb;
-	//}
-	//if ( src_pb == NULL )
-	//{
-	//	return ( void_p )&twd;
-	//}
 
 	//AB_udp * pAB_udp = ( AB_udp * )src_AB_udp;
 	AB * pb = ( AB * )src_pb;
@@ -153,7 +142,7 @@ _THREAD_FXN void_p kernel_default_stack_udp_counter_thread_proc( void_p src_pb )
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
 				if ( error == 0 )
 				{
-					_g->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count++;
+					pb->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count++;
 					//if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
 					//{
 					//	input_udp_socket_error_tolerance_count = 0;
@@ -179,35 +168,34 @@ _THREAD_FXN void_p kernel_default_stack_udp_counter_thread_proc( void_p src_pb )
 				continue;
 			}
 
-			_g->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count = 0;
+			pb->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count = 0;
 
-			if ( _g->stat.round_zero_set.t_begin.tv_sec == 0 && _g->stat.round_zero_set.t_begin.tv_usec == 0 )
+			if ( pb->stat.round_zero_set.t_begin.tv_sec == 0 && pb->stat.round_zero_set.t_begin.tv_usec == 0 )
 			{
-				gettimeofday( &_g->stat.round_zero_set.t_begin , NULL );
+				gettimeofday( &pb->stat.round_zero_set.t_begin , NULL );
 			}
-
 
 			tnow = time( NULL );
 			// udp
-			if ( difftime( tnow , _g->stat.round_zero_set.udp_1_sec.t_udp_throughput ) >= 1.0 )
+			if ( difftime( tnow , pb->stat.round_zero_set.udp_1_sec.t_udp_throughput ) >= 1.0 )
 			{
-				if ( _g->stat.round_zero_set.udp_1_sec.t_udp_throughput > 0 )
+				if ( pb->stat.round_zero_set.udp_1_sec.t_udp_throughput > 0 )
 				{
-					cbuf_m_advance( &_g->stat.round_init_set.udp_stat_5_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-					cbuf_m_advance( &_g->stat.round_init_set.udp_stat_5_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
 
-					cbuf_m_advance( &_g->stat.round_init_set.udp_stat_10_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-					cbuf_m_advance( &_g->stat.round_init_set.udp_stat_10_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_10_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_10_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
 
-					cbuf_m_advance( &_g->stat.round_init_set.udp_stat_40_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-					cbuf_m_advance( &_g->stat.round_init_set.udp_stat_40_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
 
-					cbuf_m_advance( &_g->stat.round_init_set.udp_stat_120_sec_count , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-					cbuf_m_advance( &_g->stat.round_init_set.udp_stat_120_sec_bytes , _g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_120_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_120_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
 				}
-				_g->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
-				_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
-				_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
+				pb->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
+				pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
+				pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
 			}
 
 			for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
@@ -229,34 +217,28 @@ _THREAD_FXN void_p kernel_default_stack_udp_counter_thread_proc( void_p src_pb )
 								}
 								else
 								{
-									_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
-									_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+									pb->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+									pb->stat.round_zero_set.total_unsuccessful_receive_error++;
 									break;
 								}
 							}
 
 							if ( bytes_received <= 0 )
 							{
-								_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
-								_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+								pb->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+								pb->stat.round_zero_set.total_unsuccessful_receive_error++;
 								continue;
 							}
-							_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
+							pb->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
 							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
-							gettimeofday( &_g->stat.round_zero_set.t_end , NULL );
+							gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
-							_g->stat.round_zero_set.udp.total_udp_get_count++;
-							_g->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
-							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
-							_g->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
-							//_g->stat.round.udp_10_sec.calc_throughput_udp_get_count++;
-							//_g->stat.round.udp_10_sec.calc_throughput_udp_get_bytes += bytes_received;
-							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_count++;
-							//_g->stat.round.udp_40_sec.calc_throughput_udp_get_bytes += bytes_received;
-
-							_g->stat.udp_get_data_alive_indicator++;
-
+							pb->stat.round_zero_set.udp.total_udp_get_count++;
+							pb->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
+							pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
+							pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
+							pb->stat.round_zero_set.udp_get_data_alive_indicator++;
 						}
 					}
 				}
@@ -273,7 +255,7 @@ _THREAD_FXN void_p kernel_default_stack_udp_counter_thread_proc( void_p src_pb )
 	case 1:
 	{
 		//_close_socket( &src_pb->tcp_sockfd );
-		_g->stat.round_zero_set.syscal_err_count++;
+		DIST_ERR();
 	}
 	M_V_END_RET
 
