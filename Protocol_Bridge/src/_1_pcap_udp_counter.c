@@ -49,7 +49,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	MM_FMT_BREAK_IF( pcap_lookupnet( dev , &net , &mask , errbuf ) == -1 , errGeneral , 1 , "Warning: couldn't get netmask for device %s\n" , errbuf );
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	MM_FMT_BREAK_IF( !( pb->trd.t.p_pcap_udp_counter->handle = pcap_open_live( dev , 65535 , 1 , 1000 , errbuf ) ) , errGeneral , 1 , "Couldn't open device %s: %s\n" , dev , errbuf );
+	MM_FMT_BREAK_IF( !( pb->trd.t.p_pcap_udp_counter->handle = pcap_open_live( dev , SNAP_LEN , 1 , 1000 , errbuf ) ) , errGeneral , 1 , "Couldn't open device %s: %s\n" , dev , errbuf );
 
 	int fd = pcap_get_selectable_fd( pb->trd.t.p_pcap_udp_counter->handle );
 	int busy_poll_time = 50;  // microseconds per syscall spin budget
