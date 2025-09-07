@@ -82,7 +82,7 @@
     <EnableIncrementalBuild>No</EnableIncrementalBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
+    <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;*.txt;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
   </PropertyGroup>
   <ItemGroup>
     <ClCompile Include="src\Bridge.c" />
@@ -128,6 +128,20 @@
     <ProjectReference Include="..\..\general-projects\general\general.vcxproj">
       <Project>{65d7d4b3-bbfa-4c50-adce-72911e410ca0}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="cfg\config_ver.txt">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </DeploymentContent>
+      <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</RemoteCopyFile>
+      <RemoteCopyToOutputDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(RemoteProjectDir)/cfg</RemoteCopyToOutputDir>
+    </Text>
+    <Text Include="cfg\Protocol_Bridge_config.txt">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </ExcludedFromBuild>
+      <RemoteCopyToOutputDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(RemoteProjectDir)/cfg</RemoteCopyToOutputDir>
+      <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</RemoteCopyFile>
+    </Text>
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile />

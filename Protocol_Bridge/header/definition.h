@@ -9,7 +9,7 @@
 
 #define INPUT_MAX 256
 #define BUFFER_SIZE MAX_PACKET_SIZE
-#define CONFIG_ROOT_PATH "/root/my_projects/home-config/protocol_Bridge"
+#define CONFIG_ROOT_PATH "../../../../Protocol_Bridge/cfg"
 
 //#define PARALLELISM_COUNT 1
 

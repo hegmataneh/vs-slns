@@ -51,6 +51,9 @@
     <Filter Include="dep">
       <UniqueIdentifier>{b39b1add-6bdc-4f57-942e-9f6385d8491b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="cfg">
+      <UniqueIdentifier>{df3bfab6-e2f0-4d6e-b8bc-16b646011c1c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="dep\Protocol_Bridge.dep">
@@ -109,5 +112,13 @@
     <ClInclude Include="header\_5_many2one_pcap_NetStack_SF.h">
       <Filter>header</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="cfg\Protocol_Bridge_config.txt">
+      <Filter>cfg</Filter>
+    </Text>
+    <Text Include="cfg\config_ver.txt">
+      <Filter>cfg</Filter>
+    </Text>
   </ItemGroup>
 </Project>
