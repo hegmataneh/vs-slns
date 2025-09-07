@@ -138,4 +138,4 @@ typedef struct ActiveBridgeShortPathHelper // every virtually inherit struct mus
 
 } shrt_path;
 
-void mk_shrt_path( _IN AB * pb , _OUT shrt_path * hlpr );
+void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_path * hlpr );

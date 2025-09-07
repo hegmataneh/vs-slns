@@ -37,6 +37,9 @@
     <ClCompile Include="src\_4_one2many_pcap2NetStack_SF.c">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\_5_many2one_pcap_NetStack_SF.c">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="header">
@@ -101,6 +104,9 @@
       <Filter>header</Filter>
     </ClInclude>
     <ClInclude Include="header\garage.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\_5_many2one_pcap_NetStack_SF.h">
       <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>

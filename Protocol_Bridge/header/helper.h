@@ -64,4 +64,5 @@ void init_windows( G * _g );
 
 void mng_basic_thread_sleep( G * _g , int priority );
 
-_REGULAR_FXN void compile_udps_config_for_pcap_filter( _IN AB * abs	, _OUT string interface_filter , _OUT int * interface_filter_sz , _OUT string port_filter , _OUT int * port_filter_sz );
+_REGULAR_FXN void compile_udps_config_for_pcap_filter( _IN AB * abs , _RET_VAL_P int * clusterd_cnt , _NEW_OUT_P strings * interface_filter , _NEW_OUT_P strings * port_filter );
+

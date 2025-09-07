@@ -37,7 +37,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 		{
 			prev_time = cur_time;
 
-			memset( buf , 0 , sizeof( buf ) );
+			MEMSET( buf , 0 , sizeof( buf ) );
 			const char * config_ver_file_content = read_file( CONFIG_ROOT_PATH "/config_ver.txt" , ( char * )buf );
 			MM_BREAK_IF( !config_ver_file_content , errGeneral , 0 , "cannot open and read version file" );
 
@@ -49,7 +49,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 			result( json_element ) ver = json_object_find( el_config_ver.value.as_object , "ver" );
 			MM_BREAK_IF( catch_error( &ver , "ver" , 1 ) , errGeneral , 0 , "ver not found" );
 
-			memset( &temp_ver , 0 , sizeof( temp_ver ) );
+			MEMSET( &temp_ver , 0 , sizeof( temp_ver ) );
 
 			strcpy( temp_ver.version , ( char * )ver.inner.value.value.as_string );
 			char * perr = NULL;
@@ -62,7 +62,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 
 			if ( _g->appcfg.ver == NULL || STR_DIFF( temp_ver.version , _g->appcfg.ver->version ) )
 			{
-				_g->appcfg.ver = ( struct Config_ver * )memcpy( &_g->appcfg.temp_ver , &temp_ver , sizeof( temp_ver ) );
+				_g->appcfg.ver = ( struct Config_ver * )MEMCPY_OR( &_g->appcfg.temp_ver , &temp_ver , sizeof( temp_ver ) );
 				_g->appcfg.version_changed = 1;
 				//if ( IF_VERBOSE_MODE_CONDITION() )
 				//{
@@ -327,11 +327,11 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 			// 
 			if ( _g->appcfg.g_cfg == NULL ) // TODO . make assignemnt atomic
 			{
-				M_BREAK_IF( !( _g->appcfg.g_cfg = malloc( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
+				M_BREAK_IF( !( _g->appcfg.g_cfg = MALLOC( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
 	
 				MEMSET_ZERO( _g->appcfg.g_cfg , 1 );
-				memcpy( _g->appcfg.g_cfg , &temp_config , sizeof( temp_config ) );
-				memset( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings
+				MEMCPY_OR( _g->appcfg.g_cfg , &temp_config , sizeof( temp_config ) );
+				MEMSET( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings
 				initial_general_config = 1;
 				_g->appcfg.g_cfg_changed = 1;
 			}
@@ -343,10 +343,10 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 				_g->appcfg.prev_cfg = _g->appcfg.g_cfg;
 				_g->appcfg.g_cfg = NULL;
 	
-				M_BREAK_IF( !( _g->appcfg.g_cfg = malloc( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
-				memset( _g->appcfg.g_cfg , 0 , sizeof( struct Global_Config ) );
-				memcpy( _g->appcfg.g_cfg , &temp_config , sizeof( temp_config ) );
-				memset( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings
+				M_BREAK_IF( !( _g->appcfg.g_cfg = MALLOC( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
+				MEMSET( _g->appcfg.g_cfg , 0 , sizeof( struct Global_Config ) );
+				MEMCPY_OR( _g->appcfg.g_cfg , &temp_config , sizeof( temp_config ) );
+				MEMSET( &temp_config , 0 , sizeof( temp_config ) ); // copy to global variable and then zero to not free strings
 	
 				if ( _g->appcfg.prev_cfg != NULL && _g->appcfg.g_cfg != NULL )
 				{

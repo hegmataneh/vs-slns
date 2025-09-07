@@ -13,7 +13,7 @@ extern G * _g;
 
 void reset_nonuse_stat()
 {
-	//memset( &_g->stat.round_zero_set , 0 , sizeof( _g->stat.round_zero_set ) );
+	//MEMSET( &_g->stat.round_zero_set , 0 , sizeof( _g->stat.round_zero_set ) );
 
 	//cbuf_m_reset( &_g->stat.round_init_set.udp_stat_5_sec_count );
 	//cbuf_m_reset( &_g->stat.round_init_set.udp_stat_10_sec_count );
@@ -39,7 +39,7 @@ void reset_nonuse_stat()
 // Centered cell printing
 void print_cell( WINDOW * win , int y , int x , int width , LPCSTR text )
 {
-	size_t len = strlen( text );
+	size_t len = STRLEN( text );
 	int pad = ( width - ( int )len ) / 2;
 	if ( pad < 0 ) pad = 0;
 	mvwprintw( win , y , x + pad , "%s" , text );
@@ -57,7 +57,7 @@ void draw_table( G * _g )
 {
 	char * header_border = "+----------+--------------------------------------------------------------------------------+";
 
-	int cell_w = strlen( header_border ) / 2;
+	int cell_w = STRLEN( header_border ) / 2;
 	int start_x = 2;
 	int y = 1;
 
@@ -213,6 +213,13 @@ void draw_table( G * _g )
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get" );
+	
+	if ( _g->bridges.ABhs_masks_count > 0 && _g->bridges.ABhs_masks[ 0 ] && _g->bridges.ABs[ 0 ].single_AB ) // this cnd is temp
+	{
+		
+	
+	
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _g->bridges.ABs[ 0 ].single_AB->stat.round_zero_set.udp.total_udp_get_count , 2 , "" ) );
 	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.total_udp_get_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
@@ -220,79 +227,82 @@ void draw_table( G * _g )
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get byte" );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _g->bridges.ABs[ 0 ].single_AB->stat.round_zero_set.udp.total_udp_get_byte , 2 , "B" ) );
 	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.total_udp_get_byte , 2 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "contnu unsuces slct udp" );
-	//	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count , 2 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	}
+
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "contnu unsuces slct udp" );
+	////	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count , 2 , "" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	#ifndef time_frame
 
-	// 5 sec
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s udp pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_5_sec_count ) , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s udp bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_5_sec_bytes ) , 4 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//// 5 sec
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s udp pps" );
+	////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_5_sec_count ) , 4 , "" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s udp bps" );
+	////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_5_sec_bytes ) , 4 , "B" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	// 10 sec
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s udp pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_10_sec_count ) , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s udp bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_10_sec_bytes ) , 4 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//// 10 sec
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s udp pps" );
+	////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_10_sec_count ) , 4 , "" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s udp bps" );
+	////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_10_sec_bytes ) , 4 , "B" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	// 40 sec
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udp pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_40_sec_count ) , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udp bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_40_sec_bytes ) , 4 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//// 40 sec
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udp pps" );
+	////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_40_sec_count ) , 4 , "" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s udp bps" );
+	////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_40_sec_bytes ) , 4 , "B" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	// 120 sec
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s udp pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_120_sec_count ) , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s udp bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_120_sec_bytes ) , 4 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//// 120 sec
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s udp pps" );
+	////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_120_sec_count ) , 4 , "" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s udp bps" );
+	////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.udp_stat_120_sec_bytes ) , 4 , "B" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
@@ -302,81 +312,81 @@ void draw_table( G * _g )
 	#ifndef tcp
 
 	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp put" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_put_count , 2 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp put byte" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_put_byte , 2 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////mvwprintw( MAIN_WIN , y , start_x , "|" );
+	////print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp put" );
+	//////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_put_count , 2 , "" ) );
+	////mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	////print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	////mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//////
+	////mvwprintw( MAIN_WIN , y , start_x , "|" );
+	////print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp put byte" );
+	//////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_put_byte , 2 , "B" ) );
+	////mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	////print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	////mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 
-	// 5 sec
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s tcp pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_5_sec_count ) , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s tcp bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_5_sec_bytes ) , 4 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////// 5 sec
+	////mvwprintw( MAIN_WIN , y , start_x , "|" );
+	////print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s tcp pps" );
+	//////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_5_sec_count ) , 4 , "" ) );
+	////mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	////print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	////mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//////
+	////mvwprintw( MAIN_WIN , y , start_x , "|" );
+	////print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "5s tcp bps" );
+	//////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_5_sec_bytes ) , 4 , "B" ) );
+	////mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	////print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	////mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 
-	//// 10 sec
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_10_sec_count ) , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_10_sec_bytes ) , 4 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//////// 10 sec
+	////mvwprintw( MAIN_WIN , y , start_x , "|" );
+	////print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp pps" );
+	//////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_10_sec_count ) , 4 , "" ) );
+	////mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	////print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	////mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//////
+	////mvwprintw( MAIN_WIN , y , start_x , "|" );
+	////print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp bps" );
+	//////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_10_sec_bytes ) , 4 , "B" ) );
+	////mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	////print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	////mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	//// 40 sec
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_40_sec_count ) , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_40_sec_bytes ) , 4 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//////// 40 sec
+	////mvwprintw( MAIN_WIN , y , start_x , "|" );
+	////print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp pps" );
+	//////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_40_sec_count ) , 4 , "" ) );
+	////mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	////print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	////mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//////
+	////mvwprintw( MAIN_WIN , y , start_x , "|" );
+	////print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp bps" );
+	//////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_40_sec_bytes ) , 4 , "B" ) );
+	////mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	////print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	////mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	//// 120 sec
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s tcp pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_120_sec_count ) , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s tcp bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_120_sec_bytes ) , 4 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//////// 120 sec
+	////mvwprintw( MAIN_WIN , y , start_x , "|" );
+	////print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s tcp pps" );
+	//////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_120_sec_count ) , 4 , "" ) );
+	////mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	////print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	////mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//////
+	////mvwprintw( MAIN_WIN , y , start_x , "|" );
+	////print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "120s tcp bps" );
+	//////snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )cbuf_m_mean_all( &MAIN_STAT().round_init_set.tcp_stat_120_sec_bytes ) , 4 , "B" ) );
+	////mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	////print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	////mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	#endif
 

@@ -1,3 +1,4 @@
+#define Uses_proc_many2many_pcap_NetStack_SF
 #define Uses_proc_one2many_pcap2NetStack_SF_udp_pcap
 #define Uses_proc_NetStack_udp_counter
 #define Uses_proc_pcap_udp_counter
@@ -51,7 +52,7 @@ void init_ActiveBridge( G * _g , AB * pb )
 	M_V_END_RET
 }
 
-void mk_shrt_path( _IN AB * pb , _OUT shrt_path * hlpr )
+void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_path * hlpr )
 {
 	MEMSET_ZERO_O( hlpr );
 
@@ -190,31 +191,31 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 		}
 	}
 
-	//else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "many2one_pcap2kernelDefaultStack_S&F_serialize" ) )
-	//{
-	//	if ( !pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize )
-	//	{
-	//		init_ActiveBridge( _g , pb );
-	//		M_BREAK_IF( !( pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize = MALLOC_ONE( pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize ) ) , errMemoryLow , 1 );
-	//		MEMSET_ZERO_O( pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize );
+	else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "many2one_pcap2kernelDefaultStack_S&F_serialize" ) )
+	{
+		if ( !pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize )
+		{
+			init_ActiveBridge( _g , pb );
+			M_BREAK_IF( !( pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize = MALLOC_ONE( pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize ) ) , errMemoryLow , 1 );
+			MEMSET_ZERO_O( pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize );
 	//		//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 	//		//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 	//		// TODO . buff size came from config
-	//		M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->cbuf , 100000 , /*1470 -> + hdr = 1512*/1512 ) , 1 );
+			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->cbuf , 100000 , /*1470 -> + hdr = 1512*/1512 ) , 1 );
 	//		//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
-	//		if ( !pb->trd.base.thread_is_created )
-	//		{
-	//			MM_BREAK_IF( pthread_create( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->income_trd_id , NULL ,
-	//				pcap_udp_income_thread_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-	//			MM_BREAK_IF( pthread_create( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->outgoing_trd_id , NULL ,
-	//				many_tcp_out_thread_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-	//			pb->trd.base.thread_is_created = 1;
-	//		}
+			if ( !pb->trd.base.thread_is_created )
+			{
+				MM_BREAK_IF( pthread_create( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->income_trd_id , NULL ,
+					proc_many2many_pcap_NetStack_SF , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				//MM_BREAK_IF( pthread_create( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->outgoing_trd_id , NULL ,
+				//	 , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				pb->trd.base.thread_is_created = 1;
+			}
 	//		//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
-	//		pthread_t trd_tcp_connection;
-	//		MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-	//	}
-	//}
+			pthread_t trd_tcp_connection;
+			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+		}
+	}
 
 
 	BEGIN_RET // TODO . complete reverse on error

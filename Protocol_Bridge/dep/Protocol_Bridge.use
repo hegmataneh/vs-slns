@@ -1,3 +1,7 @@
+#ifdef Uses_proc_many2many_pcap_NetStack_SF
+	#define __INC__5_many2one_pcap_NetStack_SF
+#endif
+
 #ifdef Uses_many_tcp_out_thread_proc
 	#define __INC_async_tcp_forward
 #endif

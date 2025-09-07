@@ -1,3 +1,4 @@
+#define Uses_strings_ar
 #define Uses_signal
 #define Uses_thrd_sleep
 #define Uses_errno
@@ -52,7 +53,7 @@ _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
 void init_bypass_stdout( G * _g )
 {
 	//int pipefd[ 2 ];
-	//memset( pipefd , 0 , sizeof( pipefd ) );
+	//MEMSET( pipefd , 0 , sizeof( pipefd ) );
 
 	// Make pipe
 	if ( pipe( _g->stat.pipefds ) == -1 )
@@ -352,7 +353,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 
 		// TODO . make it protocol independent
 		struct sockaddr_in server_addr;
-		memset( &server_addr , 0 , sizeof( server_addr ) );
+		MEMSET( &server_addr , 0 , sizeof( server_addr ) );
 		server_addr.sin_family = AF_INET; // IPv4
 		
 		int port = 0;
@@ -600,41 +601,113 @@ void mng_basic_thread_sleep( G * _g , int priority )
 	thrd_sleep( &ts , NULL );
 }
 
-_REGULAR_FXN void compile_udps_config_for_pcap_filter( _IN AB * abs
-	, _OUT string interface_filter , _OUT int * interface_filter_sz
-	, _OUT string port_filter , _OUT int * port_filter_sz )
+LPCSTR itr_interfaces( const pass_p arr , size_t i )
 {
-	*interface_filter_sz = 0;
-	*port_filter_sz = 0;
+	return ( ( AB_udp * )arr )[ i ].__udp_cfg_pak->data.UDP_origin_interface;
+};
 
-	int n = 0;
-	// Start with "udp and ("
-	n += sprintf( port_filter + n , "udp and (" );
+/// <summary>
+/// free interface_filter , port_filter by FREE_DOUBLE_PTR
+/// </summary>
+_REGULAR_FXN void compile_udps_config_for_pcap_filter
+(
+	_IN AB * abs
+	, _RET_VAL_P int * clusterd_cnt /*each actual needed cnf*/
+	, _NEW_OUT_P strings * interface_filter
+	, _NEW_OUT_P strings * port_filter
+)
+{
+	INIT_BREAKABLE_FXN();
 
-	for ( int iinp = 0 ; iinp < abs->udps_count ; iinp++ )
+	strings_ar distinct_interface;
 	{
-		if ( *interface_filter_sz == 0 )
+		*clusterd_cnt = 0;
+		strings_ar interface_lst;
 		{
-			*interface_filter_sz = ( int )strlen( strcpy( interface_filter , abs->udps[ iinp ].__udp_cfg_pak->data.UDP_origin_interface ) );
+			collect_strings_itr( ( void_p )abs->udps , ( size_t )abs->udps_count , itr_interfaces , &interface_lst );
 		}
-		if ( iinp > 0 )
+		M_BREAK_STAT( strs_distinct( &interface_lst , &distinct_interface ) , 0 );
+		free_string_ar( &interface_lst );
+	}
+	// now we have interface count
+	
+	*clusterd_cnt = ( int )distinct_interface.size;
+	if ( *clusterd_cnt < 1 ) return;
+	M_MALLOC_AR( *interface_filter , *clusterd_cnt , 0 );
+	MEMSET_ZERO( *interface_filter , *clusterd_cnt );
+	M_MALLOC_AR( *port_filter , *clusterd_cnt , 0 );
+	MEMSET_ZERO( *port_filter , *clusterd_cnt );
+
+	for ( int iint ; iint < *clusterd_cnt ; iint++ )
+	{
+		M_BREAK_IF( !( *interface_filter[ iint ] = strdup( distinct_interface.strs[ iint ] ) ) , errMemoryLow , 0 );
+	}
+	free_string_ar( &distinct_interface );
+
+	// not time to combine port
+
+	for ( int iint ; iint < *clusterd_cnt ; iint++ )
+	{
+		// iterate through every out section to find interface and aggregate them
+		strings_ar distinct_ports;
 		{
-			n += sprintf( port_filter + n , " or " );
+			strings_ar ports_ar;
+			init_string_ar( &ports_ar );
+			for ( int iout = 0 ; iout < abs->udps_count ; iout++ )
+			{
+				if ( iSTR_SAME( abs->udps[ iout ].__udp_cfg_pak->data.UDP_origin_interface , *interface_filter[ iint ] ) )
+				{
+					M_BREAK_STAT( addTo_string_ar( &ports_ar , abs->udps[ iout ].__udp_cfg_pak->data.UDP_origin_ports ) , 0 );
+				}
+			}
+			ASSERT( ports_ar.size > 0 );
+		
+			M_BREAK_STAT( strs_distinct( &ports_ar , &distinct_ports ) , 0 );
+			free_string_ar( &ports_ar );
 		}
 
-		if ( strchr( abs->udps[ iinp ].__udp_cfg_pak->data.UDP_origin_ports , '-' ) != NULL )
+		LPSTR * port_filter_addr = ( *( LPSTR ** )port_filter ) + iint;
+		M_MALLOC_AR( *port_filter_addr , 1024 /*default filter size*/ , 0);
+		MEMSET_ZERO( *port_filter_addr , 1024 );
+		LPSTR prt_flt = *port_filter_addr;
+
+		int n = 0;
+		// Start with "udp and ("
+		n += sprintf( prt_flt + n , "udp and (" );
+		for ( int iprt = 0 ; iprt < distinct_ports.size ; iprt++ )
 		{
-			// it's a range
-			n += sprintf( port_filter + n , "portrange %s" , abs->udps[ iinp ].__udp_cfg_pak->data.UDP_origin_ports );
+			if ( iprt > 0 )
+			{
+				n += sprintf( prt_flt + n , " or " );
+			}
+
+			// TODO . later i should check config file that no duplicate port find in it
+			for ( int islk = 0 ; islk < abs->udps_count ; islk++ )
+			{
+				if ( iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_interface , *interface_filter[iint] )
+					&& iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports , distinct_ports.strs[iprt] ) )
+				{
+			
+					if ( strchr( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports , '-' ) != NULL )
+					{
+						// it's a range
+						n += sprintf( prt_flt + n , "portrange %s" , abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports );
+					}
+					else
+					{
+						// it's a single port
+						n += sprintf( prt_flt + n , "port %s" , abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports );
+					}
+					break;
+				}
+			}
 		}
-		else
-		{
-			// it's a single port
-			n += sprintf( port_filter + n , "port %s" , abs->udps[ iinp ].__udp_cfg_pak->data.UDP_origin_ports );
-		}
+
+		// close parenthesis
+		n += sprintf( prt_flt + n , ")" );
 	}
 
-	// close parenthesis
-	n += sprintf( port_filter + n , ")" );
-	*port_filter_sz = ( int )strlen( port_filter );
+	BEGIN_SMPL
+	M_V_END_RET
 }
+

@@ -81,7 +81,7 @@ _THREAD_FXN void_p proc_NetStack_udp_counter( void_p src_pb )
 			//if ( _g->sync.reset_static_after_lock )
 			//{
 			//	_g->sync.reset_static_after_lock = 0;
-			//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+			//	MEMSET( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 			//}
 
 

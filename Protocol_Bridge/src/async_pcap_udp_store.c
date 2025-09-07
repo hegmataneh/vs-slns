@@ -70,21 +70,27 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	bpf_u_int32 net = 0 , mask = 0;
 	pcap_t *handle;
 
-	char dev[ 128 ] = {0};
-	int interface_filter_sz = 0;
-	char port_filter[ 1024 ] = {0};
-	int port_filter_sz = 0;
-	compile_udps_config_for_pcap_filter( pb , dev , &interface_filter_sz , port_filter , &port_filter_sz );
+	// TODO . handle multiple interface
+
+	int clusterd_cnt;
+	strings interface_filter = NULL;
+	strings port_filter = NULL;
+	compile_udps_config_for_pcap_filter( pb , &clusterd_cnt , &interface_filter , &port_filter );
+
+	ASSERT( clusterd_cnt == 1 );
 
 	//MM_FMT_BREAK_IF( !( dev = pcap_lookupdev( errbuf ) ) , errGeneral , 0 , "Couldn't find default device: %s" , errbuf );
-	MM_FMT_BREAK_IF( pcap_lookupnet( dev , &net , &mask , errbuf ) == -1 , errGeneral , 1 , "Warning: couldn't get netmask for device %s\n" , errbuf );
+	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf) == -1 , errGeneral , 1 , "Warning: couldn't get netmask for device %s\n" , errbuf);
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	MM_FMT_BREAK_IF( !( handle = pcap_open_live( dev , SNAP_LEN , 1 , 1000 , errbuf ) ) , errGeneral , 1 , "Couldn't open device %s: %s\n" , dev , errbuf );
+	MM_FMT_BREAK_IF( !( handle = pcap_open_live( interface_filter[ 0 ] , SNAP_LEN , 1 , 1000 , errbuf ) ) , errGeneral , 1 , "Couldn't open device %s: %s\n" , interface_filter[ 0 ] , errbuf );
 
 	// Compile and apply filter
-	MM_FMT_BREAK_IF( pcap_compile( handle , &fp , port_filter , 1 , mask ) == -1 , errGeneral , 2 , "Couldn't parse filter %s\n" , pcap_geterr( handle ) );
+	MM_FMT_BREAK_IF( pcap_compile( handle , &fp , port_filter[ 0 ] , 1 , mask) == -1 , errGeneral , 2 , "Couldn't parse filter %s\n" , pcap_geterr(handle));
 	MM_FMT_BREAK_IF( pcap_setfilter( handle , &fp ) == -1 , errGeneral , 3 , "Couldn't install filter %s\n" , pcap_geterr( handle ) );
+
+	FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
+	FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
 
 	pcap_freecode( &fp );
 	ASSERT( pth->handle );
@@ -110,6 +116,8 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	MM_FMT_BREAK_IF( pcap_loop( handle , -1 , handle_pcap_udp_receiver , ( pass_p )pb ) == -1 , errGeneral , 3 , "pcap_loop failed: %s\n" , pcap_geterr( handle ) );
 
 	BEGIN_RET
+	// TODO . FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
+	// FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
 	case 4:
 	{
 		pcap_breakloop( handle ); // in case we're inside pcap_loop

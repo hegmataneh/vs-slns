@@ -46,9 +46,9 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 		//size_t key_count = dict_count( &dc_enum_grp_type );
 		//ASSERT( key_count > 1 );
 
-		LPCSTR * pkeys = NULL;
+		strings pkeys = NULL;
 		int keys_count = 0;
-		dict_get_keys( &dc_enum_grp_type , &pkeys , &keys_count );
+		dict_get_keys_ref( &dc_enum_grp_type , &pkeys , &keys_count );
 
 		if ( strsistr( pkeys , keys_count , STR_RoundRobin ) >= 0 )
 		{
@@ -163,7 +163,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 		//	//if ( _g->sync.reset_static_after_lock )
 		//	//{
 		//	//	_g->sync.reset_static_after_lock = 0;
-		//	//	memset( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
+		//	//	MEMSET( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 		//	//}
 
 		if ( pb->trd.base.do_close_thread )
