@@ -161,7 +161,7 @@
       </Command>
     </RemotePreBuildEvent>
     <Link>
-      <LibraryDependencies>ncurses;pcap</LibraryDependencies>
+      <LibraryDependencies>ncurses;pcap;pthread</LibraryDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -171,7 +171,8 @@
       <AdditionalOptions>-D__COMPILE %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <LibraryDependencies>ncurses;pcap</LibraryDependencies>
+      <LibraryDependencies>ncurses;pcap;</LibraryDependencies>
+      <AdditionalOptions>-pthread %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,10 +1,28 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="src\Bridge.c">
+    <ClCompile Include="src\_1_pcap_udp_counter.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.c">
+    <ClCompile Include="src\_2_NetStack_udp_counter.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\_3_one2one_pcap2NetStack_SF.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\_4_one2many_pcap2NetStack_SF.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\_5_many2one_pcap_NetStack_SF.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\async_pcap_udp_store.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\async_tcp_forward.c">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Bridge.c">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\BridgeConfig.c">
@@ -16,44 +34,59 @@
     <ClCompile Include="src\helper.c">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\main.c">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="src\statistics.c">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\_1_pcap_udp_counter.c">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\_2_NetStack_udp_counter.c">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\_3_one2one_pcap2NetStack_SF.c">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\async_pcap_udp_store.c">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\async_tcp_forward.c">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\_4_one2many_pcap2NetStack_SF.c">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\_5_many2one_pcap_NetStack_SF.c">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="header">
-      <UniqueIdentifier>{73b64528-d8a2-405f-9381-d5a10e8006d0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src">
-      <UniqueIdentifier>{5d609be6-01bd-4a62-ab99-d88db53b9813}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="dep">
-      <UniqueIdentifier>{b39b1add-6bdc-4f57-942e-9f6385d8491b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="cfg">
-      <UniqueIdentifier>{df3bfab6-e2f0-4d6e-b8bc-16b646011c1c}</UniqueIdentifier>
-    </Filter>
+    <ClInclude Include="header\_1_pcap_udp_counter.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\_2_NetStack_udp_counter.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\_3_one2one_pcap2NetStack_SF.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\_4_one2many_pcap2NetStack_SF.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\_5_many2one_pcap_NetStack_SF.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\async_pcap_udp_store.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\async_tcp_forward.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\Bridge.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\BridgeConfig.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\config.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\definition.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\garage.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\helper.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\msg.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\statistics.h">
+      <Filter>header</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="dep\Protocol_Bridge.dep">
@@ -67,58 +100,25 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="header\msg.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\definition.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\config.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\BridgeConfig.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\Bridge.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\statistics.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\helper.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\_1_pcap_udp_counter.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\_2_NetStack_udp_counter.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\_3_one2one_pcap2NetStack_SF.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\async_pcap_udp_store.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\async_tcp_forward.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\_4_one2many_pcap2NetStack_SF.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\garage.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\_5_many2one_pcap_NetStack_SF.h">
-      <Filter>header</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="cfg\Protocol_Bridge_config.txt">
-      <Filter>cfg</Filter>
-    </Text>
     <Text Include="cfg\config_ver.txt">
       <Filter>cfg</Filter>
     </Text>
+    <Text Include="cfg\Protocol_Bridge_config.txt">
+      <Filter>cfg</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="header">
+      <UniqueIdentifier>{a5c1ddc4-c48d-47e9-94ca-7626cf6bd350}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{b27f4383-bee4-45c8-9fa2-c1b3faaadf25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cfg">
+      <UniqueIdentifier>{f3626076-6c6d-4ed8-9fda-eac4fcd44ed9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="dep">
+      <UniqueIdentifier>{efc59e26-b2d6-48cf-98a6-a7008361148f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

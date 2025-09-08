@@ -1,3 +1,4 @@
+#define Uses_pthread_create
 #define Uses_proc_many2many_pcap_NetStack_SF
 #define Uses_proc_one2many_pcap2NetStack_SF_udp_pcap
 #define Uses_proc_NetStack_udp_counter
