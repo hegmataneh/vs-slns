@@ -113,7 +113,7 @@ _CALLBACK_FXN void tcp_disconnected( pass_p src_pb , int v )
 
 void quit_interrupt( int sig )
 {
-	if ( sig ) ( void )sig;
+	if ( sig ) ( void )sig; // TODO . what happeneed here
 	distributor_publish_int( &_g->distribute.quit_interrupt_dist , sig , NULL );
 	exit( 0 );
 }
@@ -164,7 +164,10 @@ void init( G * _g )
 
 	signal( SIGINT , quit_interrupt );
 	signal( SIGTERM , quit_interrupt );
+	signal( SIGPIPE , quit_interrupt );
 
+	//SIGSEGV
+	//SIGFPE
 	
 
 	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_5_sec_count , 5 );
@@ -341,12 +344,12 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 			// TODO
 		}
 
-		MM_BREAK_IF( ( pb->udps[ iudp ].udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
+		MM_BREAK_IF( ( pb->udps[ iudp ].udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errSocket , 1 , "create sock error" );
 
 		int optval = 1;
 		//socklen_t optlen = sizeof( optval );
-		//MM_BREAK_IF( getsockopt( pb->udps[ iudp ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , &optlen ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
-		MM_BREAK_IF( setsockopt( pb->udps[ iudp ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , sizeof( optval ) ) < 0 , errGeneral , 1 , "SO_REUSEADDR" );
+		//MM_BREAK_IF( getsockopt( pb->udps[ iudp ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , &optlen ) < 0 , errSocket , 1 , "SO_REUSEADDR" );
+		MM_BREAK_IF( setsockopt( pb->udps[ iudp ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , sizeof( optval ) ) < 0 , errSocket , 1 , "SO_REUSEADDR" );
 
 		int flags = fcntl( pb->udps[ iudp ].udp_sockfd, F_GETFL );
 		fcntl( pb->udps[ iudp ].udp_sockfd , F_SETFL , flags | O_NONBLOCK );
@@ -369,7 +372,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 			server_addr.sin_addr.s_addr = inet_addr( pb->udps[ iudp ].__udp_cfg_pak->data.UDP_origin_ip ); // Specify the IP address to bind to
 		}
 
-		MM_BREAK_IF( bind( pb->udps[ iudp ].udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errGeneral , 1 , "bind sock error" );
+		MM_BREAK_IF( bind( pb->udps[ iudp ].udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errSocket , 1 , "bind sock error" );
 		pb->udps[ iudp ].udp_connection_established = 1;
 
 		distributor_publish_int( &_g->distribute.pb_udp_connected_dist , 0 , ( pass_p )pb );
@@ -392,7 +395,7 @@ status connect_one_tcp( AB_tcp * tcp )
 	while ( 1 )
 	{
 		// try to create TCP socket
-		MM_BREAK_IF( ( tcp->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
+		MM_BREAK_IF( ( tcp->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errSocket , 0 , "create sock error" );
 
 		struct sockaddr_in tcp_addr;
 		tcp_addr.sin_family = AF_INET;
@@ -402,7 +405,7 @@ status connect_one_tcp( AB_tcp * tcp )
 		ASSERT( port > 0 );
 
 		tcp_addr.sin_port = htons( ( uint16_t )port );
-		MM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errGeneral , 1 , "inet_pton sock error" );
+		MM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errSocket , 1 , "inet_pton sock error" );
 
 		if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
 		{
@@ -413,7 +416,7 @@ status connect_one_tcp( AB_tcp * tcp )
 				continue;
 			}
 
-			MM_BREAK_IF( 1 , errGeneral , 1 , "Error connecting to TCP server" );
+			MM_BREAK_IF( 1 , errSocket , 1 , "Error connecting to TCP server" );
 		}
 		else
 		{
@@ -430,7 +433,7 @@ status connect_one_tcp( AB_tcp * tcp )
 		DIST_ERR();
 	}
 	M_V_END_RET
-	return errGeneral;
+	return errSocket;
 }
 
 _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
@@ -638,7 +641,7 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 	M_MALLOC_AR( *port_filter , *clusterd_cnt , 0 );
 	MEMSET_ZERO( *port_filter , *clusterd_cnt );
 
-	for ( int iint ; iint < *clusterd_cnt ; iint++ )
+	for ( int iint = 0 ; iint < *clusterd_cnt ; iint++ )
 	{
 		M_BREAK_IF( !( *interface_filter[ iint ] = strdup( distinct_interface.strs[ iint ] ) ) , errMemoryLow , 0 );
 	}
@@ -646,7 +649,7 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 
 	// not time to combine port
 
-	for ( int iint ; iint < *clusterd_cnt ; iint++ )
+	for ( int iint = 0 ; iint < *clusterd_cnt ; iint++ )
 	{
 		// iterate through every out section to find interface and aggregate them
 		strings_ar distinct_ports;
@@ -667,7 +670,7 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 		}
 
 		LPSTR * port_filter_addr = ( *( LPSTR ** )port_filter ) + iint;
-		M_MALLOC_AR( *port_filter_addr , 1024 /*default filter size*/ , 0);
+		M_MALLOC_AR( *port_filter_addr , 1024 /*default filter size*/ , 0 );
 		MEMSET_ZERO( *port_filter_addr , 1024 );
 		LPSTR prt_flt = *port_filter_addr;
 
@@ -687,7 +690,6 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 				if ( iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_interface , *interface_filter[iint] )
 					&& iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports , distinct_ports.strs[iprt] ) )
 				{
-			
 					if ( strchr( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports , '-' ) != NULL )
 					{
 						// it's a range

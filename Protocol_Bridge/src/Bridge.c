@@ -103,7 +103,7 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			if ( !pb->trd.base.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_pcap_udp_counter->trd_id , NULL ,
-					proc_pcap_udp_counter , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+					proc_pcap_udp_counter , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->trd.base.thread_is_created = 1;
 			}
 			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
@@ -124,13 +124,13 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			if ( !pb->trd.base.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_NetStack_udp_counter->trd_id , NULL ,
-					proc_NetStack_udp_counter , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+					proc_NetStack_udp_counter , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->trd.base.thread_is_created = 1;
 			}
 			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
 
 			pthread_t trd_udp_connection;
-			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 		}
 	}
 
@@ -145,21 +145,21 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 
-			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2one_pcap2NetStack_SF->cbuf , 100000 , /*1470 -> + hdr = 1512*/1512 ) , 1 );
+			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2one_pcap2NetStack_SF->cbuf , 100000 , /*1470 -> + hdr = 1512*/5000 ) , 1 );
 
 			//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
 			if ( !pb->trd.base.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2NetStack_SF->income_trd_id , NULL ,
-					proc_one2one_pcap2NetStack_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+					proc_one2one_pcap2NetStack_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2NetStack_SF->outgoing_trd_id , NULL ,
-					proc_one2one_pcap2NetStack_SF_tcp_out , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+					proc_one2one_pcap2NetStack_SF_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->trd.base.thread_is_created = 1;
 			}
 			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
 
 			pthread_t trd_tcp_connection;
-			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 		}
 	}
 
@@ -173,22 +173,22 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			MEMSET_ZERO_O( pb->trd.t.p_one2many_pcap2NetStack_SF );
 			//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
-
-			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2many_pcap2NetStack_SF->cbuf , 100000 , /*1470 -> + hdr = 1512*/1512 ) , 1 );
+			
+			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2many_pcap2NetStack_SF->cbuf , 1000000 , /*1470 -> + hdr = 1512*/10000 ) , 1 );
 
 			//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
 			if ( !pb->trd.base.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2many_pcap2NetStack_SF->income_trd_id , NULL ,
-					proc_one2many_pcap2NetStack_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+					proc_one2many_pcap2NetStack_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2many_pcap2NetStack_SF->outgoing_trd_id , NULL ,
-					proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+					proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->trd.base.thread_is_created = 1;
 			}
 			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
 
 			pthread_t trd_tcp_connection;
-			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 		}
 	}
 
@@ -202,19 +202,19 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 	//		//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 	//		//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 	//		// TODO . buff size came from config
-			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->cbuf , 100000 , /*1470 -> + hdr = 1512*/1512 ) , 1 );
+			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->cbuf , 1000000 , /*1470 -> + hdr = 1512*/10000 ) , 1 );
 	//		//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
 			if ( !pb->trd.base.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->income_trd_id , NULL ,
-					proc_many2many_pcap_NetStack_SF , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+					proc_many2many_pcap_NetStack_SF , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				//MM_BREAK_IF( pthread_create( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->outgoing_trd_id , NULL ,
-				//	 , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+				//	 , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->trd.base.thread_is_created = 1;
 			}
 	//		//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
 			pthread_t trd_tcp_connection;
-			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
+			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 		}
 	}
 

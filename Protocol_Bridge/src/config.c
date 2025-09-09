@@ -39,15 +39,15 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 
 			MEMSET( buf , 0 , sizeof( buf ) );
 			const char * config_ver_file_content = read_file( CONFIG_ROOT_PATH "/config_ver.txt" , ( char * )buf );
-			MM_BREAK_IF( !config_ver_file_content , errGeneral , 0 , "cannot open and read version file" );
+			MM_BREAK_IF( !config_ver_file_content , errNotFound , 0 , "cannot open and read version file" );
 
 			result( json_element ) rs_config_ver = json_parse( config_ver_file_content );
 			//free( ( void_p )config_ver_file_content );
-			MM_BREAK_IF( catch_error( &rs_config_ver , "config_ver" , 1 ) , errGeneral , 0 , "error in json_parse version file" );
+			MM_BREAK_IF( catch_error( &rs_config_ver , "config_ver" , 1 ) , errNotFound , 0 , "error in json_parse version file" );
 			typed( json_element ) el_config_ver = result_unwrap( json_element )( &rs_config_ver );
 
 			result( json_element ) ver = json_object_find( el_config_ver.value.as_object , "ver" );
-			MM_BREAK_IF( catch_error( &ver , "ver" , 1 ) , errGeneral , 0 , "ver not found" );
+			MM_BREAK_IF( catch_error( &ver , "ver" , 1 ) , errNotFound , 0 , "ver not found" );
 
 			MEMSET( &temp_ver , 0 , sizeof( temp_ver ) );
 
@@ -121,7 +121,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 			size_t Protocol_Bridges_count = 0;
 			{
 				const char * Protocol_Bridge_config_file_content = read_file( CONFIG_ROOT_PATH "/Protocol_Bridge_config.txt" , NULL );
-				MM_BREAK_IF( !Protocol_Bridge_config_file_content , errGeneral , 0 , "cannot open config file" );
+				MM_BREAK_IF( !Protocol_Bridge_config_file_content , errNotFound , 0 , "cannot open config file" );
 					
 				result( json_element ) rs_Protocol_Bridge_config = json_parse( Protocol_Bridge_config_file_content );
 				free( ( void_p )Protocol_Bridge_config_file_content );
@@ -132,22 +132,22 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 				if ( _g->appcfg.ver->Major >= 1 ) // first version of config file structure
 				{
 					result( json_element ) re_configurations = json_object_find( el_Protocol_Bridge_config.value.as_object , "configurations" );
-					MM_BREAK_IF( catch_error( &re_configurations , "configurations" , 1 ) , errGeneral , 0 , "configurations" );
+					MM_BREAK_IF( catch_error( &re_configurations , "configurations" , 1 ) , errNotFound , 0 , "configurations" );
 					typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 	
 					#define CFG_ELEM_STR( name )																			/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );									/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );									/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						NEWSTR( pGeneralConfiguration->name , el_##name.value.as_string , 0 );								/**/
 					#define CFG_ELEM_I( name )																				/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );									/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );									/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						pGeneralConfiguration->name = (int)el_##name.value.as_number.value.as_long;							/**/
 					#define CFG_ELEM_I64( name )																			/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );									/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );									/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						pGeneralConfiguration->name = (int64)el_##name.value.as_number.value.as_long;						/**/
 
@@ -190,7 +190,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 				// load Protocol_Bridges
 				{
 					result( json_element ) re_Protocol_Bridges = json_object_find( el_Protocol_Bridge_config.value.as_object , "Protocol_Bridges" );
-					MM_BREAK_IF( catch_error( &re_Protocol_Bridges , "Protocol_Bridges" , 1 ) , errGeneral , 0 , "Protocol_Bridges" );
+					MM_BREAK_IF( catch_error( &re_Protocol_Bridges , "Protocol_Bridges" , 1 ) , errNotFound , 0 , "Protocol_Bridges" );
 					typed( json_element ) el_Protocol_Bridges = result_unwrap( json_element )( &re_Protocol_Bridges );
 	
 					MM_BREAK_IF( ( Protocol_Bridges_count = el_Protocol_Bridges.value.as_object->count ) < 1 , errGeneral , 0 , "Protocol_Bridges must be not zero" );
@@ -204,20 +204,20 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						const char * output_Protocol_Bridge_name = ( *( el_Protocol_Bridges.value.as_object->entries + ibrj ) )->key;
 	
 						result( json_element ) re_each_bridge = json_object_find( el_Protocol_Bridges.value.as_object , output_Protocol_Bridge_name );
-						M_BREAK_IF( catch_error( &re_each_bridge , output_Protocol_Bridge_name , 1 ) , errGeneral , 0 );
+						M_BREAK_IF( catch_error( &re_each_bridge , output_Protocol_Bridge_name , 1 ) , errNotFound , 0 );
 						typed( json_element ) el_each_bridge = result_unwrap( json_element )( &re_each_bridge );
 	
 						strcpy( ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->id.bridge_name , output_Protocol_Bridge_name );
 						
 						#define CFG_ELEM_STR( part , name )																	/**/\
 						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );		/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );									/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );									/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						strcpy(((Bcfg0 *)(pProtocol_Bridges + ibrj))->part.name , el_##name.value.as_string );					/**/
 	
 						#define CFG_ELEM_I( part , name )																		/**/\
 						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );			/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );										/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );										/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );							/**/\
 						((Bcfg0 *)(pProtocol_Bridges + ibrj))->part.name = (int)el_##name.value.as_number.value.as_long;			/**/
 	
@@ -227,7 +227,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						
 						// bridge inputs
 						result( json_element ) re_inputs = json_object_find( el_each_bridge.value.as_object , "inputs" );
-						MM_BREAK_IF( catch_error( &re_inputs , "inputs" , 1 ) , errGeneral , 0 , "inputs" );
+						MM_BREAK_IF( catch_error( &re_inputs , "inputs" , 1 ) , errNotFound , 0 , "inputs" );
 						typed( json_element ) el_inputs = result_unwrap( json_element )( &re_inputs );
 												
 						((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in_count = el_inputs.value.as_object->count;
@@ -241,18 +241,18 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in + iin )->name , output_input_name );
 
 							result( json_element ) re_inp = json_object_find( el_inputs.value.as_object , output_input_name );
-							M_BREAK_IF( catch_error( &re_inp , output_input_name , 1 ) , errGeneral , 0 );
+							M_BREAK_IF( catch_error( &re_inp , output_input_name , 1 ) , errNotFound , 0 );
 							typed( json_element ) el_inp = result_unwrap( json_element )( &re_inp );
 
 							#define IN_CFG_ELEM_STR( elem , namee )																		/**/\
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );											/**/\
+							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );											/**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
 							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in + iin )->data.namee , el_##namee.value.as_string );					/**/
 
 							#define IN_CFG_ELEM_I( elem , namee )																				/**/\
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
-							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );													/**/\
+							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );													/**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
 							( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in + iin )->data.namee = (int)el_##namee.value.as_number.value.as_long;					/**/
 
@@ -286,18 +286,18 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj ))->maintained.out + iout )->name , output_outputs_name );
 
 								result( json_element ) re_out = json_object_find( el_outputs.value.as_object , output_outputs_name );
-								M_BREAK_IF( catch_error( &re_out , output_outputs_name , 1 ) , errGeneral , 0 );
+								M_BREAK_IF( catch_error( &re_out , output_outputs_name , 1 ) , errNotFound , 0 );
 								typed( json_element ) el_out = result_unwrap( json_element )( &re_out );
 
 								#define IN_CFG_ELEM_STR( elem , namee )																		/**/\
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );											/**/\
+								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );											/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
 								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj ))->maintained.out + iout )->data.namee , el_##namee.value.as_string );		/**/
 
 								#define IN_CFG_ELEM_I( elem , namee )																				/**/\
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
-								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errGeneral , 0 );													/**/\
+								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );													/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
 								( ((Bcfg0 *)(pProtocol_Bridges + ibrj ))->maintained.out + iout )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
 

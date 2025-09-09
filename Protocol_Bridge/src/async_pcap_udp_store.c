@@ -79,15 +79,15 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 
 	ASSERT( clusterd_cnt == 1 );
 
-	//MM_FMT_BREAK_IF( !( dev = pcap_lookupdev( errbuf ) ) , errGeneral , 0 , "Couldn't find default device: %s" , errbuf );
-	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf) == -1 , errGeneral , 1 , "Warning: couldn't get netmask for device %s\n" , errbuf);
+	//MM_FMT_BREAK_IF( !( dev = pcap_lookupdev( errbuf ) ) , errDevice , 0 , "Couldn't find default device: %s" , errbuf );
+	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf) == -1 , errDevice , 1 , "use correct interface %s\n" , errbuf);
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	MM_FMT_BREAK_IF( !( handle = pcap_open_live( interface_filter[ 0 ] , SNAP_LEN , 1 , 1000 , errbuf ) ) , errGeneral , 1 , "Couldn't open device %s: %s\n" , interface_filter[ 0 ] , errbuf );
+	MM_FMT_BREAK_IF( !( handle = pcap_open_live( interface_filter[ 0 ] , SNAP_LEN , 1 , 1000 , errbuf) ) , errDevice , 1 , "exe by pcap prmit usr %s\n" , interface_filter[0] , errbuf);
 
 	// Compile and apply filter
-	MM_FMT_BREAK_IF( pcap_compile( handle , &fp , port_filter[ 0 ] , 1 , mask) == -1 , errGeneral , 2 , "Couldn't parse filter %s\n" , pcap_geterr(handle));
-	MM_FMT_BREAK_IF( pcap_setfilter( handle , &fp ) == -1 , errGeneral , 3 , "Couldn't install filter %s\n" , pcap_geterr( handle ) );
+	MM_FMT_BREAK_IF( pcap_compile( handle , &fp , port_filter[ 0 ] , 1 , mask) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr(handle));
+	MM_FMT_BREAK_IF( pcap_setfilter( handle , &fp ) == -1 , errDevice , 3 , "Couldn't install filter %s\n" , pcap_geterr( handle ) );
 
 	FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
 	FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
@@ -100,7 +100,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	}
 
 	// set a large buffer (e.g., 10 MB)
-	//MM_FMT_BREAK_IF( pcap_set_buffer_size( handle , 1024 * 1024 ) != 0 , errGeneral , 2 , "failed to set buffer size %s\n" , pcap_geterr( handle ) );
+	//MM_FMT_BREAK_IF( pcap_set_buffer_size( handle , 1024 * 1024 ) != 0 , errDevice , 2 , "failed to set buffer size %s\n" , pcap_geterr( handle ) );
 
 	if ( pb->stat.round_zero_set.t_begin.tv_sec == 0 && pb->stat.round_zero_set.t_begin.tv_usec == 0 )
 	{
@@ -113,7 +113,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	}
 
 	// Capture indefinitely
-	MM_FMT_BREAK_IF( pcap_loop( handle , -1 , handle_pcap_udp_receiver , ( pass_p )pb ) == -1 , errGeneral , 3 , "pcap_loop failed: %s\n" , pcap_geterr( handle ) );
+	MM_FMT_BREAK_IF( pcap_loop( handle , -1 , handle_pcap_udp_receiver , ( pass_p )pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( handle ) );
 
 	BEGIN_RET
 	// TODO . FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );

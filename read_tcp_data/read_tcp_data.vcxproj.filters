@@ -10,6 +10,9 @@
     <Filter Include="src">
       <UniqueIdentifier>{df688481-f93e-44df-9ac5-ee96fa62eb93}</UniqueIdentifier>
     </Filter>
+    <Filter Include="cfg">
+      <UniqueIdentifier>{fa606741-5a93-4804-8554-8b793d062a61}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="header\msg.h">
@@ -31,5 +34,13 @@
     <ClCompile Include="src\main.c">
       <Filter>src</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="cfg\config_ver.txt">
+      <Filter>cfg</Filter>
+    </Text>
+    <Text Include="cfg\tcp_listener_config.txt">
+      <Filter>cfg</Filter>
+    </Text>
   </ItemGroup>
 </Project>

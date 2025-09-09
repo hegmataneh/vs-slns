@@ -1002,7 +1002,7 @@ void add_new_tcp_listener( struct App_Data * _g , struct tcp_listener_cfg * new_
 
 #ifndef section_load_config
 
-#define CONFIG_ROOT_PATH "/root/my_projects/home-config/tcp_listener"
+#define CONFIG_ROOT_PATH "../../../../tcp_listener/cfg"
 
 // TODO . exit gracefully by auto mechanism
 // TODO . think about race condition

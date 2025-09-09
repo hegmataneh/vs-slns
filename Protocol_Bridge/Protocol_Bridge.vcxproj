@@ -79,7 +79,6 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
-    <EnableIncrementalBuild>No</EnableIncrementalBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;*.txt;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
@@ -135,12 +134,16 @@
       </DeploymentContent>
       <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</RemoteCopyFile>
       <RemoteCopyToOutputDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(RemoteProjectDir)/cfg</RemoteCopyToOutputDir>
+      <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</RemoteCopyFile>
+      <RemoteCopyToOutputDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(RemoteProjectDir)/cfg</RemoteCopyToOutputDir>
     </Text>
     <Text Include="cfg\Protocol_Bridge_config.txt">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ExcludedFromBuild>
       <RemoteCopyToOutputDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(RemoteProjectDir)/cfg</RemoteCopyToOutputDir>
       <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</RemoteCopyFile>
+      <RemoteCopyFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</RemoteCopyFile>
+      <RemoteCopyToOutputDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(RemoteProjectDir)/cfg</RemoteCopyToOutputDir>
     </Text>
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -148,9 +151,7 @@
     <ClCompile>
       <PreprocessorDefinitions>INTELISENSE_BUILD=$(IntelliSenseBuild);__PROJECT_NAME__=$(ProjectName)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(RemoteRootDir)/$(ProjectName)/dep;$(RemoteRootDir)/$(ProjectName)/header;%(ClCompile.AdditionalIncludeDirectories);$(RemoteHeadersDir);./header;$(RemoteRootDir)/general/dep;$(RemoteRootDir)/general/header</AdditionalIncludeDirectories>
-      <Verbose>false</Verbose>
-      <AdditionalOptions>-D__COMPILE %(AdditionalOptions)</AdditionalOptions>
-      <ShowIncludes>false</ShowIncludes>
+      <AdditionalOptions>-D__COMPILE -fno-optimize-sibling-calls -fno-inline  -g3 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <PreBuildEvent>
       <Command>
@@ -174,6 +175,10 @@
       <LibraryDependencies>ncurses;pcap;</LibraryDependencies>
       <AdditionalOptions>-pthread %(AdditionalOptions)</AdditionalOptions>
     </Link>
+    <RemotePostBuildEvent>
+      <Command>sudo setcap cap_net_raw,cap_net_admin=eip $(RemoteTargetPath)
+sudo setcap cap_net_raw,cap_net_admin=eip /usr/bin/gdb</Command>
+    </RemotePostBuildEvent>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

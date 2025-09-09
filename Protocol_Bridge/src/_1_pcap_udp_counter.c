@@ -52,21 +52,21 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 
 	ASSERT( clusterd_cnt == 1 );
 
-	//MM_BREAK_IF( !( dev = pcap_lookupdev( errbuf ) ) , errGeneral , 0 , "Couldn't find default device: %s" , errbuf );
-	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf ) == -1 , errGeneral , 1 , "Warning: couldn't get netmask for device %s\n" , errbuf );
+	//MM_BREAK_IF( !( dev = pcap_lookupdev( errbuf ) ) , errDevice , 0 , "Couldn't find default device: %s" , errbuf );
+	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf ) == -1 , errDevice , 1 , "use correct interface %s\n" , errbuf );
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	MM_FMT_BREAK_IF( !( pb->trd.t.p_pcap_udp_counter->handle = pcap_open_live( interface_filter[ 0 ] , 5000 , 1 , 1000 , errbuf ) ) , errGeneral , 1 , "Couldn't open device %s: %s\n" , interface_filter[ 0 ] , errbuf );
+	MM_FMT_BREAK_IF( !( pb->trd.t.p_pcap_udp_counter->handle = pcap_open_live( interface_filter[ 0 ] , SNAP_LEN , 1 , 1000 , errbuf ) ) , errDevice , 1 , "exe by pcap prmit usr %s: %s\n" , interface_filter[ 0 ] , errbuf );
 
 	int fd = pcap_get_selectable_fd( pb->trd.t.p_pcap_udp_counter->handle );
 	int busy_poll_time = 50;  // microseconds per syscall spin budget
-	M_BREAK_IF( setsockopt( fd , SOL_SOCKET , SO_BUSY_POLL , &busy_poll_time , sizeof( busy_poll_time ) ) < 0 , errGeneral , 2 );
+	M_BREAK_IF( setsockopt( fd , SOL_SOCKET , SO_BUSY_POLL , &busy_poll_time , sizeof( busy_poll_time ) ) < 0 , errSocket , 2 );
 
 	//const char * filter = pb->cpy_cfg.m.m.maintained.in->data.UDP_origin_ports;
 
 	// Compile and apply filter
-	MM_FMT_BREAK_IF( pcap_compile( pb->trd.t.p_pcap_udp_counter->handle , &fp , port_filter[ 0 ] , 1 , mask ) == -1 , errGeneral , 2 , "Couldn't parse filter %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->handle ) );
-	MM_FMT_BREAK_IF( pcap_setfilter( pb->trd.t.p_pcap_udp_counter->handle , &fp ) == -1 , errGeneral , 3 , "Couldn't install filter %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->handle ) );
+	MM_FMT_BREAK_IF( pcap_compile( pb->trd.t.p_pcap_udp_counter->handle , &fp , port_filter[ 0 ] , 1 , mask ) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->handle ) );
+	MM_FMT_BREAK_IF( pcap_setfilter( pb->trd.t.p_pcap_udp_counter->handle , &fp ) == -1 , errDevice , 3 , "Couldn't install filter %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->handle ) );
 
 	FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
 	FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
@@ -74,7 +74,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	pcap_freecode( &fp );
 
 	// set a large buffer (e.g., 10 MB)
-	//MM_FMT_BREAK_IF( pcap_set_buffer_size( handle , 1024 * 1024 ) != 0 , errGeneral , 2 , "failed to set buffer size %s\n" , pcap_geterr( handle ) );
+	//MM_FMT_BREAK_IF( pcap_set_buffer_size( handle , 1024 * 1024 ) != 0 , errDevice , 2 , "failed to set buffer size %s\n" , pcap_geterr( handle ) );
 
 	if ( pb->stat.round_zero_set.t_begin.tv_sec == 0 && pb->stat.round_zero_set.t_begin.tv_usec == 0 )
 	{
@@ -85,7 +85,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	distributor_subscribe( &_g->distribute.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb );
 
 	// Capture indefinitely
-	MM_FMT_BREAK_IF( pcap_loop( pb->trd.t.p_pcap_udp_counter->handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errGeneral , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->handle ) );
+	MM_FMT_BREAK_IF( pcap_loop( pb->trd.t.p_pcap_udp_counter->handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->handle ) );
 
 	BREAK_OK( 4 ); // clean every thing
 

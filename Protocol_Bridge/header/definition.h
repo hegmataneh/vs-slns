@@ -30,7 +30,7 @@
 #define DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC 1000000000
 #define DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC 1000000
 
-#define SNAP_LEN 1518  // max bytes per packet to capture
+#define SNAP_LEN 5000/*1518*/  // max bytes per packet to capture
 
 // Ethernet header is always 14 bytes (for non-VLAN frames)
 #define SIZE_ETHERNET 14

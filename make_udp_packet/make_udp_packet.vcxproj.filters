@@ -15,6 +15,9 @@
     <Filter Include="src">
       <UniqueIdentifier>{eeb0663b-2ff9-4343-a2e1-e56cb17e22f9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="cfg">
+      <UniqueIdentifier>{92833baf-623a-4234-a7c1-f0aec7259f23}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="dep\make_udp_packet.dep">
@@ -31,5 +34,13 @@
     <ClInclude Include="header\msg.h">
       <Filter>header</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="cfg\config_ver.txt">
+      <Filter>cfg</Filter>
+    </Text>
+    <Text Include="cfg\UDP_generator_config.txt">
+      <Filter>cfg</Filter>
+    </Text>
   </ItemGroup>
 </Project>
