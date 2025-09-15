@@ -1,5 +1,5 @@
 #define Uses_definition
-#define Uses_memcpy
+#define Uses_MEMCPY
 #define Uses_malloc
 #define Uses_BridgeConfig
 #define Uses_INIT_BREAKABLE_FXN

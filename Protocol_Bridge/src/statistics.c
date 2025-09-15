@@ -1,4 +1,5 @@
-﻿#define Uses_sleep
+﻿#define Uses_STRLEN
+#define Uses_sleep
 #define Uses_setlocale
 #define Uses_memset
 #define Uses_TWD

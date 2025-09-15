@@ -1,3 +1,6 @@
+#define Uses__ECHO
+#define Uses_INIT_BREAKABLE_FXN
+#define Uses_MEMSET
 #define Uses_strings_ar
 #define Uses_signal
 #define Uses_thrd_sleep

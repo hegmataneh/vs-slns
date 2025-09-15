@@ -153,7 +153,7 @@
     <ClCompile>
       <PreprocessorDefinitions>INTELISENSE_BUILD=$(IntelliSenseBuild);__PROJECT_NAME__=$(ProjectName)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(RemoteRootDir)/$(ProjectName)/dep;$(RemoteRootDir)/$(ProjectName)/header;%(ClCompile.AdditionalIncludeDirectories);$(RemoteHeadersDir);./header;$(RemoteRootDir)/general/dep;$(RemoteRootDir)/general/header</AdditionalIncludeDirectories>
-      <AdditionalOptions>-D__COMPILE -fno-optimize-sibling-calls -fno-inline  -g3 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-D__COMPILING -fno-optimize-sibling-calls -fno-inline  -g3 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <PreBuildEvent>
       <Command>

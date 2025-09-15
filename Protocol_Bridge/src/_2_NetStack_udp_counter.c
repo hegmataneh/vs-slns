@@ -1,3 +1,4 @@
+#define Uses__VERBOSE_ECHO
 #define Uses_errno
 #define Uses_helper
 #define Uses_Bridge

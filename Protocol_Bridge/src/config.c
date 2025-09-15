@@ -1,9 +1,10 @@
+#define Uses_MEMSET
+#define Uses_INIT_BREAKABLE_FXN
 #define Uses_TWD
 #define Uses_pthread_t
 #define Uses_json
 #define Uses_config
 #define Uses_helper
-#define Uses_memset
 #include <Protocol_Bridge.dep>
 
 // TODO . exit gracefully by auto mechanism

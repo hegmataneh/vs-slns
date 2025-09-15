@@ -1,3 +1,4 @@
+#define Uses_FREE_DOUBLE_PTR
 #define Uses_udphdr
 #define Uses_errno
 #define Uses_helper
