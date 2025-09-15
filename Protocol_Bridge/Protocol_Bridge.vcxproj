@@ -88,6 +88,7 @@
     <ClCompile Include="src\BridgeConfig.c" />
     <ClCompile Include="src\async_pcap_udp_store.c" />
     <ClCompile Include="src\async_tcp_forward.c" />
+    <ClCompile Include="src\packet_mngr.c" />
     <ClCompile Include="src\_5_many2one_pcap_NetStack_SF.c" />
     <ClCompile Include="src\_2_NetStack_udp_counter.c" />
     <ClCompile Include="src\_4_one2many_pcap2NetStack_SF.c" />
@@ -111,6 +112,7 @@
     <ClInclude Include="header\BridgeConfig.h" />
     <ClInclude Include="header\async_pcap_udp_store.h" />
     <ClInclude Include="header\async_tcp_forward.h" />
+    <ClInclude Include="header\packet_mngr.h" />
     <ClInclude Include="header\_5_many2one_pcap_NetStack_SF.h" />
     <ClInclude Include="header\garage.h" />
     <ClInclude Include="header\_2_NetStack_udp_counter.h" />

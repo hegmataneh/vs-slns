@@ -33,6 +33,9 @@ typedef struct Global_Config_0
 	int64 default_normal_basic_thread_delay_nanosec;
 	int64 default_hi_basic_thread_delay_nanosec;
 
+	int64 pkt_mgr_segment_capacity;
+	int64 pkt_mgr_offsets_capacity;
+
 } Gcfg0;
 
 typedef struct Global_Config_n
@@ -50,7 +53,7 @@ typedef struct App_Config // global config
 {
 	struct Config_ver
 	{
-		char version[ 64 ];
+		CFG_ITM version;
 		int Major; //Indicates significant changes , potentially including incompatible API changes.
 		int Minor; //Denotes new functionality added in a backwards - compatible manner.
 		int Build; //Represents the specific build number of the software.

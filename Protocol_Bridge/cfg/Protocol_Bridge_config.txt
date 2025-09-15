@@ -28,7 +28,9 @@
 		"NetworkStack_FilterType": "pcap",
 		"default_low_basic_thread_delay_nanosec": 5000000000,
 		"default_normal_basic_thread_delay_nanosec": 1000000000,
-		"default_hi_basic_thread_delay_nanosec": 1000000
+		"default_hi_basic_thread_delay_nanosec": 1000000,
+		"pkt_mgr_segment_capacity": 2097152,
+		"pkt_mgr_offsets_capacity": 10
 	},
 	"valid_key_values":
 	{
@@ -68,7 +70,7 @@
 				{
 					"group": "1",
 					"group_type": "one_out",
-					"TCP_destination_ip": "192.168.100.61",
+					"TCP_destination_ip": "192.168.56.61",
 					"TCP_destination_ports": "5000",
 					"TCP_destination_interface": "-",
 					"enable": 1,

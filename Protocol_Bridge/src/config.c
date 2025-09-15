@@ -182,6 +182,11 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I64( default_normal_basic_thread_delay_nanosec );												/**/\
 					CFG_ELEM_I64( default_hi_basic_thread_delay_nanosec );													/**/
 					
+					CFG_ELEM_I64( pkt_mgr_segment_capacity );													/**/
+					CFG_ELEM_I64( pkt_mgr_offsets_capacity );													/**/
+
+					
+
 
 					#undef CFG_ELEM_I
 					#undef CFG_ELEM_STR
@@ -383,7 +388,10 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.default_low_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_low_basic_thread_delay_nanosec );
 					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.default_normal_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_normal_basic_thread_delay_nanosec );
 					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.default_hi_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_hi_basic_thread_delay_nanosec );
-						
+					
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.pkt_mgr_segment_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_segment_capacity );
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.pkt_mgr_offsets_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_offsets_capacity );
+
 				}
 			}
 	
@@ -506,6 +514,8 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 		if ( CLOSE_APP_VAR() ) break;
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
+
+	post_config_init( _g );
 
 	while ( 1 )
 	{

@@ -17,7 +17,7 @@
 #define NORMAL_PRIORITY_THREAD 2
 #define HI_PRIORITY_THREAD 3
 
-#define BUF_SIZE 2048
+#define DEFAULT_BUF_SIZE 2048
 
 #define PREALLOCAION_SIZE 10
 
@@ -59,3 +59,5 @@
 #define DIST_ERR() DO_WHILE( distributor_publish_str( &_g->distribute.pb_err_dist , __FUNCTION__ , ( pass_p )pb ) ) /*distribute error*/
 #define DIST_ERR_G() DO_WHILE( distributor_publish_str( &_g->distribute.ground_err_dist , __FUNCTION__ , ( pass_p )_g ) ) /*distribute error*/
 
+typedef  char CONFIG_SECTION_ITEM_VALUE  [64];
+typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;

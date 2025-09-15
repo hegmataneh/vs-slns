@@ -1,4 +1,5 @@
-﻿#define Uses_pthread_t
+﻿#define Uses_ci_sgmgr_t
+#define Uses_pthread_t
 #define Uses_statistics
 #define Uses_config
 #define Uses_INIT_BREAKABLE_FXN
@@ -7,13 +8,20 @@
 
 G * _g; // just one global var
 
+status print_item_cb( const void * data , size_t len , void * ud )
+{
+	( void )ud;
+	printf( " item(len=%zu): " , len );
+	return errOK;
+}
+
 int main()
 {
 	INIT_BREAKABLE_FXN();
 	G g = { 0 };
 	_g = &g;
 
-	init( _g );
+	pre_config_init( _g );
 
 	pthread_t tid_stats , tid_input;
 	pthread_create( &tid_stats , NULL , stats_thread , ( pass_p )_g );

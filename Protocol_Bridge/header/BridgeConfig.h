@@ -2,36 +2,36 @@
 
 typedef struct udp_conn_cfg_data
 {
-	char group[ 64 ];
-	char group_type[ 64 ];
-	char UDP_origin_ip[ 64 ];
-	char UDP_origin_ports[ 64 ]; // singular port or ports ranje
-	char UDP_origin_interface[ 64 ];
+	CFG_ITM group;
+	CFG_ITM group_type;
+	CFG_ITM UDP_origin_ip;
+	CFG_ITM UDP_origin_ports; // singular port or ports ranje
+	CFG_ITM UDP_origin_interface;
 	int enable;
 	int reset_connection;
 } udp_cfg;
 
 typedef struct tcp_conn_cfg_data
 {
-	char group[ 64 ];
-	char group_type[ 64 ];
-	char TCP_destination_ip[ 64 ];
-	char TCP_destination_ports[ 64 ]; // singular port or ports ranje
-	char TCP_destination_interface[ 64 ];
+	CFG_ITM group;
+	CFG_ITM group_type;
+	CFG_ITM TCP_destination_ip;
+	CFG_ITM TCP_destination_ports; // singular port or ports ranje
+	CFG_ITM TCP_destination_interface;
 	int enable;
 	int reset_connection;
 } tcp_cfg;
 
 typedef struct bridge_cfg_input_part
 {
-	char name[ 64 ];
+	CFG_ITM name;
 	udp_cfg data;
 
 } udp_cfg_pak;
 
 typedef struct bridge_cfg_output_part
 {
-	char name[ 64 ];
+	CFG_ITM name;
 	tcp_cfg data;
 
 } tcp_cfg_pak;
@@ -40,10 +40,10 @@ typedef struct bridge_cfg_0
 {
 	struct bridge_cfg_id
 	{
-		char bridge_name[ 64 ];
+		CFG_ITM bridge_name;
 
-		char out_type[ 64 ];
-		char thread_handler_act[ 64 ];
+		CFG_ITM out_type;
+		CFG_ITM thread_handler_act;
 	} id; // protocol_bridge_cfg_id . must be uniq for each bridge
 
 	struct bridge_maintained_parameter // options that stays in position

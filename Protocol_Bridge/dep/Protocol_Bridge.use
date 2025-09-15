@@ -64,6 +64,7 @@
 #endif
 
 #ifdef Uses_helper
+	#define Uses_ci_sgmgr_t
 	#define Uses_config
 	#define Uses_Bridge
 	#define Uses_statistics
@@ -78,3 +79,8 @@
 	#define Uses_helper
 	#define __INC_statistics
 #endif
+
+#ifdef Uses_packet_mngr
+	#define __INC_packet_mngr
+#endif
+

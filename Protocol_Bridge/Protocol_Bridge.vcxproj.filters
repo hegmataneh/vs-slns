@@ -40,6 +40,9 @@
     <ClCompile Include="src\statistics.c">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\packet_mngr.c">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="header\_1_pcap_udp_counter.h">
@@ -85,6 +88,9 @@
       <Filter>header</Filter>
     </ClInclude>
     <ClInclude Include="header\statistics.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\packet_mngr.h">
       <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>

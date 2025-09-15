@@ -882,7 +882,7 @@ void add_new_wave( struct App_Data * _g , struct wave_cfg * new_wcfg )
 
 #ifndef section_load_config
 
-#define CONFIG_ROOT_PATH "../../../../UDP_generator/cfg"
+#define CONFIG_ROOT_PATH "../../../../make_udp_packet/cfg"
 
 // TODO . exit gracefully by auto mechanism
 // TODO . think about race condition

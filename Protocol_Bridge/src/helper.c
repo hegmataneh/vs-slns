@@ -31,7 +31,7 @@ _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
 	G * _g = ( G * )src_g;
 
 	fd_set readfds;
-	char buffer[ BUF_SIZE ];
+	char buffer[ DEFAULT_BUF_SIZE ];
 	while ( 1 )
 	{
 		FD_ZERO( &readfds );
@@ -40,7 +40,7 @@ _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
 		int ready = select( _g->stat.pipefds[ 0 ] + 1 , &readfds , NULL , NULL , NULL );
 		if ( ready > 0 && FD_ISSET( _g->stat.pipefds[ 0 ] , &readfds ) )
 		{
-			int n = read( _g->stat.pipefds[ 0 ] , buffer , BUF_SIZE - 1 );
+			int n = read( _g->stat.pipefds[ 0 ] , buffer , DEFAULT_BUF_SIZE - 1 );
 			buffer[ n ] = EOS;
 #pragma GCC diagnostic ignored "-Wstringop-truncation"
 			strncpy( _g->stat.last_command , buffer , sizeof( _g->stat.last_command ) - 1 );
@@ -118,7 +118,7 @@ void quit_interrupt( int sig )
 	exit( 0 );
 }
 
-void init( G * _g )
+void pre_config_init( G * _g )
 {
 	//INIT_BREAKABLE_FXN();
 
@@ -190,6 +190,11 @@ void init( G * _g )
 	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_40_sec_bytes , 40 );
 	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_bytes , 120 );
 
+}
+
+void post_config_init( G * _g )
+{
+	segmgr_init( &_g->aggr_inp_pkt , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_segment_capacity , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_offsets_capacity , True );
 }
 
 _THREAD_FXN void_p sync_thread( pass_p src_g ) // pause app until moment other app exist

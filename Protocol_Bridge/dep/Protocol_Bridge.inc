@@ -53,3 +53,7 @@
 #ifdef __INC__5_many2one_pcap_NetStack_SF
 	#include "_5_many2one_pcap_NetStack_SF.h"
 #endif
+
+#ifdef __INC_packet_mngr
+	#include "packet_mngr.h"
+#endif

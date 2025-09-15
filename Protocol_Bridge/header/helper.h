@@ -34,6 +34,7 @@ typedef struct App_Data
 	Acmd cmd;
 	gdst distribute;
 	//ghdl handles;
+	ci_sgmgr_t aggr_inp_pkt;
 } G;
 
 _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g );
@@ -45,7 +46,9 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g );
 
 void init_bypass_stdout( G * _g );
 void M_showMsg( LPCSTR msg );
-void init( G * _g );
+
+void pre_config_init( G * _g );
+void post_config_init( G * _g );
 
 //int _connect_tcp( AB * pb );
 status connect_one_tcp( AB_tcp * tcp );

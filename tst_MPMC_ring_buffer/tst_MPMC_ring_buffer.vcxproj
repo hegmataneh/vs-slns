@@ -35,9 +35,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{2bc96572-e877-4cc1-8ea5-be34a2dc6f8e}</ProjectGuid>
+    <ProjectGuid>{3f450e14-6d46-468e-bd7e-b915cca305a5}</ProjectGuid>
     <Keyword>Linux</Keyword>
-    <RootNamespace>test2</RootNamespace>
+    <RootNamespace>tst_MPMC_ring_buffer</RootNamespace>
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
     <ApplicationType>Linux</ApplicationType>
     <ApplicationTypeRevision>1.0</ApplicationTypeRevision>
@@ -79,11 +79,7 @@
   </ItemGroup>
   <ItemGroup>
   </ItemGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Link>
-      <LibraryDependencies>ncurses;pthread</LibraryDependencies>
-    </Link>
-  </ItemDefinitionGroup>
+  <ItemDefinitionGroup />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>

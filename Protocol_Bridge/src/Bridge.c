@@ -145,7 +145,8 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 
-			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2one_pcap2NetStack_SF->cbuf , 100000 , /*1470 -> + hdr = 1512*/5000 ) , 1 );
+			// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
+			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2one_pcap2NetStack_SF->cbuf , 524288 , MAX_PACKET_SIZE ) , 1 );
 
 			//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
 			if ( !pb->trd.base.thread_is_created )
@@ -174,7 +175,7 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 			
-			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2many_pcap2NetStack_SF->cbuf , 1000000 , /*1470 -> + hdr = 1512*/10000 ) , 1 );
+			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2many_pcap2NetStack_SF->cbuf , 524288 , MAX_PACKET_SIZE ) , 1 );
 
 			//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
 			if ( !pb->trd.base.thread_is_created )
@@ -202,7 +203,7 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 	//		//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
 	//		//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
 	//		// TODO . buff size came from config
-			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->cbuf , 1000000 , /*1470 -> + hdr = 1512*/10000 ) , 1 );
+			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_many2one_pcap2kernelDefaultStack_SF_serialize->cbuf , 524288 , MAX_PACKET_SIZE ) , 1 );
 	//		//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
 			if ( !pb->trd.base.thread_is_created )
 			{
