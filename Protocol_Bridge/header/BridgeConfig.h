@@ -55,15 +55,19 @@ typedef struct bridge_cfg_0
 		int out_count;
 
 		int enable;
+		int hide;
 	} maintained;
 
 	struct bridge_temp_data
 	{
-		void_p _g; // just point to the main g
+		void_p _g; // just point to the main g . just because double source dependencies it define as void_p
 		int pcfg_changed; // in passive cfg and active cfg that in alive protocol_bridge, in both it means something changed
+		bool delayed_validation; // when it is true it means structure copying complete
 	} temp_data;
 
 } Bcfg0; // protocol_bridge_cfg
+
+#define TO_G( voidp ) (( G* )voidp )
 
 typedef struct bridge_cfg_n
 {

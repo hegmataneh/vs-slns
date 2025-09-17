@@ -1,3 +1,7 @@
+#ifdef Uses_proc_krnl_udp_capture
+	#define __INC__6_one2one_krnl2krnl_SF
+#endif
+
 #ifdef Uses_proc_many2many_pcap_NetStack_SF
 	#define __INC__5_many2one_pcap_NetStack_SF
 #endif
@@ -51,6 +55,7 @@
 #endif
 
 #ifdef Uses_BridgeConfig
+	#define Uses_bool
 	#define __INC_BridgeConfig
 #endif
 
@@ -64,6 +69,7 @@
 #endif
 
 #ifdef Uses_helper
+	#define Uses_kv_table_t
 	#define Uses_ci_sgmgr_t
 	#define Uses_config
 	#define Uses_Bridge

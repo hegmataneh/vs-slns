@@ -57,3 +57,8 @@
 #ifdef __INC_packet_mngr
 	#include "packet_mngr.h"
 #endif
+
+#ifdef __INC__6_one2one_krnl2krnl_SF
+	#include "_6_one2one_krnl2krnl_SF.h"
+#endif
+

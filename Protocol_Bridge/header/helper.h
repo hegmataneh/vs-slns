@@ -18,12 +18,29 @@ typedef struct global_distributor
 
 	distributor_t quit_interrupt_dist; // quit interrupt dispatch to all pcap loop
 
-} gdst;
+} g_dst;
 
-//typedef struct global_handles
-//{
-//	pcap_t * pcap_udp_counter_handle;
-//} ghdl;
+typedef struct global_handles
+{
+	//pcap_t * pcap_udp_counter_handle;
+	kv_table_t map_tcp_socket; // keep mapping between tcp &id
+} g_hdl;
+
+typedef struct global_buffer_handles
+{
+	ci_sgmgr_t aggr_inp_pkt;
+} g_bufs;
+
+typedef struct global_thread_handles
+{
+	pthread_t trd_watchdog;
+	pthread_t tid_stats , tid_input;
+	pthread_t trd_version_checker;
+	pthread_t trd_config_loader;
+	pthread_t trd_config_executer;
+
+	pthread_t trd_tcp_sender; // get filled segment and send them
+} g_trds;
 
 
 typedef struct App_Data
@@ -32,9 +49,10 @@ typedef struct App_Data
 	ABhs bridges;
 	St stat;
 	Acmd cmd;
-	gdst distribute;
-	//ghdl handles;
-	ci_sgmgr_t aggr_inp_pkt;
+	g_dst distrbtor;
+	g_hdl hdls;
+	g_bufs bufs;
+	g_trds trds;
 } G;
 
 _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g );

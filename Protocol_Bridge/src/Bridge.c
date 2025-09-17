@@ -1,3 +1,4 @@
+#define Uses_proc_krnl_udp_capture
 #define Uses_pthread_create
 #define Uses_proc_many2many_pcap_NetStack_SF
 #define Uses_proc_one2many_pcap2NetStack_SF_udp_pcap
@@ -57,7 +58,7 @@ void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_path * hlpr )
 {
 	MEMSET_ZERO_O( hlpr );
 
-	ASSERT( pb && hlpr );
+	WARNING( pb && hlpr );
 	hlpr->pab = pb;
 	hlpr->in_count = &pb->cpy_cfg.m.m.maintained.in_count;
 	hlpr->out_count = &pb->cpy_cfg.m.m.maintained.out_count;
@@ -71,6 +72,8 @@ void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_path * hlpr )
 void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 {
 	INIT_BREAKABLE_FXN();
+
+	if ( !new_ccfg->m.m.maintained.enable ) return; // think more about this option maybe at better place should place it
 
 	//if ( !new_ccfg->m.m.maintained.enable )
 	//{
@@ -134,6 +137,37 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 		}
 	}
 
+	else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "one2one_krnl2krnl_SF" ) )
+	{
+		if ( !pb->trd.t.p_one2one_krnl2krnl_SF )
+		{
+			init_ActiveBridge( _g , pb );
+
+			M_BREAK_IF( !( pb->trd.t.p_one2one_krnl2krnl_SF = CALLOC_ONE( pb->trd.t.p_one2one_krnl2krnl_SF ) ) , errMemoryLow , 1 );
+			//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
+			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
+			//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
+
+			// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
+			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2one_krnl2krnl_SF->cbuf , 100000 , MAX_PACKET_SIZE ) , 1 );
+
+			if ( !pb->trd.base.thread_is_created )
+			{
+				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_krnl2krnl_SF->income_trd_id , NULL ,
+					proc_one2one_krnl_udp_store , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_krnl2krnl_SF->outgoing_trd_id , NULL ,
+					proc_one2one_krnl_tcp_forward , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+				pb->trd.base.thread_is_created = 1;
+			}
+			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
+
+			pthread_t trd_udp_connection;
+			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+			pthread_t trd_tcp_connection;
+			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+		}
+	}
+
 	else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2NetStack_SF" ) )
 	{
 		if ( !pb->trd.t.p_one2one_pcap2NetStack_SF )
@@ -153,8 +187,8 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2NetStack_SF->income_trd_id , NULL ,
 					proc_one2one_pcap2NetStack_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2NetStack_SF->outgoing_trd_id , NULL ,
-					proc_one2one_pcap2NetStack_SF_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+				//MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2NetStack_SF->outgoing_trd_id , NULL ,
+				//	proc_one2one_pcap2NetStack_SF_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->trd.base.thread_is_created = 1;
 			}
 			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );

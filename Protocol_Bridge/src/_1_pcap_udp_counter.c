@@ -39,7 +39,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._g;
 
-	//ASSERT( pb->cpy_cfg.m.m.maintained.in_count == 1 );
+	//WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 	//char * dev = pb->cpy_cfg.m.m.maintained.in->data.UDP_origin_interface;
 	char errbuf[ PCAP_ERRBUF_SIZE ] = { 0 };
 	struct bpf_program fp;
@@ -51,7 +51,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	strings port_filter = NULL;
 	compile_udps_config_for_pcap_filter( pb , &clusterd_cnt , &interface_filter , &port_filter );
 
-	ASSERT( clusterd_cnt == 1 );
+	WARNING( clusterd_cnt == 1 );
 
 	//MM_BREAK_IF( !( dev = pcap_lookupdev( errbuf ) ) , errDevice , 0 , "Couldn't find default device: %s" , errbuf );
 	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf ) == -1 , errDevice , 1 , "use correct interface %s\n" , errbuf );
@@ -82,8 +82,8 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 		gettimeofday( &pb->stat.round_zero_set.t_begin , NULL );
 	}
 
-	distributor_publish_int( &_g->distribute.pb_udp_connected_dist , 0 , ( pass_p )pb );
-	distributor_subscribe( &_g->distribute.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb );
+	distributor_publish_int( &_g->distrbtor.pb_udp_connected_dist , 0 , ( pass_p )pb );
+	distributor_subscribe( &_g->distrbtor.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb );
 
 	// Capture indefinitely
 	MM_FMT_BREAK_IF( pcap_loop( pb->trd.t.p_pcap_udp_counter->handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->handle ) );

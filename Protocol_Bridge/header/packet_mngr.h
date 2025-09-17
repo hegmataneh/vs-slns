@@ -3,7 +3,15 @@
 typedef struct ready_2_send_packet_v1
 {
 	// TODO . every thing that need for postpond writing must store here
-	uint8_t version;
+	struct ready_tcp_packet_flags
+	{
+		uint8_t version;
+		bool sent;
+		uint8_t TCP_name_size;
+		uint64 tcp_name_key_hash;
+		uint64 tcp_name_uniq_id;
+		uint8_t payload_offset; // offset to pkt payload
+	} flags;
 	CHAR TCP_name[1];
 	//DATAB * pkt;
 
@@ -12,6 +20,12 @@ typedef struct ready_2_send_packet_v1
 #define TCP_PACKET_VERSION 1
 
 _CALLBACK_FXN status operation_on_tcp_packet( pass_p data , buffer buf , int sz );
+
+_THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g );
+
+
+
+
 
 //#define SEGMENT_SIZE (64 * 1024 * 1024) // 64 MB, tunable
 ////#define MAX_SEGMENTS_IN_RAM 4          // tunable per RAM

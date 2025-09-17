@@ -84,6 +84,7 @@
     <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;*.txt;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
   </PropertyGroup>
   <ItemGroup>
+    <ClCompile Include="src\async_krnl_udp_store.c" />
     <ClCompile Include="src\Bridge.c" />
     <ClCompile Include="src\BridgeConfig.c" />
     <ClCompile Include="src\async_pcap_udp_store.c" />
@@ -101,6 +102,7 @@
     <ClCompile Include="src\helper.c" />
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\statistics.c" />
+    <ClCompile Include="src\_6_one2one_krnl2krnl_SF.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dep\Protocol_Bridge.dep" />
@@ -124,6 +126,7 @@
     <ClInclude Include="header\helper.h" />
     <ClInclude Include="header\msg.h" />
     <ClInclude Include="header\statistics.h" />
+    <ClInclude Include="header\_6_one2one_krnl2krnl_SF.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\general-projects\general\general.vcxproj">

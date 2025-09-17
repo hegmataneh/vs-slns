@@ -30,7 +30,7 @@
 #define DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC 1000000000
 #define DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC 1000000
 
-#define SNAP_LEN 5000/*1518*/  // max bytes per packet to capture
+#define SNAP_LEN MAX_PACKET_SIZE/*1518*/  // max bytes per packet to capture
 
 // Ethernet header is always 14 bytes (for non-VLAN frames)
 #define SIZE_ETHERNET 14
@@ -56,8 +56,8 @@
 #define STR_ONE_OUT "one_out"
 
 
-#define DIST_ERR() DO_WHILE( distributor_publish_str( &_g->distribute.pb_err_dist , __FUNCTION__ , ( pass_p )pb ) ) /*distribute error*/
-#define DIST_ERR_G() DO_WHILE( distributor_publish_str( &_g->distribute.ground_err_dist , __FUNCTION__ , ( pass_p )_g ) ) /*distribute error*/
+#define DIST_ERR() DO_WHILE( distributor_publish_str( &_g->distrbtor.pb_err_dist , __FUNCTION__ , ( pass_p )pb ) ) /*distribute error*/
+#define DIST_ERR_G() DO_WHILE( distributor_publish_str( &_g->distrbtor.ground_err_dist , __FUNCTION__ , ( pass_p )_g ) ) /*distribute error*/
 
 typedef  char CONFIG_SECTION_ITEM_VALUE  [64];
 typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;

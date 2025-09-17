@@ -23,23 +23,15 @@ int main()
 
 	pre_config_init( _g );
 
-	pthread_t tid_stats , tid_input;
-	pthread_create( &tid_stats , NULL , stats_thread , ( pass_p )_g );
-	pthread_create( &tid_input , NULL , input_thread , ( pass_p )_g );
+	// this thread keep everything alive and just check every thing just be at right position and do not do action with very risky consequenses and exception raiser
+	MM_BREAK_IF( pthread_create( &_g->trds.trd_watchdog , NULL , watchdog_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create watchdog thread" );
+	pthread_create( &_g->trds.tid_stats , NULL , stats_thread , ( pass_p )_g );
+	pthread_create( &_g->trds.tid_input , NULL , input_thread , ( pass_p )_g );
+	MM_BREAK_IF( pthread_create( &_g->trds.trd_version_checker , NULL , version_checker , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create version_checker thread" );
+	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_loader , NULL , config_loader , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_loader thread" );
+	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_executer , NULL , config_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_executer thread" );
 
-	pthread_t trd_version_checker;
-	MM_BREAK_IF( pthread_create( &trd_version_checker , NULL , version_checker , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create thread" );
-
-	pthread_t trd_config_loader;
-	MM_BREAK_IF( pthread_create( &trd_config_loader , NULL , config_loader , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create thread" );
-
-	pthread_t trd_config_executer;
-	MM_BREAK_IF( pthread_create( &trd_config_executer , NULL , config_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create thread" );
-
-	pthread_t trd_watchdog; // this thread keep everything alive and just check every thing just be at right position and do not do action with very risky consequenses and exception raiser
-	MM_BREAK_IF( pthread_create( &trd_watchdog , NULL , watchdog_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create thread" );
-
-	M_BREAK_IF( pthread_join( trd_watchdog , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
+	M_BREAK_IF( pthread_join( _g->trds.trd_watchdog , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
 
 
 	return 0;

@@ -30,11 +30,11 @@ _THREAD_FXN void_p proc_one2one_pcap2NetStack_SF_udp_pcap( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._g;
 
-	ASSERT( pb->cpy_cfg.m.m.maintained.in_count == 1 );
+	WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 
 	// TODO . implement muti input
 
-	ASSERT( pb->udps_count == 1 );
+	WARNING( pb->udps_count == 1 );
 
 	M_BREAK_STAT( distributor_init( &pb->trd.base.buffer_push_distributor , 1 ) , 1 );
 	M_BREAK_STAT( distributor_subscribe( &pb->trd.base.buffer_push_distributor , SUB_DIRECT_ONE_CALL_BUFFER_INT ,
@@ -46,7 +46,7 @@ _THREAD_FXN void_p proc_one2one_pcap2NetStack_SF_udp_pcap( pass_p src_pb )
 	pth.handle = &pb->trd.t.p_one2one_pcap2NetStack_SF->handle;
 
 	// register here to get quit cmd
-	distributor_subscribe( &_g->distribute.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_one2one_pcap2kernelDefaultStack_SF ) , pb );
+	distributor_subscribe( &_g->distrbtor.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_one2one_pcap2kernelDefaultStack_SF ) , pb );
 	
 	// call general 
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &pth ) , 1 );

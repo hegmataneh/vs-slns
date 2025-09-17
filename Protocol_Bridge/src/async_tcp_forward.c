@@ -52,7 +52,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 			dict_put( &dc_enum_grp_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group_type );
 		}
 		//size_t key_count = dict_count( &dc_enum_grp_type );
-		//ASSERT( key_count > 1 );
+		//WARNING( key_count > 1 );
 
 		strings pkeys = NULL;
 		int keys_count = 0;
@@ -118,7 +118,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 			}
 
 			void_p pring = dict_o_get( hlpr->dc_token_ring , igrp ); // get grp ring
-			ASSERT( pring );
+			WARNING( pring );
 
 			// add callback receiver of each tcp grp
 			distributor_subscribe_with_ring( hlpr->buf_pop_distr ,
@@ -126,7 +126,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 		}
 		else
 		{
-			ASSERT( 0 );
+			WARNING( 0 );
 		}
 	}
 
@@ -142,7 +142,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
 
 	time_t tnow = 0;
-	char buffer[ BUFFER_SIZE + 65 /*tcp version + grp name[64]*/ ]; // Define a buffer to store received data
+	char buffer[ BUFFER_SIZE + 128 /*tcp version + grp name[64]*/ ]; // Define a buffer to store received data
 	MEMSET_ZERO_O( buffer );
 	pass_p pdata = NULL;
 	size_t sz;
@@ -154,9 +154,12 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 	AB_tcp * tcp = ( AB_tcp * )pdata;
 	
 	rdy_pkt1 * pkt = ( rdy_pkt1 * )buffer;
-	pkt->version = TCP_PACKET_VERSION;
+	pkt->flags.version = TCP_PACKET_VERSION;
+	pkt->flags.sent = false;
 	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name );
-	int local_tcp_header_data_length = sizeof( pkt->version ) + strlen( pkt->TCP_name ) + sizeof( EOS );
+	pkt->flags.TCP_name_size = strlen( pkt->TCP_name );
+	pkt->flags.payload_offset = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS )/*to read hdr name faster*/;
+	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );
 
 	int output_tcp_socket_error_tolerance_count = 0; // restart socket after many error accur
 
@@ -166,7 +169,9 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
-	//ASSERT( pb->tcps_count >= 1 );
+	M_BREAK_STAT( dict_fst_get_hash_id_bykey( &_g->hdls.map_tcp_socket , pkt->TCP_name , &pkt->flags.tcp_name_key_hash , &pkt->flags.tcp_name_uniq_id ) , 0 );
+
+	//WARNING( pb->tcps_count >= 1 );
 	//AB_tcp * tcp = pb->tcps; // caution . in this type of bridge udp conn must be just one
 
 	while ( 1 )
@@ -218,7 +223,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 
 		
 
-		while ( vcbuf_nb_pop( hlpr->cbuf , buffer + local_tcp_header_data_length /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
+		while ( vcbuf_nb_pop( hlpr->cbuf , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
 		{
 			// TODO . if connection lost i should do something here. but i dont know what should i do for now
 
@@ -226,7 +231,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 
 			// CAUTION . in this broadcast it must store packet and return as soon as possible
 
-			if ( distributor_publish_buffer_int( hlpr->buf_pop_distr , buffer , sz + local_tcp_header_data_length , NULL ) != errOK ) // 14040622 . do replicate or roundrobin
+			if ( distributor_publish_buffer_int( hlpr->buf_pop_distr , buffer , sz + pkt->flags.payload_offset , NULL ) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;
 
 			//if ( sendall( pb->tcps->tcp_sockfd , buffer , &sz ) != errOK )

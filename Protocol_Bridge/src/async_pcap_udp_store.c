@@ -35,7 +35,7 @@ _PRIVATE_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_
 	payload = packet + SIZE_ETHERNET + ip_header_len + udp_header_len;
 	payload_len = ntohs( udp_hdr->uh_ulen ) - udp_header_len;
 
-	//payload_len = 1470; // HARD CODE . TODELETE
+	//payload_len = 1; // HARD CODE . TODELETE
 
 	if ( distributor_publish_buffer_int( &pb->trd.base.buffer_push_distributor , ( buffer )payload , payload_len , NULL ) != errOK ) return; // dist udp packet
 
@@ -78,7 +78,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	strings port_filter = NULL;
 	compile_udps_config_for_pcap_filter( pb , &clusterd_cnt , &interface_filter , &port_filter );
 
-	ASSERT( clusterd_cnt == 1 );
+	WARNING( clusterd_cnt == 1 );
 
 	//MM_FMT_BREAK_IF( !( dev = pcap_lookupdev( errbuf ) ) , errDevice , 0 , "Couldn't find default device: %s" , errbuf );
 	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf) == -1 , errDevice , 1 , "use correct interface %s\n" , errbuf);
@@ -94,7 +94,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
 
 	pcap_freecode( &fp );
-	ASSERT( pth->handle );
+	WARNING( pth->handle );
 	if ( pth->handle )
 	{
 		*pth->handle = handle;
@@ -110,7 +110,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	for ( int iinp = 0 ; iinp < pb->udps_count ; iinp++ )
 	{
 		pb->udps[ iinp ].udp_connection_established = 1;
-		distributor_publish_int( &_g->distribute.pb_udp_connected_dist , 0 , ( pass_p )pb );
+		distributor_publish_int( &_g->distrbtor.pb_udp_connected_dist , 0 , ( pass_p )pb );
 	}
 
 	// Capture indefinitely

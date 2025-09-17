@@ -24,6 +24,8 @@ void copy_bridge_cfg( Bcfg * dst , Bcfg * src )
 	MEMCPY_AR( dst->m.m.maintained.out , src->m.m.maintained.out , src->m.m.maintained.out_count );
 	dst->m.m.maintained.out_count = src->m.m.maintained.out_count;
 
+	dst->m.m.temp_data.delayed_validation = true;
+
 	BEGIN_SMPL
 	M_V_END_RET
 }
@@ -41,6 +43,7 @@ int Bcfg_id_equlity( Bcfg * left , Bcfg * right )
 int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 {
 	if ( left->maintained.enable != right->maintained.enable ) return 0;
+	if ( left->maintained.hide != right->maintained.hide ) return 0;
 	if ( left->maintained.in_count != right->maintained.in_count ) return 0;
 	if ( left->maintained.out_count != right->maintained.out_count ) return 0;
 

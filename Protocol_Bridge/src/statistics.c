@@ -46,6 +46,12 @@ void print_cell( WINDOW * win , int y , int x , int width , LPCSTR text )
 	mvwprintw( win , y , x + pad , "%s" , text );
 }
 
+extern size_t * ptotal_items;	  // temp
+extern size_t * ptotal_bytes;	  // temp
+extern size_t * psegment_total;	  // temp
+extern size_t * pfilled_count;	  // temp
+extern size_t * perr_full;
+
 #define MAIN_STAT()  _g->stat
 #define MAIN_WIN  MAIN_STAT().main_win
 
@@ -149,37 +155,43 @@ void draw_table( G * _g )
 
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
-	//if ( _g->appcfg.g_cfg && _g->appcfg.g_cfg->c.c.show_line_hit )
-	//{
-	//	for ( int i = 0 ; i < FXN_HIT_COUNT ; i++ )
-	//	{
-	//		if ( __FXN_HIT[ i ][0] > 0 )
-	//		{
-	//			mvwprintw( MAIN_WIN , y , start_x , "|" );
-	//			snprintf( buf , sizeof( buf ) , "%d" , i ); // line
-	//			print_cell( MAIN_WIN , y , start_x + 1 , cell_w , buf ); // line
-	//			snprintf( buf , sizeof( buf ) , "%d " , __FXN_HIT[ i ][0] ); // hit count
+	#ifdef __USE_DBG_TOOLS
+	if ( _g->appcfg.g_cfg && _g->appcfg.g_cfg->c.c.show_line_hit )
+	{
+		for ( int itu = 0 ; itu < MAX_TU ; itu++ )
+		{
+			for ( int iline = 0 ; iline < MAX_TU_LINES ; iline++ )
+			{
+				if ( __FXN_HIT[ itu ][ iline ][ 0 ] > 0 ) // this line hit
+				{
+					mvwprintw( MAIN_WIN , y , start_x , "|" );
+					snprintf( buf , sizeof( buf ) , "%s %d" , __map_c2idx[ itu ] , iline ); // line
+					print_cell( MAIN_WIN , y , start_x + 1 , cell_w , buf ); // line
+					snprintf( buf , sizeof( buf ) , "%d " , __FXN_HIT[ itu ][ iline ][ 0 ] ); // hit count
 
-	//			for ( int k = 1 ; k < PC_COUNT ; k++ )
-	//			{
-	//				if ( __FXN_HIT[ i ][ k ] == 0 )
-	//				{
-	//					break;
-	//				}
-	//				snprintf( buf2 , sizeof( buf2 ) , ",%d" , __FXN_HIT[ i ][ k ] );
-	//				strcat( buf , buf2 );
-	//			}
-	//		
-	//			mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	//			print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	//			mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//		}
-	//	}
+					for ( int ibt = 1 ; ibt < BACKTRACK_COUNT ; ibt++ )
+					{
+						if ( __FXN_HIT[ itu ][ iline ][ ibt ] == 0 )
+						{
+							break;
+						}
+						snprintf( buf2 , sizeof( buf2 ) , ",%d" , __FXN_HIT[ itu ][ iline ][ ibt ] );
+						strcat( buf , buf2 );
+					}
+			
+					mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+					print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+					mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+				}
+			}
+		}
 
-	//	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
-	//}
+		mvwprintw( MAIN_WIN , y++ , start_x , header_border );
+	}
+	#endif
 
 	///////////
+	
 
 	
 
@@ -202,6 +214,62 @@ void draw_table( G * _g )
 
 	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 
+	/*temp*/
+	if ( ptotal_items )
+	{
+		mvwprintw( MAIN_WIN , y , start_x , "|" );
+		print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "ttl pkt in global buff" );
+		snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , *ptotal_items , 2 , "" ) );
+		mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+		print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+		mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	}
+
+	if ( ptotal_bytes )
+	{
+		mvwprintw( MAIN_WIN , y , start_x , "|" );
+		print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "ttl pkt byte" );
+		snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , *ptotal_bytes , 2 , "" ) );
+		mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+		print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+		mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	}
+
+	if ( psegment_total )
+	{
+		mvwprintw( MAIN_WIN , y , start_x , "|" );
+		print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "segment_total" );
+		snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , *psegment_total , 2 , "" ) );
+		mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+		print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+		mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	}
+
+	if ( pfilled_count )
+	{
+		mvwprintw( MAIN_WIN , y , start_x , "|" );
+		print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "filled_count" );
+		snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , *pfilled_count , 2 , "" ) );
+		mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+		print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+		mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	}
+
+	if ( perr_full )
+	{
+		mvwprintw( MAIN_WIN , y , start_x , "|" );
+		print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "ring udp get loss" );
+		snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , *perr_full , 2 , "" ) );
+		mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+		print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+		mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	}
+
+	
+
+	/*temp*/
+
+
 	//format_elapsed_time_with_millis( _g->stat.round_zero_set.t_begin , _g->stat.round_zero_set.t_end , buf2 , sizeof( buf2 ) , 1);
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
@@ -213,15 +281,13 @@ void draw_table( G * _g )
 
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get" );
+	
 	
 	if ( _g->bridges.ABhs_masks_count > 0 && _g->bridges.ABhs_masks[ 0 ] && _g->bridges.ABs[ 0 ].single_AB ) // this cnd is temp
 	{
-		
 	
-	
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get" );
 	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _g->bridges.ABs[ 0 ].single_AB->stat.round_zero_set.udp.total_udp_get_count , 2 , "" ) );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.total_udp_get_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -229,7 +295,19 @@ void draw_table( G * _g )
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "udp get byte" );
 	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _g->bridges.ABs[ 0 ].single_AB->stat.round_zero_set.udp.total_udp_get_byte , 2 , "B" ) );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.udp.total_udp_get_byte , 2 , "B" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp put" );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _g->bridges.ABs[ 0 ].single_AB->stat.round_zero_set.tcp.total_tcp_put_count , 2 , "" ) );
+	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//
+	mvwprintw( MAIN_WIN , y , start_x , "|" );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp put byte" );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _g->bridges.ABs[ 0 ].single_AB->stat.round_zero_set.tcp.total_tcp_put_byte , 2 , "B" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );

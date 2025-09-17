@@ -199,52 +199,57 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					MM_BREAK_IF( catch_error( &re_Protocol_Bridges , "Protocol_Bridges" , 1 ) , errNotFound , 0 , "Protocol_Bridges" );
 					typed( json_element ) el_Protocol_Bridges = result_unwrap( json_element )( &re_Protocol_Bridges );
 	
-					MM_BREAK_IF( ( Protocol_Bridges_count = el_Protocol_Bridges.value.as_object->count ) < 1 , errGeneral , 0 , "Protocol_Bridges must be not zero" );
+					//MM_BREAK_IF( ( Protocol_Bridges_count = el_Protocol_Bridges.value.as_object->count ) < 1 , errGeneral , 0 , "Protocol_Bridges must be not zero" );
 	
 					M_BREAK_IF( !( pProtocol_Bridges = MALLOC_AR( pProtocol_Bridges , el_Protocol_Bridges.value.as_object->count ) ) , errMemoryLow , 0 );
 					MEMSET_ZERO( pProtocol_Bridges , el_Protocol_Bridges.value.as_object->count );
-						
-					for ( int ibrj = 0 ; ibrj < el_Protocol_Bridges.value.as_object->count ; ibrj++ ) // each bridge
+					
+					int iactual_section = 0;
+					for ( int icnf_section = 0 ; icnf_section < el_Protocol_Bridges.value.as_object->count ; icnf_section++ ) // each bridge
 					{
-						((Bcfg0 *)(pProtocol_Bridges + ibrj))->temp_data._g = ( void_p )_g; // each config must know global settings
-						const char * output_Protocol_Bridge_name = ( *( el_Protocol_Bridges.value.as_object->entries + ibrj ) )->key;
+						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->temp_data._g = ( void_p )_g; // each config must know global settings
+						const char * output_Protocol_Bridge_name = ( *( el_Protocol_Bridges.value.as_object->entries + icnf_section ) )->key;
 	
 						result( json_element ) re_each_bridge = json_object_find( el_Protocol_Bridges.value.as_object , output_Protocol_Bridge_name );
 						M_BREAK_IF( catch_error( &re_each_bridge , output_Protocol_Bridge_name , 1 ) , errNotFound , 0 );
 						typed( json_element ) el_each_bridge = result_unwrap( json_element )( &re_each_bridge );
 	
-						strcpy( ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->id.bridge_name , output_Protocol_Bridge_name );
+						strcpy( ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->id.bridge_name , output_Protocol_Bridge_name );
 						
-						#define CFG_ELEM_STR( part , name )																	/**/\
-						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );		/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );									/**/\
-						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
-						strcpy(((Bcfg0 *)(pProtocol_Bridges + ibrj))->part.name , el_##name.value.as_string );					/**/
+						#define CFG_ELEM_STR( part , name )																					/**/\
+						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );						/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );												/**/\
+						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );										/**/\
+						strcpy(((Bcfg0 *)(pProtocol_Bridges + iactual_section))->part.name , el_##name.value.as_string );					/**/
 	
-						#define CFG_ELEM_I( part , name )																		/**/\
-						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );			/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );										/**/\
-						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );							/**/\
-						((Bcfg0 *)(pProtocol_Bridges + ibrj))->part.name = (int)el_##name.value.as_number.value.as_long;			/**/
+						#define CFG_ELEM_I( part , name )																					/**/\
+						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );						/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );												/**/\
+						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );										/**/\
+						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->part.name = (int)el_##name.value.as_number.value.as_long;			/**/
 	
 						CFG_ELEM_STR( id , out_type );
 						CFG_ELEM_STR( id , thread_handler_act );
 						CFG_ELEM_I( maintained , enable );
+						CFG_ELEM_I( maintained , hide );
+
+						if ( (((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.hide) )
+						{ continue; }
 						
 						// bridge inputs
 						result( json_element ) re_inputs = json_object_find( el_each_bridge.value.as_object , "inputs" );
 						MM_BREAK_IF( catch_error( &re_inputs , "inputs" , 1 ) , errNotFound , 0 , "inputs" );
 						typed( json_element ) el_inputs = result_unwrap( json_element )( &re_inputs );
 												
-						((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in_count = el_inputs.value.as_object->count;
+						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count = el_inputs.value.as_object->count;
 						
-						M_BREAK_IF( !( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in = MALLOC_AR( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in , ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in_count ) ) , errMemoryLow , 0 );
-						MEMSET_ZERO( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in , ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in_count );
-						for ( int iin = 0 ; iin < ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in_count ; iin++ )
+						M_BREAK_IF( !( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in = MALLOC_AR( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in , ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count ) ) , errMemoryLow , 0 );
+						MEMSET_ZERO( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in , ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count );
+						for ( int iin = 0 ; iin < ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count ; iin++ )
 						{
 							const char * output_input_name = ( *( el_inputs.value.as_object->entries + iin ) )->key;
 
-							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in + iin )->name , output_input_name );
+							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in + iin )->name , output_input_name );
 
 							result( json_element ) re_inp = json_object_find( el_inputs.value.as_object , output_input_name );
 							M_BREAK_IF( catch_error( &re_inp , output_input_name , 1 ) , errNotFound , 0 );
@@ -254,13 +259,13 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
 							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );											/**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
-							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in + iin )->data.namee , el_##namee.value.as_string );					/**/
+							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in + iin )->data.namee , el_##namee.value.as_string );					/**/
 
 							#define IN_CFG_ELEM_I( elem , namee )																				/**/\
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
 							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );													/**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
-							( ((Bcfg0 *)(pProtocol_Bridges + ibrj))->maintained.in + iin )->data.namee = (int)el_##namee.value.as_number.value.as_long;					/**/
+							( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in + iin )->data.namee = (int)el_##namee.value.as_number.value.as_long;					/**/
 
 							IN_CFG_ELEM_STR( el_inp , group );
 							IN_CFG_ELEM_STR( el_inp , group_type );
@@ -281,15 +286,15 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						{
 							typed( json_element ) el_outputs = result_unwrap( json_element )( &re_outputs );
 
-							( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out_count = el_outputs.value.as_object->count;
+							( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count = el_outputs.value.as_object->count;
 
-							M_BREAK_IF( !( ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out = MALLOC_AR( ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out_count ) ) , errMemoryLow , 0 );
-							MEMSET_ZERO( ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out_count );
-							for ( int iout = 0 ; iout < ( ( Bcfg0 * )( pProtocol_Bridges + ibrj ) )->maintained.out_count ; iout++ )
+							M_BREAK_IF( !( ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out = MALLOC_AR( ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count ) ) , errMemoryLow , 0 );
+							MEMSET_ZERO( ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count );
+							for ( int iout = 0 ; iout < ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count ; iout++ )
 							{
 								const char * output_outputs_name = ( *( el_outputs.value.as_object->entries + iout ) )->key;
 
-								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj ))->maintained.out + iout )->name , output_outputs_name );
+								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->name , output_outputs_name );
 
 								result( json_element ) re_out = json_object_find( el_outputs.value.as_object , output_outputs_name );
 								M_BREAK_IF( catch_error( &re_out , output_outputs_name , 1 ) , errNotFound , 0 );
@@ -299,13 +304,13 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
 								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );											/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
-								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + ibrj ))->maintained.out + iout )->data.namee , el_##namee.value.as_string );		/**/
+								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.namee , el_##namee.value.as_string );		/**/
 
 								#define IN_CFG_ELEM_I( elem , namee )																				/**/\
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
 								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );													/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
-								( ((Bcfg0 *)(pProtocol_Bridges + ibrj ))->maintained.out + iout )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
+								( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
 
 								IN_CFG_ELEM_STR( el_out , group );
 								IN_CFG_ELEM_STR( el_out , group_type );
@@ -323,7 +328,11 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 						#undef CFG_ELEM_I
 						#undef CFG_ELEM_STR
+
+						iactual_section++;
 					}
+					Protocol_Bridges_count = iactual_section;
+					WARNING( Protocol_Bridges_count );
 	
 					json_free( &el_Protocol_Bridges );
 				}
@@ -653,7 +662,7 @@ void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg )
 		}
 	}
 
-	ASSERT( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB == NULL );
+	WARNING( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB == NULL );
 	M_BREAK_IF( ( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB = MALLOC_ONE( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB ) ) == NEW_ERR , errMemoryLow , 0 );
 	MEMSET_ZERO_O( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB );
 	_g->bridges.ABhs_masks[ new_ccfg_placement_index ] = 1;
