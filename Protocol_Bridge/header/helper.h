@@ -48,6 +48,9 @@ typedef struct App_Data
 	Acfg appcfg;
 	ABhs bridges;
 	St stat;
+
+	nnc_req nnc;
+
 	Acmd cmd;
 	g_dst distrbtor;
 	g_hdl hdls;
@@ -65,6 +68,9 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g );
 void init_bypass_stdout( G * _g );
 void M_showMsg( LPCSTR msg );
 
+void init_notcursor( G * _g );
+void init_tui( G * _g );
+
 void pre_config_init( G * _g );
 void post_config_init( G * _g );
 
@@ -81,7 +87,6 @@ void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg );
 
 // because of recursive dependency declration come here
 void draw_table( G * _g );
-void init_windows( G * _g );
 
 void mng_basic_thread_sleep( G * _g , int priority );
 

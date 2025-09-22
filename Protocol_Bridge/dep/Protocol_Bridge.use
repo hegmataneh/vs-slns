@@ -55,7 +55,7 @@
 #endif
 
 #ifdef Uses_BridgeConfig
-	#define Uses_bool
+	//#define Uses_bool
 	#define __INC_BridgeConfig
 #endif
 
@@ -69,6 +69,7 @@
 #endif
 
 #ifdef Uses_helper
+	#define Uses_nnc_req
 	#define Uses_kv_table_t
 	#define Uses_ci_sgmgr_t
 	#define Uses_config

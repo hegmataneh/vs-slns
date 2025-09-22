@@ -24,7 +24,7 @@ void copy_bridge_cfg( Bcfg * dst , Bcfg * src )
 	MEMCPY_AR( dst->m.m.maintained.out , src->m.m.maintained.out , src->m.m.maintained.out_count );
 	dst->m.m.maintained.out_count = src->m.m.maintained.out_count;
 
-	dst->m.m.temp_data.delayed_validation = true;
+	dst->m.m.temp_data.delayed_validation = True;
 
 	BEGIN_SMPL
 	M_V_END_RET

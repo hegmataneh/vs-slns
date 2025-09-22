@@ -167,7 +167,7 @@
       </Command>
     </RemotePreBuildEvent>
     <Link>
-      <LibraryDependencies>ncurses;pcap;pthread</LibraryDependencies>
+      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core;tinfo</LibraryDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

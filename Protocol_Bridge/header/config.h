@@ -59,7 +59,7 @@ typedef struct App_Config // global config
 		int Build; //Represents the specific build number of the software.
 		int Revision_Patch; //Represents backwards - compatible bug fixes or minor updates.
 	} temp_ver /* not usable just to prevent reallocation*/ , * ver; // app version
-	int version_changed; // act like bool . this var indicate just load new config
+	int version_changed; // act like Boolean . this var indicate just load new config
 
 	// general
 	Gcfg * prev_cfg;

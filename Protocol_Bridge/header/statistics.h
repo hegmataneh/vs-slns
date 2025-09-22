@@ -114,5 +114,6 @@ void reset_nonuse_stat();
 void print_cell( WINDOW * win , int y , int x , int width , LPCSTR text );
 _THREAD_FXN void_p stats_thread( pass_p pdata );
 
+void init_ncursor();
 
 #endif

@@ -9,11 +9,349 @@
 #define v1
 #define v2 // not usefull
 #define v3 // not usefull
-	#define v4 // good tab header pair row
+#define v4 // good tab header pair row
 #define v5 // good header not usefull
 #define v6 // not usefull
-#define v7 // not usefull
-	//#define v8 // good tab style but bad color . pair row color good
+//#define v7 // not usefull
+	#define v8 // good tab style but bad color . pair row color good
+#define v9
+
+#ifndef v9
+
+// ui_tabs_table.c
+// Generic tabs + table UI for Notcurses (clickable tabs, striped table, dynamic columns/rows)
+// Can be reused in multiple programs. Just fill UITabsTable struct and call ui_run().
+
+#include <notcurses/notcurses.h>
+#include <locale.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_TABS 8
+#define MAX_COLS 16
+#define MAX_ROWS 128
+#define TAB_BAR_HEIGHT 3
+
+typedef struct
+{
+	char * title;
+} Column;
+
+typedef struct
+{
+	char * cells[ MAX_COLS ];
+} Row;
+
+typedef struct
+{
+	char * tabname;
+	int ncols;
+	Column cols[ MAX_COLS ];
+	int nrows;
+	Row rows[ MAX_ROWS ];
+} Table;
+
+typedef struct
+{
+	Table * tables[ MAX_TABS ];
+	int ntabs;
+	int active;
+	struct notcurses * nc;
+	struct ncplane * std;
+	struct ncplane * tabs_plane;
+	struct ncplane * table_plane;
+	int termw , termh;
+} UITabsTable;
+
+// ---------------- API ------------------
+UITabsTable * ui_init();
+Table * ui_add_table( UITabsTable * ui , const char * tabname );
+int ui_add_column( Table * t , const char * title );
+int ui_add_row( Table * t );
+void ui_set_cell( Table * t , int row , int col , const char * text );
+void ui_run( UITabsTable * ui );
+void ui_destroy( UITabsTable * ui );
+
+// ------------- Implementation -------------
+static int slen( const char * s )
+{
+	return s ? ( int )strlen( s ) : 0;
+}
+
+UITabsTable * ui_init()
+{
+	setlocale( LC_ALL , "" );
+	UITabsTable * ui = calloc( 1 , sizeof( UITabsTable ) );
+	struct notcurses_options opts = { 0 };
+	opts.flags = NCOPTION_SUPPRESS_BANNERS;
+	ui->nc = notcurses_core_init( &opts , NULL );
+	if ( !ui->nc )
+	{
+		free( ui ); return NULL;
+	}
+	ui->std = notcurses_stdplane( ui->nc );
+	ncplane_dim_yx( ui->std , &ui->termh , &ui->termw );
+
+	struct ncplane_options topts = { .y = 0,.x = 0,.rows = TAB_BAR_HEIGHT,.cols = ui->termw };
+	ui->tabs_plane = ncplane_create( ui->std , &topts );
+	struct ncplane_options bopts = { .y = TAB_BAR_HEIGHT,.x = 0,.rows = ui->termh - TAB_BAR_HEIGHT,.cols = ui->termw };
+	ui->table_plane = ncplane_create( ui->std , &bopts );
+	return ui;
+}
+
+Table * ui_add_table( UITabsTable * ui , const char * tabname )
+{
+	if ( ui->ntabs >= MAX_TABS ) return NULL;
+	Table * t = calloc( 1 , sizeof( Table ) );
+	t->tabname = strdup( tabname );
+	ui->tables[ ui->ntabs++ ] = t;
+	return t;
+}
+
+int ui_add_column( Table * t , const char * title )
+{
+	if ( t->ncols >= MAX_COLS ) return -1;
+	t->cols[ t->ncols++ ].title = strdup( title );
+	return t->ncols - 1;
+}
+
+int ui_add_row( Table * t )
+{
+	if ( t->nrows >= MAX_ROWS ) return -1;
+	t->nrows++;
+	return t->nrows - 1;
+}
+
+void ui_set_cell( Table * t , int row , int col , const char * text )
+{
+	if ( row >= 0 && row < t->nrows && col >= 0 && col < t->ncols )
+		t->rows[ row ].cells[ col ] = strdup( text );
+}
+
+// Compute column widths (fit to contents)
+static void compute_widths( Table * t , int availw , int * out )
+{
+	int i , r;
+	int need = 0;
+	for ( i = 0; i < t->ncols; i++ )
+	{
+		int w = slen( t->cols[ i ].title );
+		for ( r = 0; r < t->nrows; r++ )
+		{
+			int cw = slen( t->rows[ r ].cells[ i ] );
+			if ( cw > w ) w = cw;
+		}
+		out[ i ] = w;
+		need += w;
+	}
+	need += t->ncols + 1; // separators
+	if ( need > availw )
+	{
+		int over = need - availw;
+		while ( over > 0 )
+		{
+			int maxidx = -1 , maxw = -1;
+			for ( i = 0; i < t->ncols; i++ )
+				if ( out[ i ] > maxw && out[ i ] > 3 )
+				{
+					maxw = out[ i ]; maxidx = i;
+				}
+			if ( maxidx < 0 ) break;
+			out[ maxidx ]--; over--;
+		}
+	}
+}
+
+static void put_clipped( struct ncplane * n , int y , int x , const char * s , int w )
+{
+	if ( !s )s = "";
+	int L = slen( s );
+	if ( L <= w )
+	{
+		ncplane_putstr_yx( n , y , x , s );
+		for ( int i = L; i < w; i++ ) ncplane_putstr_yx( n , y , x + i , " " );
+	}
+	else
+	{
+		if ( w <= 3 ) for ( int i = 0; i < w; i++ ) ncplane_putstr_yx( n , y , x + i , "." );
+		else
+		{
+			for ( int i = 0; i < w - 3; i++ ) ncplane_putnstr_yx( n , y , x + i , 1 , s + i );
+			ncplane_putstr_yx( n , y , x + w - 3 , "..." );
+		}
+	}
+}
+
+typedef struct
+{
+	int x0 , x1;
+} TabHit;
+static void draw_tabs( UITabsTable * ui , TabHit hits[] , int * nhits )
+{
+	*nhits = 0; ncplane_erase( ui->tabs_plane );
+	int x = 1;
+	for ( int i = 0; i < ui->ntabs; i++ )
+	{
+		const char * label = ui->tables[ i ]->tabname;
+		int w = slen( label ) + 2;
+		if ( i == ui->active ) ncplane_set_styles( ui->tabs_plane , NCSTYLE_BOLD );
+		ncplane_putstr_yx( ui->tabs_plane , 1 , x , " " );
+		ncplane_putstr( ui->tabs_plane , label );
+		ncplane_putstr( ui->tabs_plane , " " );
+		ncplane_set_styles( ui->tabs_plane , NCSTYLE_NONE );
+		hits[ *nhits ].x0 = x; hits[ *nhits ].x1 = x + w - 1; ( *nhits )++;
+		x += w + 1;
+	}
+	for ( int i = 0; i < ui->termw; i++ ) ncplane_putstr_yx( ui->tabs_plane , 2 , i , "─" );
+}
+
+static void draw_table( UITabsTable * ui , Table * t )
+{
+	ncplane_erase( ui->table_plane );
+	int colw[ MAX_COLS ]; compute_widths( t , ui->termw - 2 , colw );
+	int x = 0 , y = 0;
+	// top border
+	ncplane_putstr_yx( ui->table_plane , y++ , 0 , "┌" );
+	for ( int c = 0; c < t->ncols; c++ )
+	{
+		for ( int k = 0; k < colw[ c ]; k++ ) ncplane_putstr( ui->table_plane , "─" );
+		if ( c == t->ncols - 1 ) ncplane_putstr( ui->table_plane , "┐" );
+		else ncplane_putstr( ui->table_plane , "┬" );
+	}
+	// header row
+	ncplane_putstr_yx( ui->table_plane , y , 0 , "│" );
+	ncplane_set_styles( ui->table_plane , NCSTYLE_BOLD );
+	for ( int c = 0; c < t->ncols; c++ )
+	{
+		put_clipped( ui->table_plane , y , 1 + x , t->cols[ c ].title , colw[ c ] );
+		x += colw[ c ];
+		ncplane_putstr_yx( ui->table_plane , y , 1 + x , "│" );
+		x += 1;
+	}
+	ncplane_set_styles( ui->table_plane , NCSTYLE_NONE );
+	y++;
+	// separator under header
+	ncplane_putstr_yx( ui->table_plane , y++ , 0 , "├" );
+	for ( int c = 0; c < t->ncols; c++ )
+	{
+		for ( int k = 0; k < colw[ c ]; k++ ) ncplane_putstr( ui->table_plane , "─" );
+		if ( c == t->ncols - 1 ) ncplane_putstr( ui->table_plane , "┤" );
+		else ncplane_putstr( ui->table_plane , "┼" );
+	}
+	// rows
+	for ( int r = 0; r < t->nrows; r++ )
+	{
+		x = 0;
+		if ( r % 2 == 0 ) ncplane_set_bg_rgb8( ui->table_plane , 30 , 30 , 30 );
+		else ncplane_set_bg_rgb8( ui->table_plane , 50 , 50 , 70 );
+		ncplane_putstr_yx( ui->table_plane , y , 0 , "│" );
+		for ( int c = 0; c < t->ncols; c++ )
+		{
+			put_clipped( ui->table_plane , y , 1 + x , t->rows[ r ].cells[ c ] , colw[ c ] );
+			x += colw[ c ];
+			ncplane_putstr_yx( ui->table_plane , y , 1 + x , "│" );
+			x += 1;
+		}
+		ncplane_set_bg_default( ui->table_plane );
+		y++;
+	}
+	// bottom border
+	ncplane_putstr_yx( ui->table_plane , y++ , 0 , "└" );
+	for ( int c = 0; c < t->ncols; c++ )
+	{
+		for ( int k = 0; k < colw[ c ]; k++ ) ncplane_putstr( ui->table_plane , "─" );
+		if ( c == t->ncols - 1 ) ncplane_putstr( ui->table_plane , "┘" );
+		else ncplane_putstr( ui->table_plane , "┴" );
+	}
+}
+
+void ui_run( UITabsTable * ui )
+{
+	TabHit hits[ 16 ]; int nhits = 0;
+	draw_tabs( ui , hits , &nhits );
+	draw_table( ui , ui->tables[ ui->active ] );
+	notcurses_render( ui->nc );
+
+	while ( 1 )
+	{
+		struct ncinput ni;
+		uint32_t id = notcurses_get_nblock( ui->nc , &ni );
+		if ( id == 'q' || id == NCKEY_ESC ) break;
+		if ( id == NCKEY_RESIZE )
+		{
+			ncplane_dim_yx( ui->std , &ui->termh , &ui->termw );
+			ncplane_resize_simple( ui->tabs_plane , TAB_BAR_HEIGHT , ui->termw );
+			ncplane_move_yx( ui->table_plane , TAB_BAR_HEIGHT , 0 );
+			ncplane_resize_simple( ui->table_plane , ui->termh - TAB_BAR_HEIGHT , ui->termw );
+			draw_tabs( ui , hits , &nhits );
+			draw_table( ui , ui->tables[ ui->active ] );
+			notcurses_render( ui->nc );
+			continue;
+		}
+		if ( ni.evtype == NCTYPE_PRESS && id == NCKEY_BUTTON1 )
+		{
+			if ( ni.y == 1 )
+			{
+				for ( int i = 0; i < nhits; i++ )
+				{
+					if ( ni.x >= hits[ i ].x0 && ni.x <= hits[ i ].x1 )
+					{
+						ui->active = i;
+						draw_tabs( ui , hits , &nhits );
+						draw_table( ui , ui->tables[ ui->active ] );
+						notcurses_render( ui->nc );
+					}
+				}
+			}
+		}
+	}
+}
+
+void ui_destroy( UITabsTable * ui )
+{
+	for ( int t = 0; t < ui->ntabs; t++ )
+	{
+		Table * T = ui->tables[ t ];
+		free( T->tabname );
+		for ( int c = 0; c < T->ncols; c++ ) free( T->cols[ c ].title );
+		for ( int r = 0; r < T->nrows; r++ )
+			for ( int c = 0; c < T->ncols; c++ ) free( T->rows[ r ].cells[ c ] );
+		free( T );
+	}
+	notcurses_stop( ui->nc );
+	free( ui );
+}
+
+// ----------------- Example usage -----------------
+//#ifdef BUILD_DEMO
+int main()
+{
+	UITabsTable * ui = ui_init();
+	if ( !ui ) return 1;
+	Table * cpu = ui_add_table( ui , "CPU" );
+	int c1 = ui_add_column( cpu , "Core" );
+	int c2 = ui_add_column( cpu , "Usage%" );
+	int c3 = ui_add_column( cpu , "Freq" );
+	int r = ui_add_row( cpu );
+	ui_set_cell( cpu , r , c1 , "0" ); ui_set_cell( cpu , r , c2 , "12.3" ); ui_set_cell( cpu , r , c3 , "3600" );
+	r = ui_add_row( cpu );
+	ui_set_cell( cpu , r , c1 , "1" ); ui_set_cell( cpu , r , c2 , "5.1" ); ui_set_cell( cpu , r , c3 , "3580" );
+
+	Table * mem = ui_add_table( ui , "Memory" );
+	int m1 = ui_add_column( mem , "Type" );
+	int m2 = ui_add_column( mem , "Used" );
+	int m3 = ui_add_column( mem , "Total" );
+	int rm = ui_add_row( mem );
+	ui_set_cell( mem , rm , m1 , "RAM" ); ui_set_cell( mem , rm , m2 , "3.2G" ); ui_set_cell( mem , rm , m3 , "7.7G" );
+
+	ui_run( ui );
+	ui_destroy( ui );
+	return 0;
+}
+//#endif
+
+
+#endif
 
 #ifndef v8
 
@@ -53,8 +391,8 @@ static Table TAB_CPU = {
 
 static Table TAB_MEM = {
   .tabname = "Memory", .ncols = 3,
-  .cols = { {"Type",4}, {"Used",5}, {"Total",5} },
-  .subhdrs = {"Kind","Now","Capacity"},
+  .cols = { {"Type",1}, {"Used",1}, {"Total",21} },
+  .subhdrs = {"","",""},
   .nrows = 3,
   .cells = { {"RAM","3.2G","7.7G"}, {"Swap","0.0G","2.0G"}, {"Cache","1.1G","—"} }
 };
@@ -127,7 +465,8 @@ static void draw_tabs( struct ncplane * tabs , int termw , int active , TabHit h
 	for ( int i = 0; i < NTABS; i++ )
 	{
 		const char * label = ALLTABS[ i ]->tabname;
-		int w = slen( label ) + 2; if ( x + w + 1 >= termw ) break;
+		int w = slen( label ) + 2;
+		if ( x + w + 1 >= termw ) break;
 		if ( i == active ) ncplane_set_fg_rgb8( tabs , 255 , 255 , 255 ) , ncplane_set_bg_rgb8( tabs , 0 , 0 , 200 ) , ncplane_set_styles( tabs , NCSTYLE_BOLD );
 		else ncplane_set_fg_rgb8( tabs , 0 , 0 , 0 ) , ncplane_set_bg_rgb8( tabs , 0 , 255 , 255 );
 		ncplane_putstr_yx( tabs , 1 , x , " " ); ncplane_putstr( tabs , label ); ncplane_putstr( tabs , " " ); ncplane_set_styles( tabs , NCSTYLE_NONE );
@@ -149,28 +488,34 @@ static void draw_table( struct ncplane * body , const Table * T , int termw , in
 	// Top border
 	ncplane_putstr_yx( body , y++ , 0 , "┌" ); for ( int c = 0; c < T->ncols; c++ )
 	{
-		for ( int k = 0; k < colw[ c ]; k++ ) ncplane_putstr( body , "─" ); if ( c == T->ncols - 1 ) ncplane_putstr( body , "┐" ); else ncplane_putstr( body , "┬" );
+		for ( int k = 0; k < colw[ c ]; k++ ) ncplane_putstr( body , "─" );
+		if ( c == T->ncols - 1 ) ncplane_putstr( body , "┐" ); else ncplane_putstr( body , "┬" );
 	}
+
 	// Header
 	ncplane_set_styles( body , NCSTYLE_BOLD );
 	ncplane_set_fg_rgb8( body , 0 , 255 , 255 ); int x = 0; ncplane_putstr_yx( body , y , 0 , "│" );
 	for ( int c = 0; c < T->ncols; c++ )
 	{
-		put_clipped( body , y , 1 + x , T->cols[ c ].name , colw[ c ] ); x += colw[ c ]; ncplane_putstr_yx( body , y , 1 + x , "│" ); x += 1;
+		put_clipped( body , y , 1 + x , T->cols[ c ].name , colw[ c ] ); x += colw[ c ];
+		ncplane_putstr_yx( body , y , 1 + x , "│" ); x += 1;
 	}
 	ncplane_set_styles( body , NCSTYLE_NONE ); y++;
+	
 	// Subheader
 	x = 0; ncplane_putstr_yx( body , y , 0 , "│" ); ncplane_set_fg_rgb8( body , 0 , 255 , 255 ); ncplane_set_styles( body , NCSTYLE_UNDERLINE );
 	for ( int c = 0; c < T->ncols; c++ )
 	{
 		put_clipped( body , y , 1 + x , T->subhdrs[ c ] , colw[ c ] ); x += colw[ c ]; ncplane_putstr_yx( body , y , 1 + x , "│" ); x += 1;
 	}
+	
 	ncplane_set_styles( body , NCSTYLE_NONE ); ncplane_set_fg_default( body ); y++;
 	// Separator
 	ncplane_putstr_yx( body , y++ , 0 , "├" ); for ( int c = 0; c < T->ncols; c++ )
 	{
 		for ( int k = 0; k < colw[ c ]; k++ ) ncplane_putstr( body , "─" ); if ( c == T->ncols - 1 ) ncplane_putstr( body , "┤" ); else ncplane_putstr( body , "┼" );
 	}
+
 	// Rows
 	for ( int r = 0; r < T->nrows; r++ )
 	{
@@ -183,6 +528,7 @@ static void draw_table( struct ncplane * body , const Table * T , int termw , in
 		}
 		ncplane_set_bg_default( body ); y++;
 	}
+
 	// Bottom
 	ncplane_putstr_yx( body , y++ , 0 , "└" ); for ( int c = 0; c < T->ncols; c++ )
 	{
@@ -220,8 +566,11 @@ int main( void )
 	struct ncplane * cmd = ncplane_create( std , &copts );
 
 	int active = 0; TabHit hits[ 16 ]; int nhits = 0;
-	draw_tabs( tabs , termw , active , hits , &nhits ); draw_table( body , ALLTABS[ active ] , termw , termh );
-	char cmdbuf[ 128 ] = { 0 }; int cmdpos = 0; draw_cmdbox( cmd , cmdbuf ); notcurses_render( nc );
+	draw_tabs( tabs , termw , active , hits , &nhits );
+	draw_table( body , ALLTABS[ active ] , termw , termh );
+	char cmdbuf[ 128 ] = { 0 }; int cmdpos = 0;
+	draw_cmdbox( cmd , cmdbuf );
+	notcurses_render( nc );
 
 	while ( 1 )
 	{
@@ -426,7 +775,7 @@ static void draw_tabs( struct ncplane * tabs , int termw , int active , TabHit h
 		const char * label = ALLTABS[ i ]->tabname;
 		int w = slen( label ) + 2;
 		if ( x + w + 1 >= termw ) break;
-		if ( i == active ) ncplane_set_styles( tabs ,  NCSTYLE_BOLD );
+		if ( i == active ) ncplane_set_styles( tabs , NCSTYLE_BOLD );
 		ncplane_putstr_yx( tabs , 1 , x , " " );
 		ncplane_putstr( tabs , label );
 		ncplane_putstr( tabs , " " );
@@ -1780,7 +2129,7 @@ int main()
 
 	//notcurses_getc_blocking( nc , NULL ); // wait key
 
-	sleep(1000);
+	sleep( 1000 );
 	notcurses_stop( nc );
 	return 0;
 }

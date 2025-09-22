@@ -128,21 +128,10 @@ void pre_config_init( G * _g )
 {
 	//INIT_BREAKABLE_FXN();
 
-	// Initialize curses
-	initscr();
-	start_color();
-	cbreak();
-	noecho();
-	curs_set( 1 );
-
-	init_pair( 1 , COLOR_WHITE , COLOR_BLUE );   // Header
-	init_pair( 2 , COLOR_GREEN , COLOR_BLACK );  // Data
-	init_pair( 3 , COLOR_YELLOW , COLOR_BLACK ); // Last Command
-
 	pthread_mutex_init( &_g->stat.lock_data.lock , NULL );
 
-	// Initial window creation
-	init_windows( _g );
+	init_tui( _g );
+
 	init_bypass_stdout( _g );
 
 	//MEMSET_ZERO_O( &_g->handles );
@@ -302,7 +291,7 @@ _THREAD_FXN void_p input_thread( pass_p src_g )
 		curs_set( 0 );
 
 		pthread_mutex_lock( &_g->stat.lock_data.lock );
-		bool boutput_command = 1;
+		Boolean boutput_command = True;
 
 		if ( iSTR_SAME( _g->stat.input_buffer , "quit" ) )
 		{
@@ -311,7 +300,7 @@ _THREAD_FXN void_p input_thread( pass_p src_g )
 		}
 		else if ( iSTR_SAME( _g->stat.input_buffer , "sync" ) )
 		{
-			boutput_command = 0;
+			boutput_command = False;
 			pthread_t thread;
 			if ( pthread_create( &thread , NULL , sync_thread , src_g ) != 0 )
 			{
@@ -321,7 +310,7 @@ _THREAD_FXN void_p input_thread( pass_p src_g )
 		}
 		else if ( iSTR_SAME( _g->stat.input_buffer , "rst" ) )
 		{
-			boutput_command = 0;
+			boutput_command = False;
 			reset_nonuse_stat();
 			//break;
 		}

@@ -62,7 +62,7 @@ typedef struct bridge_cfg_0
 	{
 		void_p _g; // just point to the main g . just because double source dependencies it define as void_p
 		int pcfg_changed; // in passive cfg and active cfg that in alive protocol_bridge, in both it means something changed
-		bool delayed_validation; // when it is true it means structure copying complete
+		Boolean delayed_validation; // when it is True it means structure copying complete
 	} temp_data;
 
 } Bcfg0; // protocol_bridge_cfg

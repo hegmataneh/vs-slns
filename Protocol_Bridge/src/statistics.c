@@ -503,27 +503,54 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 	}
 	G * _g = ( G * )src_g;
 
+	nnc_begin_render_mode( &_g->nnc );
+
 	while ( 1 )
 	{
-		//if ( CLOSE_APP_VAR() ) break; // keep track changes until app is down
+		if ( CLOSE_APP_VAR() ) break; // keep track changes until app is down
 
-		pthread_mutex_lock( &_g->stat.lock_data.lock );
+		couninue_loop_callback( &_g->nnc );
 
-		werase( _g->stat.main_win );
-		box( _g->stat.main_win , 0 , 0 );
-		draw_table( _g );
-		wrefresh( _g->stat.main_win );
+		//pthread_mutex_lock( &_g->stat.lock_data.lock );
 
-		pthread_mutex_unlock( &_g->stat.lock_data.lock );
+		//werase( _g->stat.main_win );
+		//box( _g->stat.main_win , 0 , 0 );
+		//draw_table( _g );
+		//wrefresh( _g->stat.main_win );
+
+		//pthread_mutex_unlock( &_g->stat.lock_data.lock );
 
 		sleep( STAT_REFERESH_INTERVAL_SEC() ); // OK 14040526
 	}
 	return NULL;
 }
 
-void init_windows( G * _g )
+void init_ncursor()
 {
-	//int maxy, maxx;
+	initscr();
+	start_color();
+	cbreak();
+	noecho();
+	curs_set( 1 );
+
+	init_pair( 1 , COLOR_WHITE , COLOR_BLUE );   // Header
+	init_pair( 2 , COLOR_GREEN , COLOR_BLACK );  // Data
+	init_pair( 3 , COLOR_YELLOW , COLOR_BLACK ); // Last Command
+}
+
+void init_notcursor( G * _g )
+{
+	nnc_begin_init_mode( &_g->nnc );
+}
+
+void init_tui( G * _g )
+{
+	init_notcursor( _g );
+
+	return;
+
+	init_ncursor( _g );
+
 	getmaxyx( stdscr , _g->stat.scr_height , _g->stat.scr_width );
 
 	// Calculate window sizes (60% for cells, 40% for input)
