@@ -16,7 +16,7 @@ _CALLBACK_FXN status operation_on_tcp_packet( pass_p data , buffer buf , int sz 
 
 	AB_tcp * tcp = ( AB_tcp * )data;
 	AB * pb = tcp->owner_pb;
-	G * _g = ( G * )tcp->owner_pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = ( G * )tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
 	status ret = segmgr_append( &_g->bufs.aggr_inp_pkt , buf , sz ); // store whole pakt + hdr into global buffer
 	RANJE_ACT1( ret , errArg , NULL_ACT , MACRO_E( M_BREAK_STAT( ret , 0 ) ) );
@@ -38,6 +38,8 @@ _PRIVATE_FXN status process_segment_itm( buffer data , size_t len , pass_p src_g
 	size_t sz_t = len - pkt1->flags.payload_offset;
 	WARNING( pkt1->flags.version == TCP_PACKET_VERSION );
 
+	time_t tnow = 0;
+	tnow = time( NULL );
 	sockfd fd = -1;
 	void_p ab_tcp_p = NULL;
 	AB * pb = NULL;
@@ -91,6 +93,24 @@ _PRIVATE_FXN status process_segment_itm( buffer data , size_t len , pass_p src_g
 		pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count++;
 		pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes += sz_t;
 		pb->stat.round_zero_set.tcp_send_data_alive_indicator++;
+	}
+
+	if ( difftime( tnow , pb->stat.round_zero_set.tcp_1_sec.t_tcp_throughput ) >= 1.0 )
+	{
+		if ( pb->stat.round_zero_set.tcp_1_sec.t_tcp_throughput > 0 )
+		{
+			cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_5_sec_count , pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count );
+			cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_5_sec_bytes , pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes );
+
+			cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_10_sec_count , pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count );
+			cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_10_sec_bytes , pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes );
+
+			cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_40_sec_count , pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count );
+			cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_40_sec_bytes , pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes );
+		}
+		pb->stat.round_zero_set.tcp_1_sec.t_tcp_throughput = tnow;
+		pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count = 0;
+		pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes = 0;
 	}
 
 	return d_error;

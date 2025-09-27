@@ -9,10 +9,10 @@ typedef union AB_execution_tools
 		pcap_t * handle;
 	} *p_pcap_udp_counter;
 
-	struct s_NetStack_udp_counter
+	struct s_krnl_udp_counter
 	{
 		pthread_t trd_id;
-	} *p_NetStack_udp_counter;
+	} *p_krnl_udp_counter;
 
 	struct s_one2one_krnl2krnl_SF // one thread for each direction with store & forward method . with kernel utils
 	{
@@ -22,16 +22,16 @@ typedef union AB_execution_tools
 		distributor_t buffer_pop_distributor; // responsible for distribute udp packet to each type
 	} *p_one2one_krnl2krnl_SF;
 
-	struct s_one2one_pcap2NetStack_SF // one thread for each direction with store & forward method
+	struct s_one2one_pcap2krnl_SF // one thread for each direction with store & forward method
 	{
 		pthread_t income_trd_id;
 		pthread_t outgoing_trd_id;
 		vcbuf_nb cbuf; // buffer
 		distributor_t buffer_pop_distributor; // responsible for distribute udp packet to each type
 		pcap_t * handle;
-	} *p_one2one_pcap2NetStack_SF;
+	} *p_one2one_pcap2krnl_SF;
 
-	struct s_one2many_pcap2NetStack_SF // one thread for each direction with store & forward method
+	struct s_one2many_pcap2krnl_SF // one thread for each direction with store & forward method
 	{
 		pthread_t income_trd_id;
 		pthread_t outgoing_trd_id;
@@ -42,9 +42,9 @@ typedef union AB_execution_tools
 		dict_o_t dc_token_ring; // config may have multi rings and each one is for one grp
 
 		pcap_t * handle;
-	} *p_one2many_pcap2NetStack_SF;
+	} *p_one2many_pcap2krnl_SF;
 
-	struct s_many2one_pcap2kernelDefaultStack_SF_serialize // one thread for each direction with store & forward method
+	struct s_many2one_pcap2krnl_SF_serialize // one thread for each direction with store & forward method
 	{
 		pthread_t income_trd_id;
 		pthread_t outgoing_trd_id;
@@ -54,7 +54,7 @@ typedef union AB_execution_tools
 		distributor_t buffer_pop_distributor; // responsible for distribute udp packet to each type
 		dict_o_t dc_token_ring; // config may have multi rings and each one is for one grp
 
-	} *p_many2one_pcap2kernelDefaultStack_SF_serialize;
+	} *p_many2one_pcap2krnl_SF_serialize;
 
 } ex_tls;
 
@@ -109,6 +109,8 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 
 	AB_tcp *tcps;
 	int tcps_count;
+
+	nnc_table * pstat_tbl;
 	
 } AB;
 

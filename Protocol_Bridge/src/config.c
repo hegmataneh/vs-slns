@@ -74,7 +74,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	}
 	BEGIN_RET
-		case 1: DIST_ERR_G();
+		case 1: DIST_APP_FAILURE();
 	M_V_END_RET
 	return VOID_RET;
 }
@@ -207,15 +207,13 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					int iactual_section = 0;
 					for ( int icnf_section = 0 ; icnf_section < el_Protocol_Bridges.value.as_object->count ; icnf_section++ ) // each bridge
 					{
-						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->temp_data._g = ( void_p )_g; // each config must know global settings
+						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->temp_data._pseudo_g = ( void_p )_g; // each config must know global settings
 						const char * output_Protocol_Bridge_name = ( *( el_Protocol_Bridges.value.as_object->entries + icnf_section ) )->key;
 	
 						result( json_element ) re_each_bridge = json_object_find( el_Protocol_Bridges.value.as_object , output_Protocol_Bridge_name );
 						M_BREAK_IF( catch_error( &re_each_bridge , output_Protocol_Bridge_name , 1 ) , errNotFound , 0 );
 						typed( json_element ) el_each_bridge = result_unwrap( json_element )( &re_each_bridge );
 	
-						strcpy( ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->id.bridge_name , output_Protocol_Bridge_name );
-						
 						#define CFG_ELEM_STR( part , name )																					/**/\
 						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );						/**/\
 						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );												/**/\
@@ -228,6 +226,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );										/**/\
 						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->part.name = (int)el_##name.value.as_number.value.as_long;			/**/
 	
+						CFG_ELEM_STR( id , short_name );
 						CFG_ELEM_STR( id , out_type );
 						CFG_ELEM_STR( id , thread_handler_act );
 						CFG_ELEM_I( maintained , enable );
@@ -673,6 +672,6 @@ void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg )
 	BEGIN_RET
 		case 3: DAC( _g->bridges.ABs );
 		case 2: DAC( _g->bridges.ABhs_masks );
-		case 1: DIST_ERR_G();
+		case 1: DIST_APP_FAILURE();
 	M_V_END_RET
 } // TODO . return value

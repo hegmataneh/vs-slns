@@ -7,8 +7,8 @@ typedef struct app_cmd
 
 typedef struct global_distributor
 {
-	distributor_t pb_err_dist; // occure in AB
-	distributor_t ground_err_dist; // anywhere else
+	distributor_t app_lvl_failure_dist;
+	distributor_t pb_lvl_failure_dist;
 
 	distributor_t pb_udp_connected_dist; // dispatch tcp connection state to increase counter
 	distributor_t pb_udp_disconnected_dist;
@@ -18,12 +18,13 @@ typedef struct global_distributor
 
 	distributor_t quit_interrupt_dist; // quit interrupt dispatch to all pcap loop
 
+	distributor_t throttling_refresh_stat;
 } g_dst;
 
 typedef struct global_handles
 {
 	//pcap_t * pcap_udp_counter_handle;
-	kv_table_t map_tcp_socket; // keep mapping between tcp &id
+	kv_table_t map_tcp_socket; // keep mapping between tcp & id
 } g_hdl;
 
 typedef struct global_buffer_handles
@@ -47,15 +48,13 @@ typedef struct App_Data
 {
 	Acfg appcfg;
 	ABhs bridges;
-	St stat;
-
-	nnc_req nnc;
+	Stt stat;
 
 	Acmd cmd;
 	g_dst distrbtor;
-	g_hdl hdls;
+	g_hdl hdls; // holders
 	g_bufs bufs;
-	g_trds trds;
+	g_trds trds; // threads
 } G;
 
 _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g );
@@ -68,7 +67,7 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g );
 void init_bypass_stdout( G * _g );
 void M_showMsg( LPCSTR msg );
 
-void init_notcursor( G * _g );
+status init_notcursor( G * _g );
 void init_tui( G * _g );
 
 void pre_config_init( G * _g );
@@ -92,3 +91,37 @@ void mng_basic_thread_sleep( G * _g , int priority );
 
 _REGULAR_FXN void compile_udps_config_for_pcap_filter( _IN AB * abs , _RET_VAL_P int * clusterd_cnt , _NEW_OUT_P strings * interface_filter , _NEW_OUT_P strings * port_filter );
 
+_CALLBACK_FXN PASSED_CSTR ov_cell_time_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR ov_cell_version_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR ov_UDP_conn_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR ov_TCP_conn_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR ov_UDP_retry_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR ov_TCP_retry_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR ov_fault_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR ov_time_elapse_2_str( pass_p src_pcell );
+
+_CALLBACK_FXN PASSED_CSTR pb_time_elapse_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_fault_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_UDP_conn_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_TCP_conn_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_UDP_retry_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_TCP_retry_2_str( pass_p src_pcell );
+
+_CALLBACK_FXN PASSED_CSTR pb_UDP_get_count_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_UDP_get_byte_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_TCP_put_count_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_TCP_put_byte_2_str( pass_p src_pcell );
+
+_CALLBACK_FXN PASSED_CSTR pb_5s_udp_pps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_5s_udp_bps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_10s_udp_pps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_10s_udp_bps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_40s_udp_pps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_40s_udp_bps_2_str( pass_p src_pcell );
+
+_CALLBACK_FXN PASSED_CSTR pb_5s_tcp_pps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_5s_tcp_bps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_10s_tcp_pps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_10s_tcp_bps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_40s_tcp_pps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_40s_tcp_bps_2_str( pass_p src_pcell );

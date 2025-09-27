@@ -24,7 +24,7 @@
 		"synchronization_max_roundup": 60,
 		"show_line_hit": 1,
 		"retry_unexpected_wait_for_sock": 5,
-		"number_in_short_form": 0,
+		"number_in_short_form": 1,
 		"NetworkStack_FilterType": "pcap",
 		"default_low_basic_thread_delay_nanosec": 5000000000,
 		"default_normal_basic_thread_delay_nanosec": 1000000000,
@@ -47,10 +47,11 @@
 	},
 	"Protocol_Bridges":
 	{
-		"one2one_pcap2NetStack_SF_vmtest":
+		"one2one_pcap2krnl_SF_vmtest":
 		{
+			"short_name": "1234->56.61:5000",
 			"out_type": "one2one",
-			"thread_handler_act": "one2one_pcap2NetStack_SF",
+			"thread_handler_act": "one2one_pcap2krnl_SF",
 			"inputs":
 			{
 				"1_localhost:1234":
@@ -78,12 +79,13 @@
 				}
 			},
 			"enable": 1,
-			"hide": 1
+			"hide": 0
 		}
-		,"one2one_pcap2NetStack_SF_uptest":
+		,"one2one_pcap2krnl_SF_uptest":
 		{
+			"short_name": "10200-10201->10100",
 			"out_type": "one2one",
-			"thread_handler_act": "one2one_pcap2NetStack_SF",
+			"thread_handler_act": "one2one_pcap2krnl_SF",
 			"inputs":
 			{
 				"1_10.202.18.88:10200-10201":
@@ -115,6 +117,7 @@
 		}
 		,"one2one_krnl2krnl_SF_vmtest":
 		{
+			"short_name": "1234->56.61:5000",
 			"out_type": "one2one",
 			"thread_handler_act": "one2one_krnl2krnl_SF",
 			"inputs":
@@ -146,10 +149,11 @@
 			"enable": 1,
 			"hide": 1
 		}
-		,"one2one_NetStack2NetStack_SF_uptest":
+		,"one2one_krnl2krnl_SF_uptest":
 		{
+			"short_name": "10200-10201->10100",
 			"out_type": "one2one",
-			"thread_handler_act": "one2one_pcap2NetStack_SF",
+			"thread_handler_act": "one2one_pcap2krnl_SF",
 			"inputs":
 			{
 				"1_10.202.18.88:10200-10201":
@@ -181,6 +185,7 @@
 		}
 		,"one2one_krnl2krnl_SF_uptest":
 		{
+			"short_name": "10200->10100",
 			"out_type": "one2one",
 			"thread_handler_act": "one2one_krnl2krnl_SF",
 			"inputs":
@@ -210,7 +215,28 @@
 				}
 			},
 			"enable": 1,
-			"hide": 0
+			"hide": 1
+		}
+		,"pcap_udp_counter":
+		{
+			"short_name": "fill_this",
+			"out_type": "-",
+			"thread_handler_act": "pcap_udp_counter",
+			"inputs":
+			{
+				"localhost:1234":
+				{
+					"group": "1",
+					"group_type": "-",
+					"UDP_origin_ip": "-",
+					"UDP_origin_ports": "1234",
+					"UDP_origin_interface": "enp0s3",
+					"enable": 1,
+					"reset_connection": 0
+				}
+			},
+			"enable": 1,
+			"hide": 1
 		}
 	}
 }

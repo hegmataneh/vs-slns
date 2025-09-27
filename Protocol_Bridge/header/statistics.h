@@ -43,12 +43,10 @@ struct BenchmarkRound_initable_memory // must be init with own function
 	cbuf_metr udp_stat_5_sec_count , udp_stat_5_sec_bytes;
 	cbuf_metr udp_stat_10_sec_count , udp_stat_10_sec_bytes;
 	cbuf_metr udp_stat_40_sec_count , udp_stat_40_sec_bytes;
-	cbuf_metr udp_stat_120_sec_count , udp_stat_120_sec_bytes;
 
 	cbuf_metr tcp_stat_5_sec_count , tcp_stat_5_sec_bytes;
 	cbuf_metr tcp_stat_10_sec_count , tcp_stat_10_sec_bytes;
 	cbuf_metr tcp_stat_40_sec_count , tcp_stat_40_sec_bytes;
-	cbuf_metr tcp_stat_120_sec_count , tcp_stat_120_sec_bytes;
 };
 
 struct BenchmarkRound_zero_init_memory // can be memset to zero all byte
@@ -61,7 +59,7 @@ struct BenchmarkRound_zero_init_memory // can be memset to zero all byte
 	int continuously_unsuccessful_send_error;
 	int total_unsuccessful_send_error;
 
-	__int64u syscal_err_count;
+	__int64u pb_fault_count;
 
 	struct udp_stat_1_sec udp_1_sec;
 	struct tcp_stat_1_sec tcp_1_sec;
@@ -82,6 +80,34 @@ typedef struct s_bridge_stat
 {
 	struct BenchmarkRound_zero_init_memory  round_zero_set;
 	struct BenchmarkRound_initable_memory  round_init_set;
+
+	nnc_cell_content * pb_elapse_cell;
+
+	nnc_cell_content * pb_fault_cell;
+	nnc_cell_content * pb_UDP_conn_cell;
+	nnc_cell_content * pb_TCP_conn_cell;
+	nnc_cell_content * pb_UDP_retry_conn_cell;
+	nnc_cell_content * pb_TCP_retry_conn_cell;
+
+	nnc_cell_content * pb_total_udp_get_count_cell;
+	nnc_cell_content * pb_total_udp_get_byte_cell;
+	nnc_cell_content * pb_total_tcp_put_count_cell;
+	nnc_cell_content * pb_total_tcp_put_byte_cell;
+
+	nnc_cell_content * pb_5s_udp_pps;
+	nnc_cell_content * pb_5s_udp_bps;
+	nnc_cell_content * pb_10s_udp_pps;
+	nnc_cell_content * pb_10s_udp_bps;
+	nnc_cell_content * pb_40s_udp_pps;
+	nnc_cell_content * pb_40s_udp_bps;
+
+	nnc_cell_content * pb_5s_tcp_pps;
+	nnc_cell_content * pb_5s_tcp_bps;
+	nnc_cell_content * pb_10s_tcp_pps;
+	nnc_cell_content * pb_10s_tcp_bps;
+	nnc_cell_content * pb_40s_tcp_pps;
+	nnc_cell_content * pb_40s_tcp_bps;
+
 } ABstat;
 
 #endif
@@ -93,12 +119,47 @@ struct statistics_lock_data
 	pthread_mutex_t lock;
 };
 
+typedef struct // can be memset to zero all byte
+{
+	struct timeval t_begin /* , t_end*/; // begin and end of on iteration of benchmarking
+	__int64u app_fault_count;
+
+	int total_udp_connection_count;
+	int total_tcp_connection_count;
+	int total_retry_udp_connection_count;
+	int total_retry_tcp_connection_count;
+} stat_zero_init_memory;
+
+typedef struct notcurses_stat_req
+{
+	nnc_table * pgeneral_tbl; // general overview page. add gere for additional field addition
+
+	dyn_arr field_keeper; // one block keep array of field that dynamically changed. prevent memory fragment
+	//kv_table_t map_flds; // make access to field faster
+
+	// fastest way to access important cell
+	nnc_cell_content * ov_time_cell; // shortcut access to most frequently cell
+	nnc_cell_content * ov_ver_cell;
+	nnc_cell_content * ov_elapse_cell;
+	nnc_cell_content * ov_fault_cell;
+	nnc_cell_content * ov_UDP_conn_cell;
+	nnc_cell_content * ov_TCP_conn_cell;
+	nnc_cell_content * ov_UDP_retry_conn_cell;
+	nnc_cell_content * ov_TCP_retry_conn_cell;
+
+} n_s_req;
+
 typedef struct statistics
 {
-	// box & window
-	int scr_height , scr_width;
-	WINDOW * main_win;
-	WINDOW * input_win;
+	//// box & window
+	//int scr_height , scr_width;
+	//WINDOW * main_win;
+	//WINDOW * input_win;
+
+	nnc_req nc_h; // notcurses handle
+	n_s_req nc_s_req; // data viewed in not curses
+
+	stat_zero_init_memory aggregate_stat;
 
 	// cmd
 	int pipefds[ 2 ]; // used for bypass stdout
@@ -108,10 +169,10 @@ typedef struct statistics
 	int alive_check_counter;
 	struct statistics_lock_data lock_data;
 
-} St;
+} Stt;
 
-void reset_nonuse_stat();
-void print_cell( WINDOW * win , int y , int x , int width , LPCSTR text );
+//void reset_nonuse_stat();
+//void print_cell( WINDOW * win , int y , int x , int width , LPCSTR text );
 _THREAD_FXN void_p stats_thread( pass_p pdata );
 
 void init_ncursor();

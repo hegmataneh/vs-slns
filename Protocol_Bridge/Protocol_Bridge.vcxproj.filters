@@ -4,16 +4,16 @@
     <ClCompile Include="src\_1_pcap_udp_counter.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\_2_NetStack_udp_counter.c">
+    <ClCompile Include="src\_2_krnl_udp_counter.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\_3_one2one_pcap2NetStack_SF.c">
+    <ClCompile Include="src\_3_one2one_pcap2krnl_SF.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\_4_one2many_pcap2NetStack_SF.c">
+    <ClCompile Include="src\_4_one2many_pcap2krnl_SF.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\_5_many2one_pcap_NetStack_SF.c">
+    <ClCompile Include="src\_5_many2one_pcap_krnl_SF.c">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\async_pcap_udp_store.c">
@@ -54,16 +54,16 @@
     <ClInclude Include="header\_1_pcap_udp_counter.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\_2_NetStack_udp_counter.h">
+    <ClInclude Include="header\_2_krnl_udp_counter.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\_3_one2one_pcap2NetStack_SF.h">
+    <ClInclude Include="header\_3_one2one_pcap2krnl_SF.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\_4_one2many_pcap2NetStack_SF.h">
+    <ClInclude Include="header\_4_one2many_pcap2krnl_SF.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\_5_many2one_pcap_NetStack_SF.h">
+    <ClInclude Include="header\_5_many2one_pcap_krnl_SF.h">
       <Filter>header</Filter>
     </ClInclude>
     <ClInclude Include="header\async_pcap_udp_store.h">

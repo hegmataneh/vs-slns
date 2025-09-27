@@ -12,33 +12,6 @@
 
 #include <Protocol_Bridge.dep>
 
-// 14040622 . call for replicate and round robin for now
-//_PRIVATE_FXN status send_tcp_packet( pass_p data , buffer buf , int sz )
-//{
-//	status d_error = errOK;
-//	AB_tcp * tcp = ( AB_tcp * )data;
-//	AB * pb = tcp->owner_pb;
-//	G * _g = ( G * )tcp->owner_pb->cpy_cfg.m.m.temp_data._g;
-//
-//	// TODO . add into memory
-//	// TODO . add log if necessary
-//	// TODO . add record to file if memory about to full
-//	// TODO . some how save record to send them later to spec destination
-//
-//	//size_t sz_t = sz;
-//	//status d_error = sendall( tcp->tcp_sockfd , buf , &sz_t ); // send is to heavy so it must send where it can
-//
-//	//if ( d_error == errOK && sz > 0 )
-//	//{
-//	//	pb->stat.round_zero_set.tcp.total_tcp_put_count++;
-//	//	pb->stat.round_zero_set.tcp.total_tcp_put_byte += sz;
-//	//	pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count++;
-//	//	pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes += sz;
-//	//	pb->stat.round_zero_set.tcp_send_data_alive_indicator++;
-//	//}
-//	return d_error;
-//}
-
 _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 {
 	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
@@ -139,14 +112,12 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 {
 	INIT_BREAKABLE_FXN();
 
-	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
-	time_t tnow = 0;
 	char buffer[ BUFFER_SIZE + 128 /*tcp version + grp name[64]*/ ]; // Define a buffer to store received data
 	MEMSET_ZERO_O( buffer );
 	pass_p pdata = NULL;
 	size_t sz;
-	//ssize_t snd_ret;
 
 	init_many_tcp( pb , hlpr );
 
@@ -195,36 +166,15 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 			break;
 		}
 
-		tnow = time( NULL );
-		// tcp
-		if ( difftime( tnow , pb->stat.round_zero_set.tcp_1_sec.t_tcp_throughput ) >= 1.0 )
-		{
-			if ( pb->stat.round_zero_set.tcp_1_sec.t_tcp_throughput > 0 )
-			{
-				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_5_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_5_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_10_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_10_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_40_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_40_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_120_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_120_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-				//_g->stat.round.tcp_1_sec.tcp_put_count_throughput = _g->stat.round.tcp_1_sec.calc_throughput_tcp_put_count;
-				//_g->stat.round.tcp_1_sec.tcp_put_byte_throughput = _g->stat.round.tcp_1_sec.calc_throughput_tcp_put_bytes;
-			}
-			pb->stat.round_zero_set.tcp_1_sec.t_tcp_throughput = tnow;
-			pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count = 0;
-			pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes = 0;
-		}
-
-		
-
+		// from ring pcap to stack general
 		while ( vcbuf_nb_pop( hlpr->cbuf , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
 		{
+
+			if ( pb->trd.base.do_close_thread )
+			{
+				break;
+			}
+
 			// TODO . if connection lost i should do something here. but i dont know what should i do for now
 
 			// TODO . result must be seperated from each other to make right statistic
@@ -234,38 +184,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 			if ( distributor_publish_buffer_int( hlpr->buf_pop_distr , buffer , sz + pkt->flags.payload_offset , NULL ) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;
 
-			//if ( sendall( pb->tcps->tcp_sockfd , buffer , &sz ) != errOK )
-			//{
-			//	_g->stat.round_zero_set.continuously_unsuccessful_send_error++;
-			//	_g->stat.round_zero_set.total_unsuccessful_send_error++;
-
-			//	if ( ++output_tcp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-			//	{
-			//		output_tcp_socket_error_tolerance_count = 0;
-			//		if ( pb->tcps_count && pb->tcps->tcp_connection_established )
-			//		{
-			//			if ( peerTcpClosed( pb->tcps->tcp_sockfd ) )
-			//			{
-			//				pb->tcps->retry_to_connect_tcp = 1;
-			//			}
-			//		}
-			//	}
-			//	continue;
-			//}
 			pb->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
-			//if ( sz > 0 )
-			//{
-			//	_g->stat.round_zero_set.tcp.total_tcp_put_count++;
-			//	_g->stat.round_zero_set.tcp.total_tcp_put_byte += sz;
-			//	_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count++;
-			//	_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes += sz;
-			//	//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_count++;
-			//	//_g->stat.round.tcp_10_sec.calc_throughput_tcp_put_bytes += snd_ret;
-			//	//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_count++;
-			//	//_g->stat.round.tcp_40_sec.calc_throughput_tcp_put_bytes += snd_ret;
-
-			//	_g->stat.tcp_send_data_alive_indicator++;
-			//}
 
 		}
 
@@ -277,7 +196,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 	case 1:
 	{
 		//_close_socket( &src_pb->tcp_sockfd );
-		DIST_ERR();
+		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
 	return NULL;

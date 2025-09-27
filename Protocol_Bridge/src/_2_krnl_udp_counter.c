@@ -8,15 +8,13 @@
 /// <summary>
 /// this fxn get uninitialized active bridge single udp cfg and open and initialized it
 /// </summary>
-/// <param name="src_AB_udp"></param>
-/// <returns></returns>
-_THREAD_FXN void_p proc_NetStack_udp_counter( void_p src_pb )
+_THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
 
 	//AB_udp * pAB_udp = ( AB_udp * )src_AB_udp;
 	AB * pb = ( AB * )src_pb;
-	G * _g = pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
 	while ( !pb->trd.base.bridg_prerequisite_stabled )
 	{
@@ -174,6 +172,7 @@ _THREAD_FXN void_p proc_NetStack_udp_counter( void_p src_pb )
 			if ( pb->stat.round_zero_set.t_begin.tv_sec == 0 && pb->stat.round_zero_set.t_begin.tv_usec == 0 )
 			{
 				gettimeofday( &pb->stat.round_zero_set.t_begin , NULL );
+				gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 			}
 
 			tnow = time( NULL );
@@ -190,9 +189,6 @@ _THREAD_FXN void_p proc_NetStack_udp_counter( void_p src_pb )
 
 					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
 					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_120_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_120_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
 				}
 				pb->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
 				pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
@@ -256,7 +252,7 @@ _THREAD_FXN void_p proc_NetStack_udp_counter( void_p src_pb )
 	case 1:
 	{
 		//_close_socket( &src_pb->tcp_sockfd );
-		DIST_ERR();
+		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
 

@@ -9,7 +9,7 @@
 _PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2one_krnl2krnl_SF( pass_p data , buffer buf , int payload_len )
 {
 	AB * pb = ( AB * )data;
-	return vcbuf_nb_push( &pb->trd.t.p_one2one_pcap2NetStack_SF->cbuf , buf , payload_len );
+	return vcbuf_nb_push( &pb->trd.t.p_one2one_pcap2krnl_SF->cbuf , buf , payload_len );
 }
 
 /// <summary>
@@ -21,7 +21,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 
 	//AB_udp * pAB_udp = ( AB_udp * )src_AB_udp;
 	AB * pb = ( AB * )src_pb;
-	G * _g = pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
 	while ( !pb->trd.base.bridg_prerequisite_stabled )
 	{
@@ -183,6 +183,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 			if ( pb->stat.round_zero_set.t_begin.tv_sec == 0 && pb->stat.round_zero_set.t_begin.tv_usec == 0 )
 			{
 				gettimeofday( &pb->stat.round_zero_set.t_begin , NULL );
+				gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 			}
 
 			tnow = time( NULL );
@@ -199,9 +200,6 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 
 					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
 					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_120_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_120_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
 				}
 				pb->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
 				pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
@@ -271,7 +269,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	case 1:
 	{
 		//_close_socket( &src_pb->tcp_sockfd );
-		DIST_ERR();
+		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
 

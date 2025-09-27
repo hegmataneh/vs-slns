@@ -3,6 +3,11 @@
 #include "Protocol_Bridge.use"
 #include "Protocol_Bridge.use"
 
+void _Breaked();
+
+#define BREAK_POINT_AT_APP_SPACE if(d_error!=errOK){_Breaked();}
+
+
 #include "general.h"
 
 #include "Protocol_Bridge.inc"

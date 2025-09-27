@@ -41,6 +41,7 @@ typedef struct bridge_cfg_0
 	struct bridge_cfg_id
 	{
 		CFG_ITM bridge_name;
+		CFG_ITM short_name;
 
 		CFG_ITM out_type;
 		CFG_ITM thread_handler_act;
@@ -60,7 +61,7 @@ typedef struct bridge_cfg_0
 
 	struct bridge_temp_data
 	{
-		void_p _g; // just point to the main g . just because double source dependencies it define as void_p
+		void_p _pseudo_g; // just point to the main g . just because double source dependencies it define as void_p
 		int pcfg_changed; // in passive cfg and active cfg that in alive protocol_bridge, in both it means something changed
 		Boolean delayed_validation; // when it is True it means structure copying complete
 	} temp_data;

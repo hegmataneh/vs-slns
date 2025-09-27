@@ -2,8 +2,8 @@
 	#define __INC__6_one2one_krnl2krnl_SF
 #endif
 
-#ifdef Uses_proc_many2many_pcap_NetStack_SF
-	#define __INC__5_many2one_pcap_NetStack_SF
+#ifdef Uses_proc_many2many_pcap_krnl_SF
+	#define __INC__5_many2one_pcap_krnl_SF
 #endif
 
 #ifdef Uses_many_tcp_out_thread_proc
@@ -15,20 +15,20 @@
 	#define __INC_async_pcap_udp_store
 #endif
 
-#ifdef Uses_proc_one2many_pcap2NetStack_SF_udp_pcap
-	#define __INC__4_one2many_pcap2NetStack_SF
+#ifdef Uses_proc_one2many_pcap2krnl_SF_udp_pcap
+	#define __INC__4_one2many_pcap2krnl_SF
 #endif
 
 #ifdef Uses_proc_pcap_udp_counter
 	#define __INC__1_pcap_udp_counter
 #endif
 
-#ifdef Uses_proc_one2one_pcap2NetStack_SF_udp_pcap
-	#define __INC__3_one2one_pcap2NetStack_SF
+#ifdef Uses_proc_one2one_pcap2krnl_SF_udp_pcap
+	#define __INC__3_one2one_pcap2krnl_SF
 #endif
 
-#ifdef Uses_proc_NetStack_udp_counter
-	#define __INC__2_NetStack_udp_counter
+#ifdef Uses_proc_krnl_udp_counter
+	#define __INC__2_krnl_udp_counter
 #endif
 
 #ifdef Uses_AB_tcp

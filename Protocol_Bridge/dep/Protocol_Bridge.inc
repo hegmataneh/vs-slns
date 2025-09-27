@@ -30,16 +30,16 @@
 	#include "_1_pcap_udp_counter.h"
 #endif
 
-#ifdef __INC__3_one2one_pcap2NetStack_SF
-	#include "_3_one2one_pcap2NetStack_SF.h"
+#ifdef __INC__3_one2one_pcap2krnl_SF
+	#include "_3_one2one_pcap2krnl_SF.h"
 #endif
 
-#ifdef __INC__2_NetStack_udp_counter
-	#include "_2_NetStack_udp_counter.h"
+#ifdef __INC__2_krnl_udp_counter
+	#include "_2_krnl_udp_counter.h"
 #endif
 
-#ifdef __INC__4_one2many_pcap2NetStack_SF
-	#include "_4_one2many_pcap2NetStack_SF.h"
+#ifdef __INC__4_one2many_pcap2krnl_SF
+	#include "_4_one2many_pcap2krnl_SF.h"
 #endif
 
 #ifdef __INC_async_pcap_udp_store
@@ -50,8 +50,8 @@
 	#include "async_tcp_forward.h"
 #endif
 
-#ifdef __INC__5_many2one_pcap_NetStack_SF
-	#include "_5_many2one_pcap_NetStack_SF.h"
+#ifdef __INC__5_many2one_pcap_krnl_SF
+	#include "_5_many2one_pcap_krnl_SF.h"
 #endif
 
 #ifdef __INC_packet_mngr

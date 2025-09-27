@@ -77,18 +77,28 @@ _STRONG_ATTR void M_showMsg( LPCSTR msg )
 	if ( _g ) strcpy( _g->stat.last_command , msg );
 }
 
+void _Breaked()
+{
+	int i = 1;
+	i++;
+}
+
+_CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg )
+{
+	G * _g = ( G * )src_g;
+	
+	_g->stat.aggregate_stat.app_fault_count++;
+	nnc_cell_triggered( _g->stat.nc_s_req.ov_fault_cell );
+}
+
 _CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg )
 {
 	AB * pb = ( AB * )src_pb;
-	G * _g = pb->cpy_cfg.m.m.temp_data._g;
-	pb->stat.round_zero_set.syscal_err_count++;
-	distributor_publish_str( &_g->distrbtor.ground_err_dist , msg , ( pass_p )_g );
-}
+	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
+	pb->stat.round_zero_set.pb_fault_count++;
+	distributor_publish_str( &_g->distrbtor.app_lvl_failure_dist , msg , ( pass_p )_g );
 
-_CALLBACK_FXN void ground_err_dist( pass_p src_g , LPCSTR msg )
-{
-	//G * _g = ( G * )src_g;
-	// TODO
+	nnc_cell_triggered( pb->stat.pb_fault_cell ); // this is how i priotorized error view by addign this line in changes call back. instead if i added this line in some place that like pool and every for example one second call that it has lower prio .
 }
 
 _CALLBACK_FXN void udp_connected( pass_p src_pb , int v )
@@ -96,25 +106,51 @@ _CALLBACK_FXN void udp_connected( pass_p src_pb , int v )
 	AB * pb = ( AB * )src_pb;
 	pb->stat.round_zero_set.udp_connection_count++;
 	pb->stat.round_zero_set.total_retry_udp_connection_count++;
-}
 
+	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count++;
+	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_udp_connection_count++;
+
+	nnc_cell_triggered( _g->stat.nc_s_req.ov_UDP_conn_cell );
+	nnc_cell_triggered( _g->stat.nc_s_req.ov_UDP_retry_conn_cell );
+	nnc_cell_triggered( pb->stat.pb_UDP_conn_cell );
+	nnc_cell_triggered( pb->stat.pb_UDP_retry_conn_cell );
+}
 _CALLBACK_FXN void udp_disconnected( pass_p src_pb , int v )
 {
 	AB * pb = ( AB * )src_pb;
 	pb->stat.round_zero_set.udp_connection_count--;
+
+	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count--;
+
+	nnc_cell_triggered( _g->stat.nc_s_req.ov_UDP_conn_cell );
+	nnc_cell_triggered( pb->stat.pb_UDP_conn_cell );
 }
 _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , sockfd fd )
 {
 	AB_tcp * tcp = ( AB_tcp * )src_AB_tcp;
+	AB * pb = tcp->owner_pb;
 	// first try to send by file desc if succ then pointer must be valid
-	dict_fst_put( &TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._g )->hdls.map_tcp_socket , tcp->__tcp_cfg_pak->name , fd , ( void_p )tcp , NULL , NULL , NULL );
+	dict_fst_put( &TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->hdls.map_tcp_socket , tcp->__tcp_cfg_pak->name , fd , ( void_p )tcp , NULL , NULL , NULL );
 	tcp->owner_pb->stat.round_zero_set.tcp_connection_count++;
 	tcp->owner_pb->stat.round_zero_set.total_retry_tcp_connection_count++;
+
+	TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count++;
+	TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_tcp_connection_count++;
+
+	nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_conn_cell );
+	nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_retry_conn_cell );
+	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
+	nnc_cell_triggered( pb->stat.pb_TCP_retry_conn_cell );
 }
 _CALLBACK_FXN void tcp_disconnected( pass_p src_pb , int v )
 {
 	AB * pb = ( AB * )src_pb;
 	pb->stat.round_zero_set.tcp_connection_count--;
+
+	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count--;
+
+	nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_conn_cell );
+	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
 }
 
 void quit_interrupt( int sig )
@@ -128,6 +164,11 @@ void pre_config_init( G * _g )
 {
 	//INIT_BREAKABLE_FXN();
 
+	if ( _g->stat.aggregate_stat.t_begin.tv_sec == 0 && _g->stat.aggregate_stat.t_begin.tv_usec == 0 )
+	{
+		gettimeofday( &_g->stat.aggregate_stat.t_begin , NULL );
+	}
+
 	pthread_mutex_init( &_g->stat.lock_data.lock , NULL );
 
 	init_tui( _g );
@@ -139,12 +180,11 @@ void pre_config_init( G * _g )
 	////pthread_mutex_init( &_g->sync.mutex , NULL );
 	////pthread_cond_init( &_g->sync.cond , NULL );
 
-	distributor_init( &_g->distrbtor.pb_err_dist , 1 ); // error counter anywhere occured in app
-	distributor_init( &_g->distrbtor.ground_err_dist , 1 ); // error counter anywhere occured in app
-	distributor_subscribe( &_g->distrbtor.pb_err_dist , SUB_STRING , SUB_FXN( pb_err_dist ) , NULL );
-	distributor_subscribe( &_g->distrbtor.ground_err_dist , SUB_STRING , SUB_FXN( ground_err_dist ) , ( pass_p )_g );
-
-
+	distributor_init( &_g->distrbtor.app_lvl_failure_dist , 1 ); // error counter anywhere occured in app
+	distributor_init( &_g->distrbtor.pb_lvl_failure_dist , 1 ); // error counter anywhere occured in app
+	distributor_subscribe( &_g->distrbtor.app_lvl_failure_dist , SUB_STRING , SUB_FXN( app_err_dist ) , ( pass_p )_g );
+	distributor_subscribe( &_g->distrbtor.pb_lvl_failure_dist , SUB_STRING , SUB_FXN( pb_err_dist ) , NULL );
+	
 	distributor_init( &_g->distrbtor.pb_udp_connected_dist , 1 );
 	distributor_init( &_g->distrbtor.pb_udp_disconnected_dist , 1 );
 	distributor_init( &_g->distrbtor.pb_tcp_connected_dist , 1 );
@@ -157,32 +197,15 @@ void pre_config_init( G * _g )
 
 	distributor_init( &_g->distrbtor.quit_interrupt_dist , 1 );
 
+	distributor_init( &_g->distrbtor.throttling_refresh_stat , 1 );
+	
+
 	signal( SIGINT , quit_interrupt );
 	signal( SIGTERM , quit_interrupt );
 	signal( SIGPIPE , quit_interrupt );
 
 	//SIGSEGV
 	//SIGFPE
-
-	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_5_sec_count , 5 );
-	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_10_sec_count , 10 );
-	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_40_sec_count , 40 );
-	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_120_sec_count , 120 );
-
-	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_5_sec_bytes , 5 );
-	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_10_sec_bytes , 10 );
-	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_40_sec_bytes , 40 );
-	//cbuf_m_init( &_g->stat.round_init_set.udp_stat_120_sec_bytes , 120 );
-
-	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_5_sec_count , 5 );
-	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_10_sec_count , 10 );
-	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_40_sec_count , 40 );
-	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_count , 120 );
-
-	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_5_sec_bytes , 5 );
-	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_10_sec_bytes , 10 );
-	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_40_sec_bytes , 40 );
-	//cbuf_m_init( &_g->stat.round_init_set.tcp_stat_120_sec_bytes , 120 );
 
 	dict_fst_create( &_g->hdls.map_tcp_socket , 0 );
 }
@@ -257,74 +280,74 @@ _THREAD_FXN void_p sync_thread( pass_p src_g ) // pause app until moment other a
 
 _THREAD_FXN void_p input_thread( pass_p src_g )
 {
-	INIT_BREAKABLE_FXN();
-	static TWD twd = { 0 };
-	if ( twd.threadId == 0 )
-	{
-		twd.threadId = pthread_self();
-		twd.cal = input_thread; // self function address
-		twd.callback_arg = src_g;
-	}
-	if ( src_g == NULL )
-	{
-		return ( void_p )&twd;
-	}
+	//INIT_BREAKABLE_FXN();
+	//static TWD twd = { 0 };
+	//if ( twd.threadId == 0 )
+	//{
+	//	twd.threadId = pthread_self();
+	//	twd.cal = input_thread; // self function address
+	//	twd.callback_arg = src_g;
+	//}
+	//if ( src_g == NULL )
+	//{
+	//	return ( void_p )&twd;
+	//}
 
-	G * _g = ( G * )src_g;
+	//G * _g = ( G * )src_g;
 	while ( 1 )
 	{
-		pthread_mutex_lock( &_g->stat.lock_data.lock );
+		//pthread_mutex_lock( &_g->stat.lock_data.lock );
 
-		werase( _g->stat.input_win );
-		box( _g->stat.input_win , 0 , 0 );
+		//werase( _g->stat.input_win );
+		//box( _g->stat.input_win , 0 , 0 );
 
-		pthread_mutex_unlock( &_g->stat.lock_data.lock );
+		//pthread_mutex_unlock( &_g->stat.lock_data.lock );
 
-		// Enable echo and get input
-		echo();
-		curs_set( 1 );
-		wmove( _g->stat.input_win , 1 , 1 );
-		wprintw( _g->stat.input_win , "cmd(quit,sync,rst): " );
-		wrefresh( _g->stat.input_win );
-		wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
-		noecho();
-		curs_set( 0 );
+		//// Enable echo and get input
+		//echo();
+		//curs_set( 1 );
+		//wmove( _g->stat.input_win , 1 , 1 );
+		//wprintw( _g->stat.input_win , "cmd(quit,sync,rst): " );
+		//wrefresh( _g->stat.input_win );
+		//wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
+		//noecho();
+		//curs_set( 0 );
 
-		pthread_mutex_lock( &_g->stat.lock_data.lock );
-		Boolean boutput_command = True;
+		//pthread_mutex_lock( &_g->stat.lock_data.lock );
+		//Boolean boutput_command = True;
 
-		if ( iSTR_SAME( _g->stat.input_buffer , "quit" ) )
-		{
-			_g->cmd.quit_app = 1;
-			break;
-		}
-		else if ( iSTR_SAME( _g->stat.input_buffer , "sync" ) )
-		{
-			boutput_command = False;
-			pthread_t thread;
-			if ( pthread_create( &thread , NULL , sync_thread , src_g ) != 0 )
-			{
-				_ECHO( "pthread_create" );
-			}
-			//break;
-		}
-		else if ( iSTR_SAME( _g->stat.input_buffer , "rst" ) )
-		{
-			boutput_command = False;
-			reset_nonuse_stat();
-			//break;
-		}
-		
-		if ( boutput_command )
-		{
-			strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
-			_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
-		}
+		//if ( iSTR_SAME( _g->stat.input_buffer , "quit" ) )
+		//{
+		//	_g->cmd.quit_app = 1;
+		//	break;
+		//}
+		//else if ( iSTR_SAME( _g->stat.input_buffer , "sync" ) )
+		//{
+		//	boutput_command = False;
+		//	pthread_t thread;
+		//	if ( pthread_create( &thread , NULL , sync_thread , src_g ) != 0 )
+		//	{
+		//		_ECHO( "pthread_create" );
+		//	}
+		//	//break;
+		//}
+		//else if ( iSTR_SAME( _g->stat.input_buffer , "rst" ) )
+		//{
+		//	boutput_command = False;
+		//	reset_nonuse_stat();
+		//	//break;
+		//}
+		//
+		//if ( boutput_command )
+		//{
+		//	strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
+		//	_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
+		//}
 
-		pthread_mutex_unlock( &_g->stat.lock_data.lock );
+		//pthread_mutex_unlock( &_g->stat.lock_data.lock );
 	}
-	BEGIN_SMPL
-	M_V_END_RET
+	//BEGIN_SMPL
+	//M_V_END_RET
 	return NULL;
 }
 
@@ -339,7 +362,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 	INIT_BREAKABLE_FXN();
 
 	AB * pb = ( AB * )src_pb;
-	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
 	for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 	{
@@ -388,7 +411,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 	}
 
 	BEGIN_RET
-	case 1:	DIST_ERR();
+	case 1:	DIST_BRIDGE_FAILURE();
 	M_V_END_RET
 	return NULL; // Threads can return a value, but this example returns NULL
 }
@@ -397,7 +420,7 @@ status connect_one_tcp( AB_tcp * tcp )
 {
 	INIT_BREAKABLE_FXN();
 	AB * pb = tcp->owner_pb;
-	G * _g = tcp->owner_pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
 	while ( 1 )
 	{
@@ -437,7 +460,7 @@ status connect_one_tcp( AB_tcp * tcp )
 	case 1:
 	{
 		_close_socket( &tcp->tcp_sockfd );
-		DIST_ERR();
+		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
 	return errSocket;
@@ -480,8 +503,6 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
 /// <summary>
 /// this thread must be as simple as possible and without exception and any error because it is resposible for checking other and making them up
 /// </summary>
-/// <param name="src_g"></param>
-/// <returns></returns>
 _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
@@ -503,7 +524,7 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 					!_g->bridges.ABs[ imask ].single_AB->trd.base.bridg_prerequisite_stabled
 				)
 				{
-					if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "NetStack_udp_counter" ) )
+					if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "krnl_udp_counter" ) )
 					{
 						if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one" ) )
 						{
@@ -523,7 +544,7 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 					else if
 					(
 						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_krnl2krnl_SF" ) ||
-						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2NetStack_SF" )
+						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2krnl_SF" )
 					)
 					{
 						if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one2one" ) )
@@ -544,8 +565,8 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 					}
 					else if
 					(
-						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2many_pcap2NetStack_SF" ) ||
-						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "many2one_pcap2kernelDefaultStack_S&F_serialize" )
+						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2many_pcap2krnl_SF" ) ||
+						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "many2one_pcap2krnl_S&F_serialize" )
 					)
 					{
 						if
@@ -735,4 +756,252 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 	BEGIN_SMPL
 	M_V_END_RET
 }
+
+#ifndef update_cell_section
+
+_CALLBACK_FXN PASSED_CSTR ov_cell_time_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	//G * _g = ( G * )pcell->storage.bt.pass_data;
+	struct timespec now;
+	clock_gettime( CLOCK_REALTIME , &now );
+	format_clock_time( &now , pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR ov_cell_version_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	G * _g = ( G * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%s" , _g->appcfg.ver->version );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR ov_UDP_conn_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	G * _g = ( G * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%d" , _g->stat.aggregate_stat.total_udp_connection_count );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR ov_TCP_conn_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	G * _g = ( G * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%d" , _g->stat.aggregate_stat.total_tcp_connection_count );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR ov_UDP_retry_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	G * _g = ( G * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%d" , _g->stat.aggregate_stat.total_retry_udp_connection_count );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR ov_TCP_retry_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	G * _g = ( G * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%d" , _g->stat.aggregate_stat.total_retry_tcp_connection_count );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR ov_fault_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	G * _g = ( G * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof(pcell->storage.tmpbuf) , _g->stat.aggregate_stat.app_fault_count , 2 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR ov_time_elapse_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	struct timeval t_end;
+	gettimeofday( &t_end , NULL );
+	G * _g = ( G * )pcell->storage.bt.pass_data;
+	format_elapsed_time_with_millis( _g->stat.aggregate_stat.t_begin , t_end , pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , 1 );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_time_elapse_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	format_elapsed_time_with_millis( pb->stat.round_zero_set.t_begin , pb->stat.round_zero_set.t_end , pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , 1 );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_fault_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.pb_fault_count , 2 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_UDP_conn_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%d" , pb->stat.round_zero_set.udp_connection_count );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_TCP_conn_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%d" , pb->stat.round_zero_set.tcp_connection_count );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_UDP_retry_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%d" , pb->stat.round_zero_set.total_retry_udp_connection_count );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_TCP_retry_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%d" , pb->stat.round_zero_set.total_retry_tcp_connection_count );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_UDP_get_count_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.udp.total_udp_get_count , 2 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_UDP_get_byte_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.udp.total_udp_get_byte , 2 , "B" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_TCP_put_count_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.tcp.total_tcp_put_count , 2 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_TCP_put_byte_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.tcp.total_tcp_put_byte , 2 , "B" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_5s_udp_pps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_5_sec_count ) , 4 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_5s_udp_bps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_5_sec_bytes ) , 4 , "B" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_10s_udp_pps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_10_sec_count ) , 4 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_10s_udp_bps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_10_sec_bytes ) , 4 , "B" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_40s_udp_pps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_40_sec_count ) , 4 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_40s_udp_bps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_40_sec_bytes ) , 4 , "B" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_5s_tcp_pps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_5_sec_count ) , 4 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_5s_tcp_bps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_5_sec_bytes ) , 4 , "B" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_10s_tcp_pps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_10_sec_count ) , 4 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_10s_tcp_bps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_10_sec_bytes ) , 4 , "B" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_40s_tcp_pps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_40_sec_count ) , 4 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_40s_tcp_bps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_40_sec_bytes ) , 4 , "B" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+#endif
 

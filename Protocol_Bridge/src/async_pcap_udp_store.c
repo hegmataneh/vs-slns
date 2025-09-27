@@ -39,7 +39,7 @@ _PRIVATE_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_
 
 	if ( distributor_publish_buffer_int( &pb->trd.base.buffer_push_distributor , ( buffer )payload , payload_len , NULL ) != errOK ) return; // dist udp packet
 
-	////if ( vcbuf_nb_push( &pb->trd.t.p_one2one_pcap2kernelDefaultStack_SF_thread->cbuf , ( const buffer )payload , payload_len ) != errOK ) return;
+	////if ( vcbuf_nb_push( &pb->trd.t.p_one2one_pcap2krnl_SF_thread->cbuf , ( const buffer )payload , payload_len ) != errOK ) return;
 
 	////printf( " Payload (%d bytes): " , payload_len );
 	////for ( int i = 0; i < payload_len; i++ )
@@ -59,12 +59,33 @@ _PRIVATE_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_
 
 	pb->stat.round_zero_set.udp_get_data_alive_indicator++;
 
+	time_t tnow = 0;
+	tnow = time( NULL );
+	// udp
+	if ( difftime( tnow , pb->stat.round_zero_set.udp_1_sec.t_udp_throughput ) >= 1.0 )
+	{
+		if ( pb->stat.round_zero_set.udp_1_sec.t_udp_throughput > 0 )
+		{
+			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_10_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_10_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+		}
+		pb->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
+		pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
+		pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
+	}
+
 }
 
 _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 {
 	INIT_BREAKABLE_FXN();
-	G * _g = pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
 
 	char errbuf[ PCAP_ERRBUF_SIZE ] = { 0 };
 	struct bpf_program fp;
@@ -106,6 +127,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	if ( pb->stat.round_zero_set.t_begin.tv_sec == 0 && pb->stat.round_zero_set.t_begin.tv_usec == 0 )
 	{
 		gettimeofday( &pb->stat.round_zero_set.t_begin , NULL );
+		gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 	}
 	for ( int iinp = 0 ; iinp < pb->udps_count ; iinp++ )
 	{
@@ -135,7 +157,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	}
 	case 1:
 	{
-		DIST_ERR();
+		DIST_BRIDGE_FAILURE();
 	}
 	M_END_RET
 }

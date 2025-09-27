@@ -19,7 +19,7 @@ void quit_interrupt_dist_pcap_udp_counter( pass_p src_pb , int v )
 void handle_pcap_udp_counter( u_char * src_pb , const struct pcap_pkthdr * hdr , const u_char * packet )
 {
 	AB * pb = ( AB * )src_pb;
-	G * _g = pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
 	( void )hdr;
 	( void )packet;
@@ -37,7 +37,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	INIT_BREAKABLE_FXN();
 
 	AB * pb = ( AB * )src_pb;
-	G * _g = pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
 	//WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 	//char * dev = pb->cpy_cfg.m.m.maintained.in->data.UDP_origin_interface;
@@ -80,6 +80,8 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	if ( pb->stat.round_zero_set.t_begin.tv_sec == 0 && pb->stat.round_zero_set.t_begin.tv_usec == 0 )
 	{
 		gettimeofday( &pb->stat.round_zero_set.t_begin , NULL );
+		gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
+		
 	}
 
 	distributor_publish_int( &_g->distrbtor.pb_udp_connected_dist , 0 , ( pass_p )pb );
@@ -109,7 +111,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	}
 	case 1:
 	{
-		DIST_ERR();
+		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
 

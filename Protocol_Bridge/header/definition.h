@@ -56,8 +56,12 @@
 #define STR_ONE_OUT "one_out"
 
 
-#define DIST_ERR() DO_WHILE( distributor_publish_str( &_g->distrbtor.pb_err_dist , __FUNCTION__ , ( pass_p )pb ) ) /*distribute error*/
-#define DIST_ERR_G() DO_WHILE( distributor_publish_str( &_g->distrbtor.ground_err_dist , __FUNCTION__ , ( pass_p )_g ) ) /*distribute error*/
+#define DIST_BRIDGE_FAILURE() DO_WHILE( distributor_publish_str( &_g->distrbtor.pb_lvl_failure_dist , __FUNCTION__ , ( pass_p )pb ) ) /*distribute error*/
+#define DIST_APP_FAILURE() DO_WHILE( distributor_publish_str( &_g->distrbtor.app_lvl_failure_dist , __FUNCTION__ , ( pass_p )_g ) ) /*distribute error in config reading*/
 
 typedef  char CONFIG_SECTION_ITEM_VALUE  [64];
 typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
+
+#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit ) ( NUMBER_IN_SHORT_FORM() ? /*make cell string in short form or long*/ \
+		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit ) :\
+		__snprintf( baaf , sizeof(baaf) , "%llu" , val ) )
