@@ -19,6 +19,55 @@
 
 extern G * _g;
 
+_STRONG_ATTR void M_showMsg( LPCSTR msg )
+{
+	if ( _g ) strcpy( _g->stat.last_command , msg );
+}
+
+void _Breaked()
+{
+	int i = 1;
+	i++;
+}
+
+_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
+{
+	G * _g = ( G * )src_g;
+
+	////pthread_mutex_init( &_g->sync.mutex , NULL );
+	////pthread_cond_init( &_g->sync.cond , NULL );
+
+	distributor_init( &_g->distributors.quit_interrupt_dist , 1 );
+
+	signal( SIGINT , quit_interrupt );
+	signal( SIGTERM , quit_interrupt );
+	signal( SIGPIPE , quit_interrupt );
+
+	//SIGSEGV
+	//SIGFPE
+
+	distributor_init( &_g->distributors.app_lvl_failure_dist , 1 ); // error counter anywhere occured in app
+	distributor_init( &_g->distributors.pb_lvl_failure_dist , 1 ); // error counter anywhere occured in app
+	distributor_subscribe( &_g->distributors.app_lvl_failure_dist , SUB_STRING , SUB_FXN( app_err_dist ) , ( pass_p )_g );
+	distributor_subscribe( &_g->distributors.pb_lvl_failure_dist , SUB_STRING , SUB_FXN( pb_err_dist ) , NULL );
+
+	distributor_init( &_g->distributors.pb_udp_connected_dist , 1 );
+	distributor_init( &_g->distributors.pb_udp_disconnected_dist , 1 );
+	distributor_init( &_g->distributors.pb_tcp_connected_dist , 1 );
+	distributor_init( &_g->distributors.pb_tcp_disconnected_dist , 1 );
+
+	distributor_subscribe( &_g->distributors.pb_udp_connected_dist , SUB_INT , SUB_FXN( udp_connected ) , NULL );
+	distributor_subscribe( &_g->distributors.pb_udp_disconnected_dist , SUB_INT , SUB_FXN( udp_disconnected ) , NULL );
+	distributor_subscribe( &_g->distributors.pb_tcp_connected_dist , SUB_INT , SUB_FXN( tcp_connected ) , NULL );
+	distributor_subscribe( &_g->distributors.pb_tcp_disconnected_dist , SUB_INT , SUB_FXN( tcp_disconnected ) , NULL );
+}
+
+__attribute__( ( constructor( 104 ) ) )
+static void pre_main_init_helper_component( void )
+{
+	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_helper ) , _g );
+}
+
 _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
 {
 	static TWD twd = { 0 };
@@ -72,17 +121,6 @@ void init_bypass_stdout( G * _g )
 	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( pass_p )_g );
 }
 
-_STRONG_ATTR void M_showMsg( LPCSTR msg )
-{
-	if ( _g ) strcpy( _g->stat.last_command , msg );
-}
-
-void _Breaked()
-{
-	int i = 1;
-	i++;
-}
-
 _CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg )
 {
 	G * _g = ( G * )src_g;
@@ -96,7 +134,7 @@ _CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg )
 	AB * pb = ( AB * )src_pb;
 	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
 	pb->stat.round_zero_set.pb_fault_count++;
-	distributor_publish_str( &_g->distrbtor.app_lvl_failure_dist , msg , ( pass_p )_g );
+	distributor_publish_str( &_g->distributors.app_lvl_failure_dist , msg , ( pass_p )_g );
 
 	nnc_cell_triggered( pb->stat.pb_fault_cell ); // this is how i priotorized error view by addign this line in changes call back. instead if i added this line in some place that like pool and every for example one second call that it has lower prio .
 }
@@ -153,73 +191,11 @@ _CALLBACK_FXN void tcp_disconnected( pass_p src_pb , int v )
 	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
 }
 
-void quit_interrupt( int sig )
+_CALLBACK_FXN void quit_interrupt( int sig )
 {
 	if ( sig ) ( void )sig; // TODO . what happeneed here
-	distributor_publish_int( &_g->distrbtor.quit_interrupt_dist , sig , NULL );
+	distributor_publish_int( &_g->distributors.quit_interrupt_dist , sig , NULL );
 	exit( 0 );
-}
-
-void pre_config_init( G * _g )
-{
-	//INIT_BREAKABLE_FXN();
-
-	if ( _g->stat.aggregate_stat.t_begin.tv_sec == 0 && _g->stat.aggregate_stat.t_begin.tv_usec == 0 )
-	{
-		gettimeofday( &_g->stat.aggregate_stat.t_begin , NULL );
-	}
-
-	pthread_mutex_init( &_g->stat.lock_data.lock , NULL );
-
-	init_tui( _g );
-
-	init_bypass_stdout( _g );
-
-	//MEMSET_ZERO_O( &_g->handles );
-
-	////pthread_mutex_init( &_g->sync.mutex , NULL );
-	////pthread_cond_init( &_g->sync.cond , NULL );
-
-	distributor_init( &_g->distrbtor.app_lvl_failure_dist , 1 ); // error counter anywhere occured in app
-	distributor_init( &_g->distrbtor.pb_lvl_failure_dist , 1 ); // error counter anywhere occured in app
-	distributor_subscribe( &_g->distrbtor.app_lvl_failure_dist , SUB_STRING , SUB_FXN( app_err_dist ) , ( pass_p )_g );
-	distributor_subscribe( &_g->distrbtor.pb_lvl_failure_dist , SUB_STRING , SUB_FXN( pb_err_dist ) , NULL );
-	
-	distributor_init( &_g->distrbtor.pb_udp_connected_dist , 1 );
-	distributor_init( &_g->distrbtor.pb_udp_disconnected_dist , 1 );
-	distributor_init( &_g->distrbtor.pb_tcp_connected_dist , 1 );
-	distributor_init( &_g->distrbtor.pb_tcp_disconnected_dist , 1 );
-
-	distributor_subscribe( &_g->distrbtor.pb_udp_connected_dist , SUB_INT , SUB_FXN( udp_connected ) , NULL );
-	distributor_subscribe( &_g->distrbtor.pb_udp_disconnected_dist , SUB_INT , SUB_FXN( udp_disconnected ) , NULL );
-	distributor_subscribe( &_g->distrbtor.pb_tcp_connected_dist , SUB_INT , SUB_FXN( tcp_connected ) , NULL );
-	distributor_subscribe( &_g->distrbtor.pb_tcp_disconnected_dist , SUB_INT , SUB_FXN( tcp_disconnected ) , NULL );
-
-	distributor_init( &_g->distrbtor.quit_interrupt_dist , 1 );
-
-	distributor_init( &_g->distrbtor.throttling_refresh_stat , 1 );
-	
-
-	signal( SIGINT , quit_interrupt );
-	signal( SIGTERM , quit_interrupt );
-	signal( SIGPIPE , quit_interrupt );
-
-	//SIGSEGV
-	//SIGFPE
-
-	dict_fst_create( &_g->hdls.map_tcp_socket , 0 );
-}
-
-void post_config_init( G * _g )
-{
-	INIT_BREAKABLE_FXN();
-
-	segmgr_init( &_g->bufs.aggr_inp_pkt , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_segment_capacity , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_offsets_capacity , True );
-
-	MM_BREAK_IF( pthread_create( &_g->trds.trd_tcp_sender , NULL , process_filled_tcp_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
-
-	BEGIN_SMPL
-	M_V_END_RET
 }
 
 _THREAD_FXN void_p sync_thread( pass_p src_g ) // pause app until moment other app exist
@@ -405,7 +381,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 		MM_BREAK_IF( bind( pb->udps[ iudp ].udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errSocket , 1 , "bind sock error" );
 		pb->udps[ iudp ].udp_connection_established = 1;
 
-		distributor_publish_int( &_g->distrbtor.pb_udp_connected_dist , 0 , ( pass_p )pb );
+		distributor_publish_int( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )pb );
 
 		//_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
 	}
@@ -451,7 +427,7 @@ status connect_one_tcp( AB_tcp * tcp )
 		else
 		{
 			tcp->tcp_connection_established = 1;
-			distributor_publish_int( &_g->distrbtor.pb_tcp_connected_dist , tcp->tcp_sockfd , ( pass_p )tcp );
+			distributor_publish_int( &_g->distributors.pb_tcp_connected_dist , tcp->tcp_sockfd , ( pass_p )tcp );
 			return errOK;
 		}
 	}

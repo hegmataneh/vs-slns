@@ -7,6 +7,9 @@ typedef struct app_cmd
 
 typedef struct global_distributor
 {
+	distributor_t pre_configuration;
+	distributor_t post_config_stablished;
+
 	distributor_t app_lvl_failure_dist;
 	distributor_t pb_lvl_failure_dist;
 
@@ -19,6 +22,8 @@ typedef struct global_distributor
 	distributor_t quit_interrupt_dist; // quit interrupt dispatch to all pcap loop
 
 	distributor_t throttling_refresh_stat;
+
+	distributor_t throttling_release_halffill_segment;
 } g_dst;
 
 typedef struct global_handles
@@ -51,7 +56,7 @@ typedef struct App_Data
 	Stt stat;
 
 	Acmd cmd;
-	g_dst distrbtor;
+	g_dst distributors;
 	g_hdl hdls; // holders
 	g_bufs bufs;
 	g_trds trds; // threads
@@ -70,9 +75,6 @@ void M_showMsg( LPCSTR msg );
 status init_notcursor( G * _g );
 void init_tui( G * _g );
 
-void pre_config_init( G * _g );
-void post_config_init( G * _g );
-
 //int _connect_tcp( AB * pb );
 status connect_one_tcp( AB_tcp * tcp );
 
@@ -90,6 +92,16 @@ void draw_table( G * _g );
 void mng_basic_thread_sleep( G * _g , int priority );
 
 _REGULAR_FXN void compile_udps_config_for_pcap_filter( _IN AB * abs , _RET_VAL_P int * clusterd_cnt , _NEW_OUT_P strings * interface_filter , _NEW_OUT_P strings * port_filter );
+
+_CALLBACK_FXN void quit_interrupt( int sig );
+_CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg );
+_CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg );
+_CALLBACK_FXN void udp_connected( pass_p src_pb , int v );
+_CALLBACK_FXN void udp_disconnected( pass_p src_pb , int v );
+_CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , sockfd fd );
+_CALLBACK_FXN void tcp_disconnected( pass_p src_pb , int v );
+
+#ifndef update_cell_section
 
 _CALLBACK_FXN PASSED_CSTR ov_cell_time_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR ov_cell_version_2_str( pass_p src_pcell );
@@ -125,3 +137,5 @@ _CALLBACK_FXN PASSED_CSTR pb_10s_tcp_pps_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_10s_tcp_bps_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_40s_tcp_pps_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_40s_tcp_bps_2_str( pass_p src_pcell );
+
+#endif

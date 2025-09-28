@@ -1,4 +1,5 @@
-﻿#define Uses_ci_sgmgr_t
+﻿#define Uses_MEMSET_ZERO_O
+#define Uses_ci_sgmgr_t
 #define Uses_pthread_t
 #define Uses_statistics
 #define Uses_config
@@ -6,15 +7,25 @@
 #define Uses_helper
 #include <Protocol_Bridge.dep>
 
-G * _g; // just one global var
+G * _g = NULL; // just one global var
+
+/// <summary>
+/// اینجوری می خواستم هر قسمت را یک کامپوننت بدانم و در نتیجه هر کسی مسئول ایجاد زیر ساختهای لازم برای خودش است
+/// </summary>
+__attribute__( ( constructor( 101 ) ) )
+_PRIVATE_FXN void pre_main_top_prio_init( void )
+{
+	static G g = {0};
+	_g = &g;
+	// distribute initialization by the callback and throw components
+	distributor_init( &_g->distributors.pre_configuration , 1 );
+}
 
 int main()
 {
 	INIT_BREAKABLE_FXN();
-	G g = { 0 };
-	_g = &g;
 
-	pre_config_init( _g );
+	distributor_publish_void( &_g->distributors.pre_configuration , NULL ); // pre config state
 
 	// this thread keep everything alive and just check every thing just be at right position and do not do action with very risky consequenses and exception raiser
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_watchdog , NULL , watchdog_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create watchdog thread" );

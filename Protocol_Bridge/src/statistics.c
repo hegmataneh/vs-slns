@@ -13,6 +13,30 @@
 
 extern G * _g;
 
+_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
+{
+	G * _g = ( G * )src_g;
+
+	if ( _g->stat.aggregate_stat.t_begin.tv_sec == 0 && _g->stat.aggregate_stat.t_begin.tv_usec == 0 )
+	{
+		gettimeofday( &_g->stat.aggregate_stat.t_begin , NULL );
+	}
+
+	pthread_mutex_init( &_g->stat.lock_data.lock , NULL );
+
+	init_tui( _g );
+
+	init_bypass_stdout( _g );
+
+	distributor_init( &_g->distributors.throttling_refresh_stat , 1 );
+}
+
+__attribute__( ( constructor( 103 ) ) )
+static void pre_main_init_stat_component( void )
+{
+	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_stat ) , _g );
+}
+
 void reset_nonuse_stat()
 {
 	//MEMSET( &_g->stat.round_zero_set , 0 , sizeof( _g->stat.round_zero_set ) );
@@ -175,6 +199,7 @@ void reset_nonuse_stat()
 //	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
 //}
 
+// call at the end of every refresh must implied and refresh view
 _CALLBACK_FXN void g_every_ticking_refresh( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
@@ -182,7 +207,7 @@ _CALLBACK_FXN void g_every_ticking_refresh( pass_p src_g )
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_time_cell );
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_elapse_cell );
 
-	couninue_loop_callback( &_g->stat.nc_h );
+	continue_loop_callback( &_g->stat.nc_h );
 }
 
 _THREAD_FXN void_p stats_thread( pass_p src_g )
@@ -200,14 +225,23 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 	//}
 	G * _g = ( G * )src_g;
 
-	distributor_subscribe( &_g->distrbtor.throttling_refresh_stat , SUB_VOID , SUB_FXN( g_every_ticking_refresh ) , _g );
-	_g->distrbtor.throttling_refresh_stat.iteration_dir = tail_2_head;
+	distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( g_every_ticking_refresh ) , _g );
+	_g->distributors.throttling_refresh_stat.iteration_dir = tail_2_head; // first order issued then applied
+
+	int tmp_debounce_release_segment = 0;
 
 	while ( 1 )
 	{
 		if ( CLOSE_APP_VAR() ) break; // keep track changes until app is down
 
-		distributor_publish_void( &_g->distrbtor.throttling_refresh_stat , NULL/*each subscriber set what it need*/ );
+		// distribute statistic referesh pulse
+		distributor_publish_void( &_g->distributors.throttling_refresh_stat , NULL/*each subscriber set what it need*/ );
+
+		if ( !( tmp_debounce_release_segment++ % 5 ) )
+		{
+			// distribute segment management pulse
+			distributor_publish_void( &_g->distributors.throttling_release_halffill_segment , NULL/*each subscriber set what it need*/ );
+		}
 
 		//pthread_mutex_lock( &_g->stat.lock_data.lock );
 		//werase( _g->stat.main_win );

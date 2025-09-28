@@ -36,6 +36,8 @@ typedef struct Global_Config_0
 	int64 pkt_mgr_segment_capacity;
 	int64 pkt_mgr_offsets_capacity;
 
+	int pkt_mgr_maximum_keep_unfinished_segment_sec;
+
 } Gcfg0;
 
 typedef struct Global_Config_n

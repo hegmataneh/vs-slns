@@ -11,19 +11,22 @@ typedef struct ready_2_send_packet_v1
 		uint64 tcp_name_key_hash;
 		uint64 tcp_name_uniq_id;
 		uint8_t payload_offset; // offset to pkt payload
+		struct timespec rec_t;
 	} flags;
 	CHAR TCP_name[1];
 	//DATAB * pkt;
 
 } rdy_pkt1;
 
-#define TCP_PACKET_VERSION 1
+#define TCP_PACKET_V1 MSB_MARKERS[3] /*version also check memory correctness as much as possible*/
+#define TCP_PACKET_V2 MSB_MARKERS[2]
+// ...
 
 _CALLBACK_FXN status operation_on_tcp_packet( pass_p data , buffer buf , int sz );
 
 _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g );
 
-
+_CALLBACK_FXN void release_halffill_segment( pass_p src_g );
 
 
 

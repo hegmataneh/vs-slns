@@ -287,7 +287,7 @@ void init_ActiveBridge( G * _g , AB * pb )
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 3 , pb->stat.pb_40s_tcp_bps ) , 0 );
 	 
 
-	M_BREAK_STAT( distributor_subscribe( &_g->distrbtor.throttling_refresh_stat , SUB_VOID , SUB_FXN( pb_every_ticking_refresh ) , pb ) , 1 );
+	M_BREAK_STAT( distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( pb_every_ticking_refresh ) , pb ) , 1 );
 	
 
 

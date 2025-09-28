@@ -7,6 +7,20 @@
 #define Uses_helper
 #include <Protocol_Bridge.dep>
 
+extern G * _g;
+
+//_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
+//{
+//	G * _g = ( G * )src_g;
+//}
+
+__attribute__( ( constructor( 102 ) ) )
+static void pre_main_init_config_component( void )
+{
+	//distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g );
+	distributor_init( &_g->distributors.post_config_stablished , 1 );
+}
+
 // TODO . exit gracefully by auto mechanism
 // TODO . think about race condition
 _THREAD_FXN void_p version_checker( pass_p src_g )
@@ -183,8 +197,11 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I64( default_normal_basic_thread_delay_nanosec );												/**/\
 					CFG_ELEM_I64( default_hi_basic_thread_delay_nanosec );													/**/
 					
-					CFG_ELEM_I64( pkt_mgr_segment_capacity );													/**/
-					CFG_ELEM_I64( pkt_mgr_offsets_capacity );													/**/
+					CFG_ELEM_I64( pkt_mgr_segment_capacity );																/**/
+					CFG_ELEM_I64( pkt_mgr_offsets_capacity );																/**/
+
+					CFG_ELEM_I( pkt_mgr_maximum_keep_unfinished_segment_sec );												/**/
+					
 
 					
 
@@ -401,6 +418,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.pkt_mgr_segment_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_segment_capacity );
 					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.pkt_mgr_offsets_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_offsets_capacity );
 
+					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.pkt_mgr_maximum_keep_unfinished_segment_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_maximum_keep_unfinished_segment_sec );
+
 				}
 			}
 	
@@ -524,7 +543,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
-	post_config_init( _g );
+	distributor_publish_void( &_g->distributors.post_config_stablished , NULL );
 
 	while ( 1 )
 	{

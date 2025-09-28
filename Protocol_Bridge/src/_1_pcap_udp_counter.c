@@ -84,8 +84,8 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 		
 	}
 
-	distributor_publish_int( &_g->distrbtor.pb_udp_connected_dist , 0 , ( pass_p )pb );
-	distributor_subscribe( &_g->distrbtor.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb );
+	distributor_publish_int( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )pb );
+	distributor_subscribe( &_g->distributors.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb );
 
 	// Capture indefinitely
 	MM_FMT_BREAK_IF( pcap_loop( pb->trd.t.p_pcap_udp_counter->handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->handle ) );

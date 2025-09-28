@@ -132,7 +132,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	for ( int iinp = 0 ; iinp < pb->udps_count ; iinp++ )
 	{
 		pb->udps[ iinp ].udp_connection_established = 1;
-		distributor_publish_int( &_g->distrbtor.pb_udp_connected_dist , 0 , ( pass_p )pb );
+		distributor_publish_int( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )pb );
 	}
 
 	// Capture indefinitely

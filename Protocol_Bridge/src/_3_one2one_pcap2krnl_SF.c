@@ -18,6 +18,7 @@ void quit_interrupt_dist_one2one_pcap2krnl_SF( pass_p src_pb , int v )
 	}
 }
 
+// gather udp into pcap ring
 _PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2one_pcap2krnl_SF( pass_p data , buffer buf , int payload_len )
 {
 	AB * pb = ( AB * )data;
@@ -46,7 +47,7 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	pth.handle = &pb->trd.t.p_one2one_pcap2krnl_SF->handle;
 
 	// register here to get quit cmd
-	distributor_subscribe( &_g->distrbtor.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_one2one_pcap2krnl_SF ) , pb );
+	distributor_subscribe( &_g->distributors.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_one2one_pcap2krnl_SF ) , pb );
 	
 	// call general 
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &pth ) , 1 );
@@ -76,3 +77,4 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_tcp_out( pass_p src_pb )
 
 	return NULL;
 }
+

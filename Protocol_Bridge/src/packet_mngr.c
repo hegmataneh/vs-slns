@@ -7,8 +7,40 @@
 
 #include <Protocol_Bridge.dep>
 
+extern G * _g;
+
+_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
+{
+	G * _g = ( G * )src_g;
+
+	distributor_init( &_g->distributors.throttling_release_halffill_segment , 1 );
+	dict_fst_create( &_g->hdls.map_tcp_socket , 0 );
+
+	distributor_subscribe( &_g->distributors.throttling_release_halffill_segment , SUB_VOID , SUB_FXN( release_halffill_segment ) , _g );
+}
+
+_CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
+{
+	INIT_BREAKABLE_FXN();
+	G * _g = ( G * )src_g;
+
+	segmgr_init( &_g->bufs.aggr_inp_pkt , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_segment_capacity , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_offsets_capacity , True );
+	MM_BREAK_IF( pthread_create( &_g->trds.trd_tcp_sender , NULL , process_filled_tcp_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
+
+	BEGIN_SMPL
+	M_V_END_RET
+}
+
+__attribute__( ( constructor( 105 ) ) )
+static void pre_main_init_packet_mngr_component( void )
+{
+	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_packet_mngr ) , _g );
+	distributor_subscribe( &_g->distributors.post_config_stablished , SUB_VOID , SUB_FXN( post_config_init_packet_mngr ) , _g );
+}
+
+
 /// <summary>
-/// from each of the rings to global buffer
+/// from rings of each pcap or etc to global buffer
 /// </summary>
 _CALLBACK_FXN status operation_on_tcp_packet( pass_p data , buffer buf , int sz )
 {
@@ -36,7 +68,7 @@ _PRIVATE_FXN status process_segment_itm( buffer data , size_t len , pass_p src_g
 	status d_error = errCanceled;
 	rdy_pkt1 * pkt1 = ( rdy_pkt1 * )data;
 	size_t sz_t = len - pkt1->flags.payload_offset;
-	WARNING( pkt1->flags.version == TCP_PACKET_VERSION );
+	WARNING( pkt1->flags.version == TCP_PACKET_V1 );
 
 	time_t tnow = 0;
 	tnow = time( NULL );
@@ -136,3 +168,18 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 	return NULL;
 }
 
+_PRIVATE_FXN _CALLBACK_FXN bool peek_decide_active_sgm( const buffer buf , size_t sz )
+{
+	rdy_pkt1 * pkt1 = ( rdy_pkt1 * )buf;
+	WARNING( pkt1->flags.version == TCP_PACKET_V1 );
+
+	struct timespec tnow;
+	clock_gettime( CLOCK_MONOTONIC_COARSE , &tnow );
+	return timespec_diff_ms( &pkt1->flags.rec_t , &tnow ) > _g->appcfg.g_cfg->c.c.pkt_mgr_maximum_keep_unfinished_segment_sec;
+}
+
+_CALLBACK_FXN void release_halffill_segment( pass_p src_g )
+{
+	G * _g = ( G * )src_g;
+	ci_sgm_peek_decide_active( &_g->bufs.aggr_inp_pkt , peek_decide_active_sgm );
+}

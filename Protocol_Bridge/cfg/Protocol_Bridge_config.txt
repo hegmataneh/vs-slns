@@ -24,13 +24,14 @@
 		"synchronization_max_roundup": 60,
 		"show_line_hit": 1,
 		"retry_unexpected_wait_for_sock": 5,
-		"number_in_short_form": 1,
+		"number_in_short_form": 0,
 		"NetworkStack_FilterType": "pcap",
 		"default_low_basic_thread_delay_nanosec": 5000000000,
 		"default_normal_basic_thread_delay_nanosec": 1000000000,
 		"default_hi_basic_thread_delay_nanosec": 1000000,
 		"pkt_mgr_segment_capacity": 2097152,
-		"pkt_mgr_offsets_capacity": 10
+		"pkt_mgr_offsets_capacity": 10,
+		"pkt_mgr_maximum_keep_unfinished_segment_sec": 30
 	},
 	"valid_key_values":
 	{

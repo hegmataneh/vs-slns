@@ -43,7 +43,7 @@ _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
 	pth.cbuf = &pb->trd.t.p_many2one_pcap2krnl_SF_serialize->cbuf;
 
 	// register here to get quit cmd
-	distributor_subscribe( &_g->distrbtor.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_push_many2many_pcap_krnl_SF ) , pb );
+	distributor_subscribe( &_g->distributors.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_push_many2many_pcap_krnl_SF ) , pb );
 
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &pth ) , 1 );
 

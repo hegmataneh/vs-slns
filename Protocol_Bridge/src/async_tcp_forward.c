@@ -12,6 +12,7 @@
 
 #include <Protocol_Bridge.dep>
 
+// spec each bridge how to act with udp packet get
 _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 {
 	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
@@ -108,6 +109,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 
 }
 
+// read udp ring buffer and sent them into general buffer as fast as possible
 _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 {
 	INIT_BREAKABLE_FXN();
@@ -121,11 +123,12 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 
 	init_many_tcp( pb , hlpr );
 
+	// try to find AB of udp getter
 	BREAK_STAT( distributor_get_data( hlpr->buf_pop_distr , &pdata ) , 0 );
 	AB_tcp * tcp = ( AB_tcp * )pdata;
 	
-	rdy_pkt1 * pkt = ( rdy_pkt1 * )buffer;
-	pkt->flags.version = TCP_PACKET_VERSION;
+	rdy_pkt1 * pkt = ( rdy_pkt1 * )buffer; // plain cup for packet
+	pkt->flags.version = TCP_PACKET_V1;
 	pkt->flags.sent = false;
 	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name );
 	pkt->flags.TCP_name_size = strlen( pkt->TCP_name );
@@ -140,6 +143,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
+	// to be insure we used correct tcp output
 	M_BREAK_STAT( dict_fst_get_hash_id_bykey( &_g->hdls.map_tcp_socket , pkt->TCP_name , &pkt->flags.tcp_name_key_hash , &pkt->flags.tcp_name_uniq_id ) , 0 );
 
 	//WARNING( pb->tcps_count >= 1 );
@@ -169,6 +173,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 		// from ring pcap to stack general
 		while ( vcbuf_nb_pop( hlpr->cbuf , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
 		{
+			clock_gettime( CLOCK_MONOTONIC_COARSE , &pkt->flags.rec_t );
 
 			if ( pb->trd.base.do_close_thread )
 			{
