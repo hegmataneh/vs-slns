@@ -354,8 +354,8 @@ void * wave_runner( void * src_pwave )
 		_g->stat.round_zero_set.syscal_err_count++;
 		return NULL;
 	}
-	ASSERT( socketid >= 0 );
-	//ASSERT( pbase_config_change_applied != NULL );
+	WARNING( socketid >= 0 );
+	//WARNING( pbase_config_change_applied != NULL );
 
 	_g->stat.sender_thread_count++;
 
@@ -656,6 +656,16 @@ void apply_new_wave_config( struct App_Data * _g , struct udp_wave * pwave , str
 	if ( open_socket )
 	{
 		MM_BREAK_IF( ( pwave->socket_id = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 0 , "create sock error" );
+		
+		// Tell kernel: disable PMTU discovery and allow fragmentation.
+		// IP_PMTUDISC_DONT = 0 (allow fragmentation)
+		int opt = IP_PMTUDISC_DONT;
+		if ( setsockopt( pwave->socket_id , IPPROTO_IP , IP_MTU_DISCOVER , &opt , sizeof( opt ) ) < 0 )
+		{
+			// Not fatal, but warn: on some systems name differs or option unavailable.
+			perror( "setsockopt(IP_MTU_DISCOVER)" );
+		}
+		
 		if ( IF_VERBOSE_MODE_CONDITION() )
 		{
 			_ECHO( "create socket %d" , pwave->socket_id );
@@ -863,7 +873,7 @@ void add_new_wave( struct App_Data * _g , struct wave_cfg * new_wcfg )
 
 	#undef PREALLOCAION_SIZE
 
-	ASSERT( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave == NULL );
+	WARNING( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave == NULL );
 	M_BREAK_IF( ( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave = MALLOC_AR( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave , 1 ) ) == NEW_ERR , errMemoryLow , 0 );
 	MEMSET_ZERO( _g->waves.wv_holders[ new_wcfg_placement_index ].alc_wave , 1 );
 	_g->waves.wv_holders_masks[ new_wcfg_placement_index ] = 1;

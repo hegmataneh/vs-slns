@@ -104,14 +104,14 @@
 //		MEMSET_ZERO( _g->bridges.bottleneck_thread , struct bridges_bottleneck_thread , 1 );
 //		pthread_mutex_init( &_g->bridges.trd.creation_thread_race_cond , NULL );
 //		pthread_mutex_init( &_g->bridges.trd.start_working_race_cond , NULL );
-//		pthread_mutex_lock( &_g->bridges.trd.base.creation_thread_race_cond );
-//		if ( !_g->bridges.trd.base.thread_is_created )
+//		pthread_mutex_lock( &_g->bridges.trd.cmn.creation_thread_race_cond );
+//		if ( !_g->bridges.trd.cmn.thread_is_created )
 //		{
 //			MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->mem.income_trd_id , NULL , income_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
 //			MM_BREAK_IF( pthread_create( &_g->bridges.bidirection_thread->mem.outgoing_trd_id , NULL , outgoing_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-//			_g->bridges.trd.base.thread_is_created = 1;
+//			_g->bridges.trd.cmn.thread_is_created = 1;
 //		}
-//		pthread_mutex_unlock( &_g->bridges.trd.base.creation_thread_race_cond );
+//		pthread_mutex_unlock( &_g->bridges.trd.cmn.creation_thread_race_cond );
 //	}
 //}
 //else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , BIDIRECTION ) )
@@ -122,13 +122,13 @@
 //		memset( &_g->bridges.bidirection_thread->mem , 0 , sizeof( struct bridges_bidirection_thread_zero_init_memory ) );
 //		queue_init( &_g->bridges.bidirection_thread->queue );
 //		pthread_mutex_init( &_g->bridges.trd.start_working_race_cond , NULL );
-//		pthread_mutex_lock( &_g->bridges.trd.base.creation_thread_race_cond );
-//		if ( !_g->bridges.trd.base.thread_is_created )
+//		pthread_mutex_lock( &_g->bridges.trd.cmn.creation_thread_race_cond );
+//		if ( !_g->bridges.trd.cmn.thread_is_created )
 //		{
 //			MM_BREAK_IF( pthread_create( &_g->bridges.bottleneck_thread->trd_id , NULL , bottleneck_thread_proc , _g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "thread creation failed" );
-//			_g->bridges.trd.base.thread_is_created = 1;
+//			_g->bridges.trd.cmn.thread_is_created = 1;
 //		}
-//		pthread_mutex_unlock( &_g->bridges.trd.base.creation_thread_race_cond );
+//		pthread_mutex_unlock( &_g->bridges.trd.cmn.creation_thread_race_cond );
 //	}
 //}
 //if ( _g->appcfg.g_cfg->c.c.atht == buttleneck || _g->appcfg.g_cfg->c.c.atht == bidirection )

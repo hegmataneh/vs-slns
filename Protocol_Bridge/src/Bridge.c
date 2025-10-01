@@ -1,3 +1,4 @@
+#define Uses_init_udps_fgms
 #define Uses_proc_krnl_udp_capture
 #define Uses_pthread_create
 #define Uses_proc_many2many_pcap_krnl_SF
@@ -88,8 +89,8 @@ void init_ActiveBridge( G * _g , AB * pb )
 	cbuf_m_init( &pb->stat.round_init_set.tcp_stat_40_sec_bytes , 40 );
 
 
-	M_BREAK_STAT( nnc_add_table( &_g->stat.nc_h , pb->cpy_cfg.m.m.id.short_name , &pb->pstat_tbl ) , 0 );
-	nnc_table * ptbl = pb->pstat_tbl;
+	M_BREAK_STAT( nnc_add_table( &_g->stat.nc_h , pb->cpy_cfg.m.m.id.short_name , &pb->ab_stat_tbl ) , 0 );
+	nnc_table * ptbl = pb->ab_stat_tbl;
 	// col
 	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
 	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 20 ) , 0 );
@@ -288,7 +289,7 @@ void init_ActiveBridge( G * _g , AB * pb )
 	 
 
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( pb_every_ticking_refresh ) , pb ) , 1 );
-	
+	init_udps_fgms( &pb->trd.cmn.cached_udp );
 
 
 	BEGIN_RET // TODO . complete reverse on error
@@ -307,11 +308,11 @@ void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_path * hlpr )
 	hlpr->pab = pb;
 	hlpr->in_count = &pb->cpy_cfg.m.m.maintained.in_count;
 	hlpr->out_count = &pb->cpy_cfg.m.m.maintained.out_count;
-	hlpr->thread_is_created = &pb->trd.base.thread_is_created;
-	hlpr->do_close_thread = &pb->trd.base.do_close_thread;
-	//hlpr->creation_thread_race_cond = &pb->trd.base.creation_thread_race_cond;
-	hlpr->bridg_prerequisite_stabled = &pb->trd.base.bridg_prerequisite_stabled;
-	//hlpr->buf_psh_distri = &pb->trd.base.buffer_push_distributor;
+	hlpr->thread_is_created = &pb->trd.cmn.thread_is_created;
+	hlpr->do_close_thread = &pb->trd.cmn.do_close_thread;
+	//hlpr->creation_thread_race_cond = &pb->trd.cmn.creation_thread_race_cond;
+	hlpr->bridg_prerequisite_stabled = &pb->trd.cmn.bridg_prerequisite_stabled;
+	//hlpr->buf_psh_distri = &pb->trd.cmn.payload_push;
 }
 
 void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
@@ -345,16 +346,16 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 
 			M_BREAK_IF( !( pb->trd.t.p_pcap_udp_counter = MALLOC_ONE( pb->trd.t.p_pcap_udp_counter ) ) , errMemoryLow , 1 );
 			MEMSET_ZERO_O( pb->trd.t.p_pcap_udp_counter );
-			//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
-			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
-			//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
-			if ( !pb->trd.base.thread_is_created )
+			//pthread_mutex_init( &pb->trd.cmn.creation_thread_race_cond , NULL );
+			//pthread_mutex_init( &pb->trd.cmn.do_all_prerequisite_stablished_race_cond , NULL );
+			//pthread_mutex_lock( &pb->trd.cmn.creation_thread_race_cond );
+			if ( !pb->trd.cmn.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_pcap_udp_counter->trd_id , NULL ,
 					proc_pcap_udp_counter , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-				pb->trd.base.thread_is_created = 1;
+				pb->trd.cmn.thread_is_created = 1;
 			}
-			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
+			//pthread_mutex_unlock( &pb->trd.cmn.creation_thread_race_cond );
 		}
 	}
 
@@ -366,16 +367,16 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 
 			M_BREAK_IF( !( pb->trd.t.p_krnl_udp_counter = MALLOC_ONE( pb->trd.t.p_krnl_udp_counter ) ) , errMemoryLow , 1 );
 			MEMSET_ZERO_O( pb->trd.t.p_krnl_udp_counter );
-			//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
-			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
-			//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
-			if ( !pb->trd.base.thread_is_created )
+			//pthread_mutex_init( &pb->trd.cmn.creation_thread_race_cond , NULL );
+			//pthread_mutex_init( &pb->trd.cmn.do_all_prerequisite_stablished_race_cond , NULL );
+			//pthread_mutex_lock( &pb->trd.cmn.creation_thread_race_cond );
+			if ( !pb->trd.cmn.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_krnl_udp_counter->trd_id , NULL ,
 					proc_krnl_udp_counter , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-				pb->trd.base.thread_is_created = 1;
+				pb->trd.cmn.thread_is_created = 1;
 			}
-			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
+			//pthread_mutex_unlock( &pb->trd.cmn.creation_thread_race_cond );
 
 			pthread_t trd_udp_connection;
 			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
@@ -389,22 +390,22 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			init_ActiveBridge( _g , pb );
 
 			M_BREAK_IF( !( pb->trd.t.p_one2one_krnl2krnl_SF = CALLOC_ONE( pb->trd.t.p_one2one_krnl2krnl_SF ) ) , errMemoryLow , 1 );
-			//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
-			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
-			//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
+			//pthread_mutex_init( &pb->trd.cmn.creation_thread_race_cond , NULL );
+			//pthread_mutex_init( &pb->trd.cmn.do_all_prerequisite_stablished_race_cond , NULL );
+			//pthread_mutex_lock( &pb->trd.cmn.creation_thread_race_cond );
 
 			// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
-			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2one_krnl2krnl_SF->cbuf , 100000 , MAX_PACKET_SIZE ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.ring_buf , 1073741824 ) , 1 );
 
-			if ( !pb->trd.base.thread_is_created )
+			if ( !pb->trd.cmn.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_krnl2krnl_SF->income_trd_id , NULL ,
 					proc_one2one_krnl_udp_store , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_krnl2krnl_SF->outgoing_trd_id , NULL ,
 					proc_one2one_krnl_tcp_forward , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-				pb->trd.base.thread_is_created = 1;
+				pb->trd.cmn.thread_is_created = 1;
 			}
-			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
+			//pthread_mutex_unlock( &pb->trd.cmn.creation_thread_race_cond );
 
 			pthread_t trd_udp_connection;
 			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
@@ -421,22 +422,22 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 
 			M_BREAK_IF( !( pb->trd.t.p_one2one_pcap2krnl_SF = MALLOC_ONE( pb->trd.t.p_one2one_pcap2krnl_SF ) ) , errMemoryLow , 1 );
 			MEMSET_ZERO_O( pb->trd.t.p_one2one_pcap2krnl_SF );
-			//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
-			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
+			//pthread_mutex_init( &pb->trd.cmn.creation_thread_race_cond , NULL );
+			//pthread_mutex_init( &pb->trd.cmn.do_all_prerequisite_stablished_race_cond , NULL );
 
 			// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
-			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2one_pcap2krnl_SF->cbuf , 524288 , MAX_PACKET_SIZE ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.ring_buf , 1073741824 ) , 1 );
 
-			//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
-			if ( !pb->trd.base.thread_is_created )
+			//pthread_mutex_lock( &pb->trd.cmn.creation_thread_race_cond );
+			if ( !pb->trd.cmn.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2krnl_SF->income_trd_id , NULL ,
 					proc_one2one_pcap2krnl_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2one_pcap2krnl_SF->outgoing_trd_id , NULL ,
 					proc_one2one_pcap2krnl_SF_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-				pb->trd.base.thread_is_created = 1;
+				pb->trd.cmn.thread_is_created = 1;
 			}
-			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
+			//pthread_mutex_unlock( &pb->trd.cmn.creation_thread_race_cond );
 
 			pthread_t trd_tcp_connection;
 			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
@@ -451,21 +452,21 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 
 			M_BREAK_IF( !( pb->trd.t.p_one2many_pcap2krnl_SF = MALLOC_ONE( pb->trd.t.p_one2many_pcap2krnl_SF ) ) , errMemoryLow , 1 );
 			MEMSET_ZERO_O( pb->trd.t.p_one2many_pcap2krnl_SF );
-			//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
-			//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
+			//pthread_mutex_init( &pb->trd.cmn.creation_thread_race_cond , NULL );
+			//pthread_mutex_init( &pb->trd.cmn.do_all_prerequisite_stablished_race_cond , NULL );
 			
-			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_one2many_pcap2krnl_SF->cbuf , 524288 , MAX_PACKET_SIZE ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.ring_buf , 1073741824 ) , 1 );
 
-			//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
-			if ( !pb->trd.base.thread_is_created )
+			//pthread_mutex_lock( &pb->trd.cmn.creation_thread_race_cond );
+			if ( !pb->trd.cmn.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2many_pcap2krnl_SF->income_trd_id , NULL ,
 					proc_one2many_pcap2krnl_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_one2many_pcap2krnl_SF->outgoing_trd_id , NULL ,
 					proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-				pb->trd.base.thread_is_created = 1;
+				pb->trd.cmn.thread_is_created = 1;
 			}
-			//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
+			//pthread_mutex_unlock( &pb->trd.cmn.creation_thread_race_cond );
 
 			pthread_t trd_tcp_connection;
 			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
@@ -479,20 +480,20 @@ void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg )
 			init_ActiveBridge( _g , pb );
 			M_BREAK_IF( !( pb->trd.t.p_many2one_pcap2krnl_SF_serialize = MALLOC_ONE( pb->trd.t.p_many2one_pcap2krnl_SF_serialize ) ) , errMemoryLow , 1 );
 			MEMSET_ZERO_O( pb->trd.t.p_many2one_pcap2krnl_SF_serialize );
-	//		//pthread_mutex_init( &pb->trd.base.creation_thread_race_cond , NULL );
-	//		//pthread_mutex_init( &pb->trd.base.do_all_prerequisite_stablished_race_cond , NULL );
+	//		//pthread_mutex_init( &pb->trd.cmn.creation_thread_race_cond , NULL );
+	//		//pthread_mutex_init( &pb->trd.cmn.do_all_prerequisite_stablished_race_cond , NULL );
 	//		// TODO . buff size came from config
-			M_BREAK_STAT( vcbuf_nb_init( &pb->trd.t.p_many2one_pcap2krnl_SF_serialize->cbuf , 524288 , MAX_PACKET_SIZE ) , 1 );
-	//		//pthread_mutex_lock( &pb->trd.base.creation_thread_race_cond );
-			if ( !pb->trd.base.thread_is_created )
+			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.ring_buf , 1073741824 ) , 1 );
+	//		//pthread_mutex_lock( &pb->trd.cmn.creation_thread_race_cond );
+			if ( !pb->trd.cmn.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->trd.t.p_many2one_pcap2krnl_SF_serialize->income_trd_id , NULL ,
 					proc_many2many_pcap_krnl_SF , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				//MM_BREAK_IF( pthread_create( &pb->trd.t.p_many2one_pcap2krnl_SF_serialize->outgoing_trd_id , NULL ,
 				//	 , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-				pb->trd.base.thread_is_created = 1;
+				pb->trd.cmn.thread_is_created = 1;
 			}
-	//		//pthread_mutex_unlock( &pb->trd.base.creation_thread_race_cond );
+	//		//pthread_mutex_unlock( &pb->trd.cmn.creation_thread_race_cond );
 			pthread_t trd_tcp_connection;
 			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 		}

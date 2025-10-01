@@ -1,3 +1,7 @@
+#ifdef Uses_init_udps_fgms
+	#define Uses_udp_defragmentator
+#endif
+
 #ifdef Uses_proc_krnl_udp_capture
 	#define __INC__6_one2one_krnl2krnl_SF
 #endif
@@ -44,9 +48,11 @@
 #endif
 
 #ifdef Uses_Bridge
+	#define Uses_ABstat
+	#define Uses_dfrg_udp
+	#define Uses_cbuf_pked
 	#define Uses_dict_o_t
 	#define Uses_distributor_t
-	#define Uses_vcbuf_nb
 	#define Uses_pcap
 	#define Uses_WINDOW
 	#define Uses_BridgeConfig
@@ -54,7 +60,12 @@
 	#define __INC_Bridge
 #endif
 
+#ifdef Uses_dfrg_udp
+	#define Uses_udp_defragmentator
+#endif
+
 #ifdef Uses_BridgeConfig
+	#define Uses_CFG_ITM
 	//#define Uses_bool
 	#define __INC_BridgeConfig
 #endif
@@ -79,6 +90,7 @@
 #endif
 
 #ifdef Uses_statistics
+	#define Uses_nnc_cell_content
 	#define Uses_distributor_t
 	#define Uses_definition
 	#define Uses_WINDOW
@@ -87,7 +99,22 @@
 	#define __INC_statistics
 #endif
 
+#ifdef Uses_nnc_cell_content
+	#define Uses_nncursor
+#endif
+
 #ifdef Uses_packet_mngr
 	#define __INC_packet_mngr
 #endif
 
+#ifdef Uses_udp_defragmentator
+	#define __INC_udp_defragmentator
+#endif
+
+#ifdef Uses_CFG_ITM
+	#define Uses_definition
+#endif
+
+#ifdef Uses_ABstat
+	#define Uses_statistics
+#endif

@@ -5,6 +5,7 @@ typedef struct udp_conn_cfg_data
 	CFG_ITM group;
 	CFG_ITM group_type;
 	CFG_ITM UDP_origin_ip;
+	CFG_ITM UDP_destination_ip;
 	CFG_ITM UDP_origin_ports; // singular port or ports ranje
 	CFG_ITM UDP_origin_interface;
 	int enable;

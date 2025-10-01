@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-typedef union AB_execution_tools
+typedef union AB_handler_prerequisite
 {
 
 	struct s_pcap_udp_counter // one thread for send and receive
@@ -18,16 +18,12 @@ typedef union AB_execution_tools
 	{
 		pthread_t income_trd_id;
 		pthread_t outgoing_trd_id;
-		vcbuf_nb cbuf; // buffer
-		distributor_t buffer_pop_distributor; // responsible for distribute udp packet to each type
 	} *p_one2one_krnl2krnl_SF;
 
 	struct s_one2one_pcap2krnl_SF // one thread for each direction with store & forward method
 	{
 		pthread_t income_trd_id;
 		pthread_t outgoing_trd_id;
-		vcbuf_nb cbuf; // buffer
-		distributor_t buffer_pop_distributor; // responsible for distribute udp packet to each type
 		pcap_t * handle;
 	} *p_one2one_pcap2krnl_SF;
 
@@ -35,12 +31,7 @@ typedef union AB_execution_tools
 	{
 		pthread_t income_trd_id;
 		pthread_t outgoing_trd_id;
-
-		vcbuf_nb cbuf; // buffer
-
-		distributor_t buffer_pop_distributor; // responsible for distribute udp packet to each type
 		dict_o_t dc_token_ring; // config may have multi rings and each one is for one grp
-
 		pcap_t * handle;
 	} *p_one2many_pcap2krnl_SF;
 
@@ -48,28 +39,28 @@ typedef union AB_execution_tools
 	{
 		pthread_t income_trd_id;
 		pthread_t outgoing_trd_id;
-
-		vcbuf_nb cbuf; // buffer
-
-		distributor_t buffer_pop_distributor; // responsible for distribute udp packet to each type
 		dict_o_t dc_token_ring; // config may have multi rings and each one is for one grp
-
 	} *p_many2one_pcap2krnl_SF_serialize;
 
-} ex_tls;
+} ex_preq;
 
 typedef struct AB_thread // threads use to recv and send data
 {
-	struct s_bridges_thread_base
+	struct AB_common_prerequisite
 	{
 		int thread_is_created;
 		int do_close_thread; // command from outside to inside thread
 		int bridg_prerequisite_stabled; // because udp port may start after thread started . if all the condition is ready to bridge thread start
 
-		distributor_t buffer_push_distributor; // responsible for distribute udp packet to each type
-	} base;
+		cbuf_pked ring_buf; // ring buffer of input udp . why i use packed buffer . because each pcap has one ring and it consume lot of memory to keep pesimistic block( consider 8k for each pkt )
+		udps_fgms cached_udp; // used as fast access
 
-	ex_tls t;
+		distributor_t pcap_defrag_udp_push; // used when raw socket worked
+		distributor_t payload_push; // just complete payload pushed( i insist on payload concept not buffer litteraly )
+		distributor_t poped_payload_from_rbuf; // just payload poped( i insist on payload concept not buffer litteraly )
+	} cmn;
+
+	ex_preq t;
 
 } ABtrd;
 
@@ -110,7 +101,7 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 	AB_tcp *tcps;
 	int tcps_count;
 
-	nnc_table * pstat_tbl;
+	nnc_table * ab_stat_tbl;
 	
 } AB;
 
@@ -139,8 +130,8 @@ typedef struct ActiveBridgeShortPathHelper // every virtually inherit struct mus
 	int * bridg_prerequisite_stabled;
 	distributor_t * buf_psh_distri;
 
-	vcbuf_nb * cbuf; // buffer
-	distributor_t * buf_pop_distr;
+	cbuf_pked * ring_buf; // buffer
+	distributor_t * poped_payload;
 	dict_o_t * dc_token_ring;
 	pcap_t ** handle;
 

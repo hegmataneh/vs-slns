@@ -16,9 +16,9 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
-	while ( !pb->trd.base.bridg_prerequisite_stabled )
+	while ( !pb->trd.cmn.bridg_prerequisite_stabled )
 	{
-		if ( pb->trd.base.do_close_thread )
+		if ( pb->trd.cmn.do_close_thread )
 		{
 			break;
 		}
@@ -32,7 +32,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 	int config_changes = 0;
 	do
 	{
-		if ( pb->trd.base.do_close_thread )
+		if ( pb->trd.cmn.do_close_thread )
 		{
 			break;
 		}
@@ -84,7 +84,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 			//}
 
 
-			if ( pb->trd.base.do_close_thread )
+			if ( pb->trd.cmn.do_close_thread )
 			{
 				break;
 			}

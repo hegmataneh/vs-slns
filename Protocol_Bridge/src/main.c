@@ -7,7 +7,7 @@
 #define Uses_helper
 #include <Protocol_Bridge.dep>
 
-G * _g = NULL; // just one global var
+GLOBAL_VAR G * _g = NULL; // just one global var
 
 /// <summary>
 /// اینجوری می خواستم هر قسمت را یک کامپوننت بدانم و در نتیجه هر کسی مسئول ایجاد زیر ساختهای لازم برای خودش است

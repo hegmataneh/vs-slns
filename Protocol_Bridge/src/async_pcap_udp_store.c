@@ -9,76 +9,81 @@
 _PRIVATE_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr , const u_char * packet )
 {
 	AB * pb = ( AB * )src_pb;
-	//G * _g = pb->cpy_cfg.m.m.temp_data._g;
-	//AB_udp * udp = pb->udps; // caution . in this type of bridge udp conn must be just one
 
-	const struct ip * ip_hdr;
-	const struct udphdr * udp_hdr;
-	const u_char * payload;
+	if ( distributor_publish_onedirectcall_3voidp( &pb->trd.cmn.pcap_defrag_udp_push , ( void_p )src_pb , ( void_p )hdr , ( void_p )packet ) != errOK ) return; // dist udp packet
+	return;
 
-	int ip_header_len;
-	int udp_header_len = sizeof( struct udphdr );
-	int payload_len;
+	//
+	////G * _g = pb->cpy_cfg.m.m.temp_data._g;
+	////AB_udp * udp = pb->udps; // caution . in this type of bridge udp conn must be just one
 
-	//dump_buffer( ( const buffer )packet , hdr->len );
+	//const struct ip * ip_hdr;
+	//const struct udphdr * udp_hdr;
+	//const u_char * payload;
 
-	//return;
+	//int ip_header_len;
+	//int udp_header_len = sizeof( struct udphdr );
+	//int payload_len;
 
-	// Skip Ethernet header
-	ip_hdr = ( struct ip * )( packet + SIZE_ETHERNET );
-	ip_header_len = ip_hdr->ip_hl * 4;
+	////dump_buffer( ( const buffer )packet , hdr->len );
 
-	// UDP header follows IP header
-	udp_hdr = ( struct udphdr * )( packet + SIZE_ETHERNET + ip_header_len );
+	////return;
 
-	// Payload starts after UDP header
-	payload = packet + SIZE_ETHERNET + ip_header_len + udp_header_len;
-	payload_len = ntohs( udp_hdr->uh_ulen ) - udp_header_len;
+	//// Skip Ethernet header
+	//ip_hdr = ( struct ip * )( packet + SIZE_ETHERNET );
+	//ip_header_len = ip_hdr->ip_hl * 4;
 
-	//payload_len = 1; // HARD CODE . TODELETE
+	//// UDP header follows IP header
+	//udp_hdr = ( struct udphdr * )( packet + SIZE_ETHERNET + ip_header_len );
 
-	if ( distributor_publish_buffer_int( &pb->trd.base.buffer_push_distributor , ( buffer )payload , payload_len , NULL ) != errOK ) return; // dist udp packet
+	//// Payload starts after UDP header
+	//payload = packet + SIZE_ETHERNET + ip_header_len + udp_header_len;
+	//payload_len = ntohs( udp_hdr->uh_ulen ) - udp_header_len;
 
-	////if ( vcbuf_nb_push( &pb->trd.t.p_one2one_pcap2krnl_SF_thread->cbuf , ( const buffer )payload , payload_len ) != errOK ) return;
+	////payload_len = 1; // HARD CODE . TODELETE
 
-	////printf( " Payload (%d bytes): " , payload_len );
-	////for ( int i = 0; i < payload_len; i++ )
-	////{
-	////	if ( payload[ i ] >= 32 && payload[ i ] <= 126 ) // printable ASCII
-	////		putchar( payload[ i ] );
-	////	else
-	////		putchar( '.' );
-	////}
+	//if ( distributor_publish_buffer_int( &pb->trd.cmn.payload_push , ( buffer )payload , payload_len , NULL ) != errOK ) return; // dist udp packet
 
-	gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
+	//////if ( cbuf_pked_push( &pb->trd.cmn.ring_buf , ( const buffer )payload , payload_len ) != errOK ) return;
 
-	pb->stat.round_zero_set.udp.total_udp_get_count++;
-	pb->stat.round_zero_set.udp.total_udp_get_byte += payload_len;
-	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
-	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += payload_len;
+	//////printf( " Payload (%d bytes): " , payload_len );
+	//////for ( int i = 0; i < payload_len; i++ )
+	//////{
+	//////	if ( payload[ i ] >= 32 && payload[ i ] <= 126 ) // printable ASCII
+	//////		putchar( payload[ i ] );
+	//////	else
+	//////		putchar( '.' );
+	//////}
 
-	pb->stat.round_zero_set.udp_get_data_alive_indicator++;
+	//gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
-	time_t tnow = 0;
-	tnow = time( NULL );
-	// udp
-	if ( difftime( tnow , pb->stat.round_zero_set.udp_1_sec.t_udp_throughput ) >= 1.0 )
-	{
-		if ( pb->stat.round_zero_set.udp_1_sec.t_udp_throughput > 0 )
-		{
-			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+	//pb->stat.round_zero_set.udp.total_udp_get_count++;
+	//pb->stat.round_zero_set.udp.total_udp_get_byte += payload_len;
+	//pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
+	//pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += payload_len;
 
-			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_10_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_10_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+	//pb->stat.round_zero_set.udp_get_data_alive_indicator++;
 
-			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-			cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-		}
-		pb->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
-		pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
-		pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
-	}
+	//time_t tnow = 0;
+	//tnow = time( NULL );
+	//// udp
+	//if ( difftime( tnow , pb->stat.round_zero_set.udp_1_sec.t_udp_throughput ) >= 1.0 )
+	//{
+	//	if ( pb->stat.round_zero_set.udp_1_sec.t_udp_throughput > 0 )
+	//	{
+	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_10_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_10_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+
+	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
+	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
+	//	}
+	//	pb->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
+	//	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
+	//	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
+	//}
 
 }
 
@@ -105,7 +110,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf) == -1 , errDevice , 1 , "use correct interface %s\n" , errbuf);
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	MM_FMT_BREAK_IF( !( handle = pcap_open_live( interface_filter[ 0 ] , SNAP_LEN , 1 , 1000 , errbuf) ) , errDevice , 1 , "exe by pcap prmit usr %s\n" , interface_filter[0] , errbuf);
+	MM_FMT_BREAK_IF( !( handle = pcap_open_live( interface_filter[ 0 ] , 65535, 1, 1000 , errbuf) ) , errDevice , 1 , "exe by pcap prmit usr %s\n" , interface_filter[0] , errbuf);
 
 	// Compile and apply filter
 	MM_FMT_BREAK_IF( pcap_compile( handle , &fp , port_filter[ 0 ] , 1 , mask) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr(handle));

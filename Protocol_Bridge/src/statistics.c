@@ -8,10 +8,9 @@
 #define Uses_ncurses
 #define Uses_statistics
 #define Uses_helper
-#define Uses_vcbuf_nb
 #include <Protocol_Bridge.dep>
 
-extern G * _g;
+GLOBAL_VAR extern G * _g;
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
 {

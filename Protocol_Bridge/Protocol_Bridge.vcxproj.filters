@@ -49,6 +49,9 @@
     <ClCompile Include="src\async_krnl_udp_store.c">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\udp_defragmentator.c">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="header\_1_pcap_udp_counter.h">
@@ -100,6 +103,9 @@
       <Filter>header</Filter>
     </ClInclude>
     <ClInclude Include="header\_6_one2one_krnl2krnl_SF.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\udp_defragmentator.h">
       <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>

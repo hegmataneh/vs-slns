@@ -32,9 +32,6 @@
 
 #define SNAP_LEN MAX_PACKET_SIZE/*1518*/  // max bytes per packet to capture
 
-// Ethernet header is always 14 bytes (for non-VLAN frames)
-#define SIZE_ETHERNET 14
-
 #define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
 
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )

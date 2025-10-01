@@ -18,6 +18,10 @@
 	#include "config.h"
 #endif
 
+#ifdef __INC_udp_defragmentator
+	#include "udp_defragmentator.h"
+#endif
+
 #ifdef __INC_Bridge
 	#include "Bridge.h"
 #endif
@@ -61,4 +65,3 @@
 #ifdef __INC__6_one2one_krnl2krnl_SF
 	#include "_6_one2one_krnl2krnl_SF.h"
 #endif
-

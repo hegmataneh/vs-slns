@@ -17,14 +17,14 @@
 #define Uses_statistics
 #include <Protocol_Bridge.dep>
 
-extern G * _g;
+GLOBAL_VAR extern G * _g;
 
-_STRONG_ATTR void M_showMsg( LPCSTR msg )
+GLOBAL_VAR _STRONG_ATTR void M_showMsg( LPCSTR msg )
 {
 	if ( _g ) strcpy( _g->stat.last_command , msg );
 }
 
-void _Breaked()
+GLOBAL_VAR void _Breaked()
 {
 	int i = 1;
 	i++;
@@ -497,7 +497,7 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 				(
 					_g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.temp_data.delayed_validation &&
 					//_g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.enable &&
-					!_g->bridges.ABs[ imask ].single_AB->trd.base.bridg_prerequisite_stabled
+					!_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled
 				)
 				{
 					if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "krnl_udp_counter" ) )
@@ -506,7 +506,7 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 						{
 							if ( _g->bridges.ABs[ imask ].single_AB->udps_count > 0 && _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established )
 							{
-								_g->bridges.ABs[ imask ].single_AB->trd.base.bridg_prerequisite_stabled = 1;
+								_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled = 1;
 							}
 						}
 						else
@@ -531,7 +531,7 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 								_g->bridges.ABs[ imask ].single_AB->tcps_count > 0 && _g->bridges.ABs[ imask ].single_AB->tcps->tcp_connection_established
 							)
 							{
-								_g->bridges.ABs[ imask ].single_AB->trd.base.bridg_prerequisite_stabled = 1;
+								_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled = 1;
 							}
 						}
 						else
@@ -566,7 +566,7 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 							{
 								prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->tcps[ itcp ].tcp_connection_established );
 							}
-							_g->bridges.ABs[ imask ].single_AB->trd.base.bridg_prerequisite_stabled = prerequisite_stablished;
+							_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled = prerequisite_stablished;
 						}
 						else
 						{
@@ -623,7 +623,7 @@ void mng_basic_thread_sleep( G * _g , int priority )
 /// <summary>
 /// used in collect_strings_itr to pack vary strings
 /// </summary>
-LPCSTR itr_interfaces( const pass_p arr , size_t i )
+_CALLBACK_FXN LPCSTR itr_interfaces( const pass_p arr , size_t i )
 {
 	return ( ( AB_udp * )arr )[ i ].__udp_cfg_pak->data.UDP_origin_interface;
 };
@@ -697,30 +697,40 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 		int n = 0;
 		// Start with "udp and ("
 		n += sprintf( prt_flt + n , "udp and (" );
-		for ( int iprt = 0 ; iprt < distinct_ports.size ; iprt++ )
-		{
-			if ( iprt > 0 )
-			{
-				n += sprintf( prt_flt + n , " or " );
-			}
 
-			// TODO . later i should check config file that no duplicate port find in it
-			for ( int islk = 0 ; islk < abs->udps_count ; islk++ )
+		// TODO . implement multiple source and dest ip
+
+		if ( distinct_ports.size == 1 && STR_SAME( distinct_ports.strs[ 0 ] , "-" ) )
+		{
+			n += sprintf( prt_flt + n , "src host %s and dst host %s" , abs->udps[ 0 ].__udp_cfg_pak->data.UDP_origin_ip , abs->udps[ 0 ].__udp_cfg_pak->data.UDP_destination_ip );
+		}
+		else
+		{
+			for ( int iprt = 0 ; iprt < distinct_ports.size ; iprt++ )
 			{
-				if ( iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_interface , *interface_filter[iint] )
-					&& iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports , distinct_ports.strs[iprt] ) )
+				if ( iprt > 0 )
 				{
-					if ( strchr( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports , '-' ) != NULL )
+					n += sprintf( prt_flt + n , " or " );
+				}
+
+				// TODO . later i should check config file that no duplicate port find in it
+				for ( int islk = 0 ; islk < abs->udps_count ; islk++ )
+				{
+					if ( iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_interface , *interface_filter[iint] )
+						&& iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports , distinct_ports.strs[iprt] ) )
 					{
-						// it's a range
-						n += sprintf( prt_flt + n , "portrange %s" , abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports );
+						if ( strchr( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports , '-' ) != NULL )
+						{
+							// it's a range
+							n += sprintf( prt_flt + n , "portrange %s" , abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports );
+						}
+						else
+						{
+							// it's a single port
+							n += sprintf( prt_flt + n , "port %s" , abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports );
+						}
+						break;
 					}
-					else
-					{
-						// it's a single port
-						n += sprintf( prt_flt + n , "port %s" , abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports );
-					}
-					break;
 				}
 			}
 		}

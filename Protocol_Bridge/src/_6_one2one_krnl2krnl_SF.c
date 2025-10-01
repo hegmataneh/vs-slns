@@ -9,7 +9,7 @@
 _PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2one_krnl2krnl_SF( pass_p data , buffer buf , int payload_len )
 {
 	AB * pb = ( AB * )data;
-	return vcbuf_nb_push( &pb->trd.t.p_one2one_pcap2krnl_SF->cbuf , buf , payload_len );
+	return cbuf_pked_push( &pb->trd.cmn.ring_buf , buf , payload_len , payload_len , NULL );
 }
 
 /// <summary>
@@ -23,17 +23,17 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
-	while ( !pb->trd.base.bridg_prerequisite_stabled )
+	while ( !pb->trd.cmn.bridg_prerequisite_stabled )
 	{
-		if ( pb->trd.base.do_close_thread )
+		if ( pb->trd.cmn.do_close_thread )
 		{
 			break;
 		}
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
-	M_BREAK_STAT( distributor_init( &pb->trd.base.buffer_push_distributor , 1 ) , 1 );
-	M_BREAK_STAT( distributor_subscribe( &pb->trd.base.buffer_push_distributor , SUB_DIRECT_ONE_CALL_BUFFER_INT ,
+	M_BREAK_STAT( distributor_init( &pb->trd.cmn.payload_push , 1 ) , 1 );
+	M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.payload_push , SUB_DIRECT_ONE_CALL_BUFFER_INT ,
 		SUB_FXN( buffer_push_one2one_krnl2krnl_SF ) , src_pb ) , 1 );
 
 	time_t tnow = 0;
@@ -43,7 +43,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	int config_changes = 0;
 	do
 	{
-		if ( pb->trd.base.do_close_thread )
+		if ( pb->trd.cmn.do_close_thread )
 		{
 			break;
 		}
@@ -95,7 +95,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 			//}
 
 
-			if ( pb->trd.base.do_close_thread )
+			if ( pb->trd.cmn.do_close_thread )
 			{
 				break;
 			}
@@ -244,7 +244,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 							pb->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
 							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
-							if ( distributor_publish_buffer_int( &pb->trd.base.buffer_push_distributor , buffer , bytes_received , NULL ) != errOK ) continue; // dist udp packet
+							if ( distributor_publish_buffer_int( &pb->trd.cmn.payload_push , buffer , bytes_received , NULL ) != errOK ) continue; // dist udp packet
 
 							gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
@@ -285,8 +285,8 @@ _THREAD_FXN void_p proc_one2one_krnl_tcp_forward( pass_p src_pb )
 
 	shrt_path pth;
 	mk_shrt_path( pb , &pth );
-	pth.cbuf = &pb->trd.t.p_one2one_krnl2krnl_SF->cbuf;
-	pth.buf_pop_distr = &pb->trd.t.p_one2one_krnl2krnl_SF->buffer_pop_distributor;
+	pth.ring_buf = &pb->trd.cmn.ring_buf;
+	pth.poped_payload = &pb->trd.cmn.poped_payload_from_rbuf;
 
 	many_tcp_out_thread_proc( pb , &pth );
 

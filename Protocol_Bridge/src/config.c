@@ -7,7 +7,7 @@
 #define Uses_helper
 #include <Protocol_Bridge.dep>
 
-extern G * _g;
+GLOBAL_VAR extern G * _g;
 
 //_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
 //{
@@ -286,6 +286,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 							IN_CFG_ELEM_STR( el_inp , group );
 							IN_CFG_ELEM_STR( el_inp , group_type );
 							IN_CFG_ELEM_STR( el_inp , UDP_origin_ip );
+							IN_CFG_ELEM_STR( el_inp , UDP_destination_ip );
+							
 							IN_CFG_ELEM_STR( el_inp , UDP_origin_interface );
 
 							IN_CFG_ELEM_STR( el_inp , UDP_origin_ports );

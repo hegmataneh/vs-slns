@@ -18,11 +18,11 @@ void quit_interrupt_dist_one2many_pcap2krnl_SF( pass_p src_pb , int v )
 	}
 }
 
-_PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2many_pcap2krnl_SF( pass_p data , buffer buf , int payload_len )
-{
-	AB * pb = ( AB * )data;
-	return vcbuf_nb_push( &pb->trd.t.p_one2many_pcap2krnl_SF->cbuf , buf , payload_len );
-}
+//_PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2many_pcap2krnl_SF( pass_p data , buffer buf , int payload_len )
+//{
+//	AB * pb = ( AB * )data;
+//	return cbuf_pked_push( &pb->trd.cmn.ring_buf , buf , payload_len );
+//}
 
 _THREAD_FXN void_p proc_one2many_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 {
@@ -36,16 +36,16 @@ _THREAD_FXN void_p proc_one2many_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 
 	WARNING( pb->udps_count == 1 );
 
-	M_BREAK_STAT( distributor_init( &pb->trd.base.buffer_push_distributor , 1 ) , 1 );
-	M_BREAK_STAT( distributor_subscribe( &pb->trd.base.buffer_push_distributor , SUB_DIRECT_ONE_CALL_BUFFER_INT ,
-		SUB_FXN( buffer_push_one2many_pcap2krnl_SF ) , src_pb ) , 1 );
+	//M_BREAK_STAT( distributor_init( &pb->trd.cmn.payload_push , 1 ) , 1 );
+	//M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.payload_push , SUB_DIRECT_ONE_CALL_BUFFER_INT ,
+	//	SUB_FXN( buffer_push_one2many_pcap2krnl_SF ) , src_pb ) , 1 );
 
 	// in addition to make shrt_path complete based on type and dependency is detached
 	shrt_path pth; // 1 . we have simple pth here
 	mk_shrt_path( pb , &pth ); // 2 . and fill it
 	pth.handle = &pb->trd.t.p_one2many_pcap2krnl_SF->handle;
 	pth.dc_token_ring = &pb->trd.t.p_one2many_pcap2krnl_SF->dc_token_ring;
-	pth.cbuf = &pb->trd.t.p_one2many_pcap2krnl_SF->cbuf;
+	pth.ring_buf = &pb->trd.cmn.ring_buf;
 
 	// register here to get quit cmd
 	distributor_subscribe( &_g->distributors.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_one2many_pcap2krnl_SF ) , pb );
@@ -71,8 +71,8 @@ _THREAD_FXN void_p proc_one2many_tcp_out( pass_p src_pb )
 	shrt_path pth;
 	mk_shrt_path( pb , &pth );
 	pth.dc_token_ring = &pb->trd.t.p_one2many_pcap2krnl_SF->dc_token_ring;
-	pth.cbuf = &pb->trd.t.p_one2many_pcap2krnl_SF->cbuf;
-	pth.buf_pop_distr = &pb->trd.t.p_one2many_pcap2krnl_SF->buffer_pop_distributor;
+	pth.ring_buf = &pb->trd.cmn.ring_buf;
+	pth.poped_payload = &pb->trd.cmn.poped_payload_from_rbuf;
 
 	many_tcp_out_thread_proc( pb , &pth );
 
