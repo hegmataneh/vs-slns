@@ -50,7 +50,7 @@ typedef struct AB_thread // threads use to recv and send data
 	{
 		int thread_is_created;
 		int do_close_thread; // command from outside to inside thread
-		int bridg_prerequisite_stabled; // because udp port may start after thread started . if all the condition is ready to bridge thread start
+		//int bridg_prerequisite_stabled; // because udp port may start after thread started . if all the condition is ready to bridge thread start
 
 		cbuf_pked ring_buf; // ring buffer of input udp . why i use packed buffer . because each pcap has one ring and it consume lot of memory to keep pesimistic block( consider 8k for each pkt )
 		udps_fgms cached_udp; // used as fast access
@@ -76,15 +76,23 @@ typedef struct AB_udp_connection
 	udp_cfg_pak * __udp_cfg_pak; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct
 
+	//distributor_t change_state_dist; // not needed
+
 } AB_udp;
 
 typedef struct AB_tcp_connection
 {
 	sockfd tcp_sockfd;
 	int tcp_connection_established; // tcp connection established
-	int retry_to_connect_tcp;
+	
+	//int retry_to_connect_tcp; // do retry to connect again
+	int tcp_is_about_to_connect; // when tring to connect no more try should be attempt
+
+
 	tcp_cfg_pak * __tcp_cfg_pak; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct
+
+	distributor_t change_state_dist;
 
 } AB_tcp;
 
@@ -127,7 +135,7 @@ typedef struct ActiveBridgeShortPathHelper // every virtually inherit struct mus
 	int * thread_is_created;
 	int * do_close_thread;
 
-	int * bridg_prerequisite_stabled;
+	//int * bridg_prerequisite_stabled;
 	distributor_t * buf_psh_distri;
 
 	cbuf_pked * ring_buf; // buffer

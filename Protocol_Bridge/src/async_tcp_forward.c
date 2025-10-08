@@ -141,14 +141,14 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 
 	int output_tcp_socket_error_tolerance_count = 0; // restart socket after many error accur
 
-	while ( !pb->trd.cmn.bridg_prerequisite_stabled )
-	{
-		if ( CLOSE_APP_VAR() ) break;
-		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
-	}
+	//while ( !pb->trd.cmn.bridg_prerequisite_stabled )
+	//{
+	//	if ( CLOSE_APP_VAR() ) break;
+	//	mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
+	//}
 
 	// to be insure we used correct tcp output
-	M_BREAK_STAT( dict_fst_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
+	M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
 
 	//WARNING( pb->tcps_count >= 1 );
 	//AB_tcp * tcp = pb->tcps; // caution . in this type of bridge udp conn must be just one
@@ -190,8 +190,6 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 			// TODO . if connection lost i should do something here. but i dont know what should i do for now
 
 			// TODO . result must be seperated from each other to make right statistic
-
-			// CAUTION . in this broadcast it must store packet and return as soon as possible
 
 			if ( distributor_publish_buffer_size( hlpr->poped_payload , buffer , sz + pkt->metadata.payload_offset , NULL ) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;

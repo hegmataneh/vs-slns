@@ -220,7 +220,9 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 	if ( tmp_hdr.data_length && tmp_hdr.data_length == tmp_hdr.data_progress ) // it is completed
 	{
 		if ( out_hdr ) MEMCPY( out_hdr , &tmp_hdr.hdr );
-		return cbuf_pked_pop( &pb->trd.cmn.ring_buf , out_buf , out_len , 60/*timeout*/ ); // most of the packet get here na dis normal
+		d_error = cbuf_pked_pop( &pb->trd.cmn.ring_buf , out_buf , out_len , 60/*timeout*/ ); // most of the packet get here na dis normal
+		if( d_error ) return d_error;
+		goto _update_stat;
 	}
 
 	// until this line complete and simple packet sent . now we have hdr that says next buf block situation
@@ -287,7 +289,13 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 	cbuf_pked_pop( &pb->trd.cmn.ring_buf , NULL , NULL , 1 ); // just ignore first occurance of fregmented part
 	#undef CCH
 
+	goto _update_stat;
 
+_ignore:
+	cbuf_pked_pop( &pb->trd.cmn.ring_buf , NULL , NULL , 1/*timeout*/ ); // ignore one pkt
+	return errGeneral;
+
+_update_stat:
 	gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
 	pb->stat.round_zero_set.udp.total_udp_get_count++;
@@ -320,8 +328,4 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 
 
 	return errOK;
-
-	_ignore:
-	cbuf_pked_pop( &pb->trd.cmn.ring_buf , NULL , NULL , 1/*timeout*/ ); // ignore one pkt
-	return errGeneral;
 }

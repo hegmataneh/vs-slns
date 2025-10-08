@@ -16,14 +16,14 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
-	while ( !pb->trd.cmn.bridg_prerequisite_stabled )
-	{
-		if ( pb->trd.cmn.do_close_thread )
-		{
-			break;
-		}
-		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
-	}
+	//while ( !pb->trd.cmn.bridg_prerequisite_stabled )
+	//{
+	//	if ( pb->trd.cmn.do_close_thread )
+	//	{
+	//		break;
+	//	}
+	//	mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
+	//}
 
 	time_t tnow = 0;
 

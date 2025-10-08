@@ -7,8 +7,12 @@
 #define Uses_helper
 #define Uses_Bridge
 #define Uses_INIT_BREAKABLE_FXN
+//#define Uses_DGB
 
 #include <Protocol_Bridge.dep>
+
+
+//CODE_DBG_TOOLS();
 
 GLOBAL_VAR extern G * _g;
 
@@ -31,7 +35,6 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
 	segmgr_init( &_g->hdls.pkt_mgr.sent_package_log , 3200000 , 100000 , True );
 	M_BREAK_STAT( distributor_subscribe( &_g->hdls.prst_csh.pagestack_pakcets , SUB_DIRECT_ONE_CALL_BUFFER_SIZE , SUB_FXN( descharge_persistent_storage_data ) , _g ) , 0 );
 	
-
 	BEGIN_SMPL
 	M_V_END_RET
 }
@@ -73,6 +76,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	rdy_pkt1 * pkt1 = ( rdy_pkt1 * )data;
 	size_t sz_t = len - pkt1->metadata.payload_offset;
 	WARNING( pkt1->metadata.version == TCP_PACKET_V1 );
+	bool try_resolve_route = false;
 
 	if ( pkt1->metadata.sent ) return errOK;
 
@@ -81,19 +85,54 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	sockfd fd = -1;
 	void_p ab_tcp_p = NULL;
 	AB * pb = NULL;
-	// fast method
-	if ( dict_fst_get_faster_by_hash_id( &_g->hdls.pkt_mgr.map_tcp_socket , pkt1->metadata.tcp_name_key_hash , pkt1->metadata.tcp_name_uniq_id , &fd , &ab_tcp_p ) == errOK )
+
+	// normal packet come and go. retried packet should just checked
+	if ( pkt1->metadata.fault_registered ) // faulty item should not have too many attempt
 	{
-		d_error = sendall( fd , data + pkt1->metadata.payload_offset , &sz_t ); // send is to heavy
-		if ( d_error == errOK )
+		if ( pkt1->metadata.cool_down_attempt && pkt1->metadata.cool_down_attempt == *( uchar * )&tnow ) // in one second we should not attempt . and this check and possiblity is rare in not too many attempt situation
 		{
-			pkt1->metadata.sent = true;
-			if ( ab_tcp_p )
+			return errTooManyAttempt;
+		}
+		pkt1->metadata.cool_down_attempt = *( uchar * )&tnow;
+	}
+
+	// fast method
+	if ( dict_fst_get_faster_by_hash_id( &_g->hdls.pkt_mgr.map_tcp_socket , pkt1->metadata.tcp_name_key_hash , pkt1->metadata.tcp_name_uniq_id , &fd , &ab_tcp_p ) == errOK && fd != INVALID_FD )
+	{
+		d_error = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 ); // send is too heavy
+		switch ( d_error )
+		{
+			case errOK:
 			{
-				AB_tcp * ptcp = ( AB_tcp * )ab_tcp_p;
-				pb = ptcp->owner_pb; // not safe at all . but for now is ok . TODO . fix this error prone potentially faulty part
+				pkt1->metadata.sent = true;
+				if ( ab_tcp_p )
+				{
+					AB_tcp * ptcp = ( AB_tcp * )ab_tcp_p;
+					pb = ptcp->owner_pb; // not safe at all . but for now is ok . TODO . fix this error prone potentially faulty part
+				}
+				break;
+			}
+			case errNoPeer:
+			case errPeerClosed:
+			{
+				if ( ab_tcp_p )
+				{
+					AB_tcp * ptcp = ( AB_tcp * )ab_tcp_p;
+					if ( !ptcp->tcp_is_about_to_connect ) // if another request is attempt then we should waint to complete
+					{
+						ptcp->tcp_is_about_to_connect = 1;
+						//ptcp->retry_to_connect_tcp = 1;
+						ptcp->tcp_connection_established = 0;
+					}
+					pb = ptcp->owner_pb; // not safe at all . but for now is ok . TODO . fix this error prone potentially faulty part
+				}
+				break;
 			}
 		}
+	}
+	else
+	{
+		try_resolve_route = true;
 	}
 	if ( !pkt1->metadata.sent ) // slow method
 	{
@@ -108,10 +147,34 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 						pb = _g->bridges.ABs[ iab ].single_AB;
 						if ( _g->bridges.ABs[ iab ].single_AB->tcps[ itcp ].tcp_connection_established )
 						{
-							d_error = sendall( _g->bridges.ABs[ iab ].single_AB->tcps[ itcp ].tcp_sockfd , data + pkt1->metadata.payload_offset , &sz_t ); // send is to heavy
-							if ( d_error == errOK )
+							d_error = tcp_send_all( _g->bridges.ABs[ iab ].single_AB->tcps[ itcp ].tcp_sockfd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 ); // send is to heavy
+							switch ( d_error )
 							{
-								pkt1->metadata.sent = true;
+								case errOK:
+								{
+									pkt1->metadata.sent = true;
+
+									if ( try_resolve_route )
+									{
+										try_resolve_route = false;
+										dict_fst_put( &_g->hdls.pkt_mgr.map_tcp_socket , pkt1->TCP_name , _g->bridges.ABs[ iab ].single_AB->tcps[ itcp ].tcp_sockfd , ( void_p )( AB_tcp * )&_g->bridges.ABs[ iab ].single_AB->tcps[ itcp ] , NULL , NULL , NULL );
+									}
+									break;
+								}
+								case errNoPeer:
+								case errPeerClosed:
+								{
+									if ( ab_tcp_p )
+									{
+										if ( !_g->bridges.ABs[ iab ].single_AB->tcps[ itcp ].tcp_is_about_to_connect )
+										{
+											_g->bridges.ABs[ iab ].single_AB->tcps[ itcp ].tcp_is_about_to_connect = 1;
+											//_g->bridges.ABs[ iab ].single_AB->tcps[ itcp ].retry_to_connect_tcp = 1;
+											_g->bridges.ABs[ iab ].single_AB->tcps[ itcp ].tcp_connection_established = 0;
+										}
+									}
+									break;
+								}
 							}
 							break;
 						}
@@ -148,9 +211,12 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	else
 	{
 		// add log
-		if ( segmgr_append( &_g->hdls.pkt_mgr.sent_package_log , &pkt1->metadata.udp_hdr , sizeof( pkt1->metadata.udp_hdr ) ) == errOK )
+		if ( !pkt1->metadata.udp_hdr.logged_2_mem )
 		{
-			pkt1->metadata.udp_hdr.logged_2_mem = true;
+			if ( segmgr_append( &_g->hdls.pkt_mgr.sent_package_log , &pkt1->metadata.udp_hdr , sizeof( pkt1->metadata.udp_hdr ) ) == errOK )
+			{
+				pkt1->metadata.udp_hdr.logged_2_mem = true;
+			}
 		}
 	}
 
@@ -188,6 +254,8 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 
 	if ( pkt1->metadata.sent || pkt1->metadata.fault_registered ) return errOK;
 	
+	pkt1->metadata.fault_registered = 1;
+
 	// TODO . do something with faulty item
 	// try to seperate requestor and actually archiver. so i drop it on ground and coursed stinky person grab it
 	distributor_publish_buffer_size( &_g->hdls.prst_csh.store_data , data , len , src_g );
@@ -211,13 +279,32 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 	G * _g = ( G * )src_g;
 	ci_sgm_t * pseg = NULL;
 	
+	struct
+	{
+		union
+		{
+			struct
+			{
+				long a , b;
+			} big_data;
+			char bytes[16];
+		} arr;
+		uchar idx;
+	} cpu_unburne = {0}; // suppress long time useless fetch rate
+
 	do
 	{
 		if ( CLOSE_APP_VAR() ) break;
 
+		//SYS_ALIVE_CHECK();
+
 		pseg = segmgr_pop_filled_segment( &_g->hdls.pkt_mgr.aggr_inp_pkt , False , seg_trv_LIFO );
 		if ( pseg ) // poped on memory packets
 		{
+		//SYS_ALIVE_CHECK();
+
+			cpu_unburne.idx = ( cpu_unburne.idx + 1 ) % sizeof( cpu_unburne.arr );
+			cpu_unburne.arr.bytes[ cpu_unburne.idx ] = 1;
 			distributor_publish_int( &_g->hdls.prst_csh.pagestack_gateway_status , 0 , NULL ); // stop persistent storage discharge
 
 			// try to send from mem under tcp to dst
@@ -228,12 +315,24 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 			}
 			// then close segment
 			ci_sgm_mark_empty( &_g->hdls.pkt_mgr.aggr_inp_pkt , pseg ); // pop last emptied segment
+
+			//SYS_ALIVE_CHECK();
 		}
 		else // there is no packet in memory so fetch persisted packets
 		{
+			cpu_unburne.idx = ( cpu_unburne.idx + 1 ) % sizeof( cpu_unburne.arr );
+			cpu_unburne.arr.bytes[ cpu_unburne.idx ] = 0;
 			distributor_publish_int( &_g->hdls.prst_csh.pagestack_gateway_status , 1 , NULL ); // resume persistent storage discharge
+
+			//SYS_ALIVE_CHECK();
 		}
-		// TODO . some sleep to decay cpu burne
+		
+		//SYS_ALIVE_CHECK();
+
+		if ( !cpu_unburne.arr.big_data.a && !cpu_unburne.arr.big_data.b ) // enough time for packet arrive
+		{
+			mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
+		}
 	}
 	while( 1 );
 	distributor_publish_int( &_g->hdls.prst_csh.pagestack_gateway_status , 0 , NULL ); // stop persistent storage discharge

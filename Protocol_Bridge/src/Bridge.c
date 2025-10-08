@@ -58,6 +58,7 @@ void init_ActiveBridge( G * _g , AB * pb )
 		{
 			pb->udps[ iudp ].owner_pb = pb;
 			pb->udps[ iudp ].__udp_cfg_pak = pb->cpy_cfg.m.m.maintained.in + iudp;
+			//distributor_init( &pb->udps[ iudp ].change_state_dist , 1 );
 		}
 	}
 	if ( pb->cpy_cfg.m.m.maintained.out_count > 0 )
@@ -70,9 +71,11 @@ void init_ActiveBridge( G * _g , AB * pb )
 		{
 			pb->tcps[ itcp ].owner_pb = pb;
 			pb->tcps[ itcp ].__tcp_cfg_pak = pb->cpy_cfg.m.m.maintained.out + itcp;
+			distributor_init( &pb->tcps[ itcp ].change_state_dist , 1 );
 		}
 	}
 
+	#ifndef notcurses_Section
 
 	cbuf_m_init( &pb->stat.round_init_set.udp_stat_5_sec_count , 5 );
 	cbuf_m_init( &pb->stat.round_init_set.udp_stat_10_sec_count , 10 );
@@ -288,10 +291,11 @@ void init_ActiveBridge( G * _g , AB * pb )
 	pb->stat.pb_40s_tcp_bps->storage.bt.pass_data = pb;
 	pb->stat.pb_40s_tcp_bps->conversion_fxn = pb_40s_tcp_bps_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 3 , pb->stat.pb_40s_tcp_bps ) , 0 );
-	 
 
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( pb_every_ticking_refresh ) , pb ) , 1 );
 	init_udps_fgms( &pb->trd.cmn.cached_udp );
+
+	#endif
 
 
 	BEGIN_RET // TODO . complete reverse on error
@@ -313,7 +317,7 @@ void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_path * hlpr )
 	hlpr->thread_is_created = &pb->trd.cmn.thread_is_created;
 	hlpr->do_close_thread = &pb->trd.cmn.do_close_thread;
 	//hlpr->creation_thread_race_cond = &pb->trd.cmn.creation_thread_race_cond;
-	hlpr->bridg_prerequisite_stabled = &pb->trd.cmn.bridg_prerequisite_stabled;
+	//hlpr->bridg_prerequisite_stabled = &pb->trd.cmn.bridg_prerequisite_stabled;
 	//hlpr->buf_psh_distri = &pb->trd.cmn.payload_push;
 }
 

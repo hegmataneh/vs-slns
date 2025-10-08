@@ -23,14 +23,14 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
-	while ( !pb->trd.cmn.bridg_prerequisite_stabled )
-	{
-		if ( pb->trd.cmn.do_close_thread )
-		{
-			break;
-		}
-		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
-	}
+	//while ( !pb->trd.cmn.bridg_prerequisite_stabled )
+	//{
+	//	if ( pb->trd.cmn.do_close_thread )
+	//	{
+	//		break;
+	//	}
+	//	mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
+	//}
 
 	M_BREAK_STAT( distributor_init( &pb->trd.cmn.payload_push , 1 ) , 1 );
 	M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.payload_push , SUB_DIRECT_ONE_CALL_BUFFER_SIZE ,

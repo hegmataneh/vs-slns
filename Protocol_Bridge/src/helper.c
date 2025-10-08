@@ -145,11 +145,14 @@ _CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg )
 	nnc_cell_triggered( pb->stat.pb_fault_cell ); // this is how i priotorized error view by addign this line in changes call back. instead if i added this line in some place that like pool and every for example one second call that it has lower prio .
 }
 
-_CALLBACK_FXN void udp_connected( pass_p src_pb , int v )
+_CALLBACK_FXN void udp_connected( pass_p src_AB , int v )
 {
-	AB * pb = ( AB * )src_pb;
+	AB * pb = ( AB * )src_AB;
+	
 	pb->stat.round_zero_set.udp_connection_count++;
 	pb->stat.round_zero_set.total_retry_udp_connection_count++;
+
+	//distributor_publish_int( &pudp->change_state_dist , 1 , src_AB_udp ); // transfer state per case
 
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count++;
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_udp_connection_count++;
@@ -159,24 +162,33 @@ _CALLBACK_FXN void udp_connected( pass_p src_pb , int v )
 	nnc_cell_triggered( pb->stat.pb_UDP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_UDP_retry_conn_cell );
 }
-_CALLBACK_FXN void udp_disconnected( pass_p src_pb , int v )
+_CALLBACK_FXN void udp_disconnected( pass_p src_AB_udp , int v )
 {
-	AB * pb = ( AB * )src_pb;
+	AB_udp * pudp = ( AB_udp * )src_AB_udp;
+	AB * pb = pudp->owner_pb;
+
 	pb->stat.round_zero_set.udp_connection_count--;
+
+	//distributor_publish_int( &pudp->change_state_dist , 0 , src_AB_udp ); // transfer state per case
 
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count--;
 
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_UDP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_UDP_conn_cell );
 }
+
+// upper obeserver and distributor
 _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , sockfd fd )
 {
 	AB_tcp * tcp = ( AB_tcp * )src_AB_tcp;
 	AB * pb = tcp->owner_pb;
+	
 	// first try to send by file desc if succ then pointer must be valid
 	dict_fst_put( &TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->hdls.pkt_mgr.map_tcp_socket , tcp->__tcp_cfg_pak->name , fd , ( void_p )tcp , NULL , NULL , NULL );
 	tcp->owner_pb->stat.round_zero_set.tcp_connection_count++;
 	tcp->owner_pb->stat.round_zero_set.total_retry_tcp_connection_count++;
+
+	distributor_publish_int( &tcp->change_state_dist , 1 , src_AB_tcp ); // transfer state per case
 
 	TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count++;
 	TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_tcp_connection_count++;
@@ -186,10 +198,14 @@ _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , sockfd fd )
 	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_TCP_retry_conn_cell );
 }
-_CALLBACK_FXN void tcp_disconnected( pass_p src_pb , int v )
+_CALLBACK_FXN void tcp_disconnected( pass_p src_AB_tcp , int v )
 {
-	AB * pb = ( AB * )src_pb;
+	AB_tcp * tcp = ( AB_tcp * )src_AB_tcp;
+	AB * pb = tcp->owner_pb;
+
 	pb->stat.round_zero_set.tcp_connection_count--;
+
+	distributor_publish_int( &tcp->change_state_dist , 0 , src_AB_tcp ); // transfer state per case
 
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count--;
 
@@ -387,7 +403,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 		MM_BREAK_IF( bind( pb->udps[ iudp ].udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errSocket , 1 , "bind sock error" );
 		pb->udps[ iudp ].udp_connection_established = 1;
 
-		distributor_publish_int( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )pb );
+		distributor_publish_int( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )( AB_udp * )&( pb->udps[ iudp ] ) );
 
 		//_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
 	}
@@ -424,15 +440,16 @@ status connect_one_tcp( AB_tcp * tcp )
 			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
 			{
 				_close_socket( &tcp->tcp_sockfd );
-				mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
-				continue;
+				//mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+				//continue;
 			}
 
-			MM_BREAK_IF( 1 , errSocket , 1 , "Error connecting to TCP server" );
+			N_BREAK_IF( 1 , errSocket , 1 );
 		}
 		else
 		{
 			tcp->tcp_connection_established = 1;
+			tcp->tcp_is_about_to_connect = 0;
 			distributor_publish_int( &_g->distributors.pb_tcp_connected_dist , tcp->tcp_sockfd , ( pass_p )tcp );
 			return errOK;
 		}
@@ -453,10 +470,12 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
 	INIT_BREAKABLE_FXN();
 
 	AB * pb = ( AB * )src_pb;
-	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
 	while( 1 )
 	{
+		if ( CLOSE_APP_VAR() ) break;
+
 		int all_tcp_connected = 0;
 		for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 		{
@@ -468,9 +487,9 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
 
 			connect_one_tcp( &pb->tcps[ itcp ] );
 		}
-		if ( all_tcp_connected == pb->tcps_count )
+		//if ( all_tcp_connected == pb->tcps_count )
 		{
-			break;
+			mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 		}
 	}
 
@@ -495,97 +514,96 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 	{
 		if ( CLOSE_APP_VAR() ) break;
 
-		for ( int imask = 0 ; imask < _g->bridges.ABhs_masks_count ; imask++ )
-		{
-			if ( _g->bridges.ABhs_masks[ imask ] )
-			{
-				if
-				(
-					_g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.temp_data.delayed_validation &&
-					//_g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.enable &&
-					!_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled
-				)
-				{
-					if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "krnl_udp_counter" ) )
-					{
-						if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one" ) )
-						{
-							if ( _g->bridges.ABs[ imask ].single_AB->udps_count > 0 && _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established )
-							{
-								_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled = 1;
-							}
-						}
-						else
-						{
-							WARNING( 0 ); // implement on demand
-						}
-					}
-					else if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "pcap_udp_counter" ) )
-					{
-					}
-					else if
-					(
-						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_krnl2krnl_SF" ) ||
-						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2krnl_SF" )
-					)
-					{
-						if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one2one" ) )
-						{
-							if
-							(
-								_g->bridges.ABs[ imask ].single_AB->udps_count > 0 && _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established  &&
-								_g->bridges.ABs[ imask ].single_AB->tcps_count > 0 && _g->bridges.ABs[ imask ].single_AB->tcps->tcp_connection_established
-							)
-							{
-								_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled = 1;
-							}
-						}
-						else
-						{
-							WARNING( 0 ); // implement on demand
-						}
-					}
-					else if
-					(
-						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2many_pcap2krnl_SF" ) ||
-						iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "many2one_pcap2krnl_S&F_serialize" )
-					)
-					{
-						if
-						(
-							iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one2many" ) ||
-							iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "many2one" )
-						)
-						{
-							WARNING( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.in_count >= 1 );
-							WARNING( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.out_count >= 1 );
-
-							int prerequisite_stablished = 1;
-							prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->udps_count );
-							prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->tcps_count );
-							
-							for ( int iudp = 0 ; iudp < _g->bridges.ABs[ imask ].single_AB->udps_count ; iudp++ )
-							{
-								prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->udps[ iudp ].udp_connection_established );
-							}
-							for ( int itcp = 0 ; itcp < _g->bridges.ABs[ imask ].single_AB->tcps_count ; itcp++ )
-							{
-								prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->tcps[ itcp ].tcp_connection_established );
-							}
-							_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled = prerequisite_stablished;
-						}
-						else
-						{
-							WARNING( 0 ); // implement on demand
-						}
-					}
-					else
-					{
-						WARNING( 0 ); // implement on demand
-					}
-				}
-			}
-		}
+		//for ( int imask = 0 ; imask < _g->bridges.ABhs_masks_count ; imask++ )
+		//{
+		//	if ( _g->bridges.ABhs_masks[ imask ] )
+		//	{
+		//		if
+		//		(
+		//			_g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.temp_data.delayed_validation &&
+		//			//_g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.enable &&
+		//			!_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled
+		//		)
+		//		{
+		//			if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "krnl_udp_counter" ) )
+		//			{
+		//				if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one" ) )
+		//				{
+		//					if ( _g->bridges.ABs[ imask ].single_AB->udps_count > 0 && _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established )
+		//					{
+		//						_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled = 1;
+		//					}
+		//				}
+		//				else
+		//				{
+		//					WARNING( 0 ); // implement on demand
+		//				}
+		//			}
+		//			else if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "pcap_udp_counter" ) )
+		//			{
+		//			}
+		//			else if
+		//			(
+		//				iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_krnl2krnl_SF" ) ||
+		//				iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2one_pcap2krnl_SF" )
+		//			)
+		//			{
+		//				if ( iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one2one" ) )
+		//				{
+		//					if
+		//					(
+		//						_g->bridges.ABs[ imask ].single_AB->udps_count > 0 && _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established  &&
+		//						_g->bridges.ABs[ imask ].single_AB->tcps_count > 0 && _g->bridges.ABs[ imask ].single_AB->tcps->tcp_connection_established
+		//					)
+		//					{
+		//						_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled = 1;
+		//					}
+		//				}
+		//				else
+		//				{
+		//					WARNING( 0 ); // implement on demand
+		//				}
+		//			}
+		//			else if
+		//			(
+		//				iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "one2many_pcap2krnl_SF" ) ||
+		//				iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.thread_handler_act , "many2one_pcap2krnl_S&F_serialize" )
+		//			)
+		//			{
+		//				if
+		//				(
+		//					iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "one2many" ) ||
+		//					iSTR_SAME( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.id.out_type , "many2one" )
+		//				)
+		//				{
+		//					WARNING( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.in_count >= 1 );
+		//					WARNING( _g->bridges.ABs[ imask ].single_AB->cpy_cfg.m.m.maintained.out_count >= 1 );
+		//					int prerequisite_stablished = 1;
+		//					prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->udps_count );
+		//					prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->tcps_count );
+		//					
+		//					for ( int iudp = 0 ; iudp < _g->bridges.ABs[ imask ].single_AB->udps_count ; iudp++ )
+		//					{
+		//						prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->udps[ iudp ].udp_connection_established );
+		//					}
+		//					for ( int itcp = 0 ; itcp < _g->bridges.ABs[ imask ].single_AB->tcps_count ; itcp++ )
+		//					{
+		//						prerequisite_stablished &= Booleanize( _g->bridges.ABs[ imask ].single_AB->tcps[ itcp ].tcp_connection_established );
+		//					}
+		//					_g->bridges.ABs[ imask ].single_AB->trd.cmn.bridg_prerequisite_stabled = prerequisite_stablished;
+		//				}
+		//				else
+		//				{
+		//					WARNING( 0 ); // implement on demand
+		//				}
+		//			}
+		//			else
+		//			{
+		//				WARNING( 0 ); // implement on demand
+		//			}
+		//		}
+		//	}
+		//}
 
 		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	}

@@ -5,8 +5,10 @@
 #define Uses_helper
 #define Uses_Bridge
 #define Uses_INIT_BREAKABLE_FXN
-
+//#define Uses_DGB
 #include <Protocol_Bridge.dep>
+
+//CODE_DBG_TOOLS();
 
 GLOBAL_VAR extern G * _g;
 
@@ -58,11 +60,21 @@ _CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src
 _CALLBACK_FXN void persistant_cache_mngr_control_pg_gateway( pass_p src_g , int open_close )
 {
 	G * _g = ( G * )src_g;
-	if ( open_close && !_g->hdls.prst_csh.pagestack_gateway_open_val )
+	
+	if ( open_close )
 	{
-		sem_post( &_g->hdls.prst_csh.pagestack_gateway_open_sem );
+		int sval = -1;
+		int * psval = NULL;
+		if ( !sem_getvalue( &_g->hdls.prst_csh.pagestack_gateway_open_sem , &sval ) )
+		{
+			psval = &sval;
+		}
+		if ( !psval || (*psval) < 1 )
+		{
+			sem_post( &_g->hdls.prst_csh.pagestack_gateway_open_sem );
+		}
 	}
-	if ( !open_close )
+	else
 	{
 		while ( sem_trywait( &_g->hdls.prst_csh.pagestack_gateway_open_sem ) == 0 );
 	}
@@ -73,30 +85,49 @@ _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p 
 {
 	G * _g = ( G * )src_g;
 	if ( CLOSE_APP_VAR() ) return pgstk_not_send__stop_sending;
-	if ( distributor_publish_buffer_size( &_g->hdls.prst_csh.pagestack_pakcets , data , len , NULL ) != errOK )
+	status ret = distributor_publish_buffer_size( &_g->hdls.prst_csh.pagestack_pakcets , data , len , NULL );
+	switch ( ret )
 	{
-		return _g->hdls.prst_csh.pagestack_gateway_open_val ? pgstk_not_send__continue_sending : pgstk_not_send__stop_sending;
-	}
-	else
-	{
-		return _g->hdls.prst_csh.pagestack_gateway_open_val ? pgstk_sended__continue_sending : pgstk_sended__stop_sending;
+		case errOK:
+		{
+			return _g->hdls.prst_csh.pagestack_gateway_open_val ? pgstk_sended__continue_sending : pgstk_sended__stop_sending;
+		}
+		case errTooManyAttempt:
+		{
+			return pgstk_not_send__continue_sending_with_delay;
+		}
+		default:
+		{
+			return _g->hdls.prst_csh.pagestack_gateway_open_val ? pgstk_not_send__continue_sending : pgstk_not_send__stop_sending;
+			break;
+		}
 	}
 }
 
 _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
+	status ret;
 	do
 	{
 		if ( CLOSE_APP_VAR() ) break;
 		sem_wait( &_g->hdls.prst_csh.pagestack_gateway_open_sem ); // wait until gate open
 		while ( _g->hdls.prst_csh.pagestack_gateway_open_val ) // do discharge untill open
 		{
-			if ( pg_stk_try_to_pop_latest( &_g->hdls.prst_csh.page_stack , persistant_cache_mngr_relay_packet ) == errEmpty ) // actually this fxn has loop and discharge it self
+			ret = pg_stk_try_to_pop_latest( &_g->hdls.prst_csh.page_stack , persistant_cache_mngr_relay_packet );
+			switch ( ret )
 			{
-				while ( sem_trywait( &_g->hdls.prst_csh.pagestack_gateway_open_sem ) == 0 ); // reset semaphore
-				_g->hdls.prst_csh.pagestack_gateway_open_val = 0;
-				continue;
+				case errEmpty: // actually this fxn has loop and discharge it self
+				{
+					while ( sem_trywait( &_g->hdls.prst_csh.pagestack_gateway_open_sem ) == 0 ); // reset semaphore
+					_g->hdls.prst_csh.pagestack_gateway_open_val = 0;
+					continue;
+				}
+				case errTooManyAttempt: // let get the cpu some air
+				{
+					mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+					break;
+				}
 			}
 		}
 	}

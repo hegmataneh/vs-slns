@@ -12,37 +12,6 @@ _PRIVATE_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_
 	AB * pb = ( AB * )src_pb;
 
 	if ( distributor_publish_onedirectcall_3voidp( &pb->trd.cmn.pcap_defrag_udp_push , ( void_p )src_pb , ( void_p )hdr , ( void_p )packet ) != errOK ) return; // dist udp packet
-	return;
-
-	//gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
-
-	//pb->stat.round_zero_set.udp.total_udp_get_count++;
-	//pb->stat.round_zero_set.udp.total_udp_get_byte += payload_len;
-	//pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
-	//pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += payload_len;
-
-	//pb->stat.round_zero_set.udp_get_data_alive_indicator++;
-
-	//time_t tnow = 0;
-	//tnow = time( NULL );
-	//// udp
-	//if ( difftime( tnow , pb->stat.round_zero_set.udp_1_sec.t_udp_throughput ) >= 1.0 )
-	//{
-	//	if ( pb->stat.round_zero_set.udp_1_sec.t_udp_throughput > 0 )
-	//	{
-	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_10_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_10_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-
-	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
-	//		cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
-	//	}
-	//	pb->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
-	//	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
-	//	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
-	//}
 }
 
 _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )

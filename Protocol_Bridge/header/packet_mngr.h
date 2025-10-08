@@ -39,8 +39,8 @@ typedef struct ready_2_send_packet_v1
 			bool retry; // do retry
 			bool retried;
 			bool fault_registered;
-			uint8_t pad2;
-
+			uint8 cool_down_attempt; // it is very wiered that two attempt to send is near each other
+			
 			uint64 tcp_name_key_hash;
 			uint64 tcp_name_uniq_id;
 		};
