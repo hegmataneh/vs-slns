@@ -1,3 +1,15 @@
+#ifdef Uses_rdy_pkt1
+	#define Uses_packet_mngr
+#endif
+
+#ifdef Uses_udp_hdr_t
+	#define Uses_packet_mngr
+#endif
+
+#ifdef Uses_pkt_mgr_t
+	#define Uses_packet_mngr
+#endif
+
 #ifdef Uses_init_udps_fgms
 	#define Uses_udp_defragmentator
 #endif
@@ -80,8 +92,9 @@
 #endif
 
 #ifdef Uses_helper
+	#define Uses_prst_csh_t
+	#define Uses_pkt_mgr_t
 	#define Uses_nnc_req
-	#define Uses_kv_table_t
 	#define Uses_ci_sgmgr_t
 	#define Uses_config
 	#define Uses_Bridge
@@ -104,10 +117,14 @@
 #endif
 
 #ifdef Uses_packet_mngr
+	#define Uses_distributor_t
+	#define Uses_kv_table_t
 	#define __INC_packet_mngr
 #endif
 
 #ifdef Uses_udp_defragmentator
+	#define Uses_ci_sgmgr_t
+	#define Uses_udp_hdr_t
 	#define __INC_udp_defragmentator
 #endif
 
@@ -117,4 +134,15 @@
 
 #ifdef Uses_ABstat
 	#define Uses_statistics
+#endif
+
+#ifdef Uses_persistant_cache_mgr
+	#define Uses_page_stack_t
+	#define Uses_sem_t
+	#define __INC_persistant_cache_mgr
+#endif
+
+#ifdef Uses_prst_csh_t
+	#define Uses_page_stack_t
+	#define Uses_persistant_cache_mgr
 #endif

@@ -21,25 +21,24 @@ typedef struct cache_udps_fgms
 	sem_t gateway;
 } udps_fgms;
 
-typedef struct gather_defragmentated_udp // aligned for boost up
+
+
+typedef struct gather_defragmentated_udp_metadata // aligned for boost up
 {
+	udp_hdr_t hdr;
+
 	uchar mark_memory; // check memory correctness
 	uint8_t proto; // protocole that use . for now it is udp
 	uint16_t frag_offset; // fragmented udp offset
-	uint32_t srcIP , dstIP; // use as udp id
-	uint16_t udp_pkt_id;
-
 	uint16_t data_length; // total length . just for main
 	uint16_t data_progress; // main and extra
-	uint16_t pad1;
-	struct timeval tm;
-} dfrg_udp;
+} dfrg_udp_metadata;
 
 status init_udps_fgms( udps_fgms * fgms );
 
 _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void_p src_packet );
 
-status poped_defraged_packet( void_p src_pb , buffer out_buf , size_t * out_len );
+status poped_defraged_packet( void_p src_pb , OUTalc buffer out_buf , OUTx size_t * out_len , OUTalc udp_hdr_t * out_hdr );
 
 #endif
 

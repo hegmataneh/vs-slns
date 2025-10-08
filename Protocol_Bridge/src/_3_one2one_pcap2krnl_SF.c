@@ -1,3 +1,4 @@
+#define Uses_WARNING
 #define Uses_defragment_pcap_data
 #define Uses_many_tcp_out_thread_proc
 #define Uses_distributor_init

@@ -1,4 +1,5 @@
-﻿#define Uses_many_tcp_out_thread_proc
+﻿#define Uses_WARNING
+#define Uses_many_tcp_out_thread_proc
 #define Uses_stablish_pcap_udp_connection
 #define Uses_distributor_init
 #define Uses_errno

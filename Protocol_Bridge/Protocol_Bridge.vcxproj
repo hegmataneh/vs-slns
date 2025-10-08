@@ -90,6 +90,7 @@
     <ClCompile Include="src\async_pcap_udp_store.c" />
     <ClCompile Include="src\async_tcp_forward.c" />
     <ClCompile Include="src\packet_mngr.c" />
+    <ClCompile Include="src\persistant_cache_mgr.c" />
     <ClCompile Include="src\udp_defragmentator.c" />
     <ClCompile Include="src\_5_many2one_pcap_krnl_SF.c" />
     <ClCompile Include="src\_2_krnl_udp_counter.c" />
@@ -116,6 +117,7 @@
     <ClInclude Include="header\async_pcap_udp_store.h" />
     <ClInclude Include="header\async_tcp_forward.h" />
     <ClInclude Include="header\packet_mngr.h" />
+    <ClInclude Include="header\persistant_cache_mgr.h" />
     <ClInclude Include="header\udp_defragmentator.h" />
     <ClInclude Include="header\_5_many2one_pcap_krnl_SF.h" />
     <ClInclude Include="header\garage.h" />

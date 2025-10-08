@@ -6,7 +6,7 @@
 #define Uses_INIT_BREAKABLE_FXN
 #include <Protocol_Bridge.dep>
 
-_PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2one_krnl2krnl_SF( pass_p data , buffer buf , int payload_len )
+_PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2one_krnl2krnl_SF( pass_p data , buffer buf , size_t payload_len )
 {
 	AB * pb = ( AB * )data;
 	return cbuf_pked_push( &pb->trd.cmn.ring_buf , buf , payload_len , payload_len , NULL );
@@ -33,7 +33,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	}
 
 	M_BREAK_STAT( distributor_init( &pb->trd.cmn.payload_push , 1 ) , 1 );
-	M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.payload_push , SUB_DIRECT_ONE_CALL_BUFFER_INT ,
+	M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.payload_push , SUB_DIRECT_ONE_CALL_BUFFER_SIZE ,
 		SUB_FXN( buffer_push_one2one_krnl2krnl_SF ) , src_pb ) , 1 );
 
 	time_t tnow = 0;
@@ -244,7 +244,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 							pb->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
 							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
-							if ( distributor_publish_buffer_int( &pb->trd.cmn.payload_push , buffer , bytes_received , NULL ) != errOK ) continue; // dist udp packet
+							if ( distributor_publish_buffer_size( &pb->trd.cmn.payload_push , buffer , bytes_received , NULL ) != errOK ) continue; // dist udp packet
 
 							gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 

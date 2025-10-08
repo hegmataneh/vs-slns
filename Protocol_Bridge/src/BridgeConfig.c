@@ -1,3 +1,4 @@
+#define Uses_STR_SAME
 #define Uses_definition
 #define Uses_MEMCPY
 #define Uses_malloc

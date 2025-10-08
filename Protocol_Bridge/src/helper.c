@@ -1,3 +1,8 @@
+#define Uses_format_elapsed_time_with_millis
+#define Uses_format_clock_time
+#define Uses_iSTR_SAME
+#define Uses_WARNING
+#define Uses_STR_SAME
 #define Uses_packet_mngr
 #define Uses__ECHO
 #define Uses_INIT_BREAKABLE_FXN
@@ -42,6 +47,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 	signal( SIGINT , quit_interrupt );
 	signal( SIGTERM , quit_interrupt );
 	signal( SIGPIPE , quit_interrupt );
+	// SIGBUS
 
 	//SIGSEGV
 	//SIGFPE
@@ -168,7 +174,7 @@ _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , sockfd fd )
 	AB_tcp * tcp = ( AB_tcp * )src_AB_tcp;
 	AB * pb = tcp->owner_pb;
 	// first try to send by file desc if succ then pointer must be valid
-	dict_fst_put( &TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->hdls.map_tcp_socket , tcp->__tcp_cfg_pak->name , fd , ( void_p )tcp , NULL , NULL , NULL );
+	dict_fst_put( &TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->hdls.pkt_mgr.map_tcp_socket , tcp->__tcp_cfg_pak->name , fd , ( void_p )tcp , NULL , NULL , NULL );
 	tcp->owner_pb->stat.round_zero_set.tcp_connection_count++;
 	tcp->owner_pb->stat.round_zero_set.total_retry_tcp_connection_count++;
 
@@ -527,7 +533,7 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 						{
 							if
 							(
-								_g->bridges.ABs[ imask ].single_AB->udps_count > 0 && _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established &&
+								_g->bridges.ABs[ imask ].single_AB->udps_count > 0 && _g->bridges.ABs[ imask ].single_AB->udps->udp_connection_established  &&
 								_g->bridges.ABs[ imask ].single_AB->tcps_count > 0 && _g->bridges.ABs[ imask ].single_AB->tcps->tcp_connection_established
 							)
 							{

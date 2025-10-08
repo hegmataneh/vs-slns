@@ -1,3 +1,4 @@
+#define Uses_WARNING
 #define Uses_FREE_DOUBLE_PTR
 #define Uses_udphdr
 #define Uses_errno
@@ -12,48 +13,6 @@ _PRIVATE_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_
 
 	if ( distributor_publish_onedirectcall_3voidp( &pb->trd.cmn.pcap_defrag_udp_push , ( void_p )src_pb , ( void_p )hdr , ( void_p )packet ) != errOK ) return; // dist udp packet
 	return;
-
-	//
-	////G * _g = pb->cpy_cfg.m.m.temp_data._g;
-	////AB_udp * udp = pb->udps; // caution . in this type of bridge udp conn must be just one
-
-	//const struct ip * ip_hdr;
-	//const struct udphdr * udp_hdr;
-	//const u_char * payload;
-
-	//int ip_header_len;
-	//int udp_header_len = sizeof( struct udphdr );
-	//int payload_len;
-
-	////dump_buffer( ( const buffer )packet , hdr->len );
-
-	////return;
-
-	//// Skip Ethernet header
-	//ip_hdr = ( struct ip * )( packet + SIZE_ETHERNET );
-	//ip_header_len = ip_hdr->ip_hl * 4;
-
-	//// UDP header follows IP header
-	//udp_hdr = ( struct udphdr * )( packet + SIZE_ETHERNET + ip_header_len );
-
-	//// Payload starts after UDP header
-	//payload = packet + SIZE_ETHERNET + ip_header_len + udp_header_len;
-	//payload_len = ntohs( udp_hdr->uh_ulen ) - udp_header_len;
-
-	////payload_len = 1; // HARD CODE . TODELETE
-
-	//if ( distributor_publish_buffer_int( &pb->trd.cmn.payload_push , ( buffer )payload , payload_len , NULL ) != errOK ) return; // dist udp packet
-
-	//////if ( cbuf_pked_push( &pb->trd.cmn.ring_buf , ( const buffer )payload , payload_len ) != errOK ) return;
-
-	//////printf( " Payload (%d bytes): " , payload_len );
-	//////for ( int i = 0; i < payload_len; i++ )
-	//////{
-	//////	if ( payload[ i ] >= 32 && payload[ i ] <= 126 ) // printable ASCII
-	//////		putchar( payload[ i ] );
-	//////	else
-	//////		putchar( '.' );
-	//////}
 
 	//gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
@@ -84,7 +43,6 @@ _PRIVATE_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_
 	//	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
 	//	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
 	//}
-
 }
 
 _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )

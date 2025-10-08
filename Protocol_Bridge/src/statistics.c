@@ -239,7 +239,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 		if ( !( tmp_debounce_release_segment++ % 5 ) )
 		{
 			// distribute segment management pulse
-			distributor_publish_void( &_g->distributors.throttling_release_halffill_segment , NULL/*each subscriber set what it need*/ );
+			distributor_publish_void( &_g->hdls.pkt_mgr.throttling_release_halffill_segment , NULL/*each subscriber set what it need*/ );
 		}
 
 		//pthread_mutex_lock( &_g->stat.lock_data.lock );

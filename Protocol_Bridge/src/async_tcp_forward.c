@@ -1,4 +1,6 @@
-﻿#define Uses_packet_mngr
+﻿#define Uses_WARNING
+#define Uses_iSTR_SAME
+#define Uses_packet_mngr
 #define Uses_dict_s_i_t
 #define Uses_dict_s_s_t
 #define Uses_MEMSET_ZERO_O
@@ -70,7 +72,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 		{
 			int igrp = -1;
 			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );
-			distributor_subscribe( hlpr->poped_payload , SUB_DIRECT_MULTICAST_CALL_BUFFER_INT ,
+			distributor_subscribe( hlpr->poped_payload , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE ,
 				SUB_FXN( operation_on_tcp_packet ) , pb->tcps + itcp );
 		}
 		else if ( iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_RoundRobin ) )
@@ -96,7 +98,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 
 			// add callback receiver of each tcp grp
 			distributor_subscribe_with_ring( hlpr->poped_payload ,
-				igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_INT , SUB_FXN( operation_on_tcp_packet ) , pb->tcps + itcp , pring );
+				igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( operation_on_tcp_packet ) , pb->tcps + itcp , pring );
 		}
 		else
 		{
@@ -108,8 +110,6 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 
 
 }
-
-extern bool __ccont;
 
 // read udp ring buffer and sent them into general buffer as fast as possible
 _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
@@ -130,11 +130,13 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 	AB_tcp * tcp = ( AB_tcp * )pdata;
 	
 	rdy_pkt1 * pkt = ( rdy_pkt1 * )buffer; // plain cup for packet
-	pkt->flags.version = TCP_PACKET_V1;
-	pkt->flags.sent = false;
-	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name );
-	pkt->flags.TCP_name_size = strlen( pkt->TCP_name );
-	pkt->flags.payload_offset = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS )/*to read hdr name faster*/;
+	pkt->metadata.version = TCP_PACKET_V1;
+	pkt->metadata.sent = false;
+	pkt->metadata.retry = true;
+	pkt->metadata.retried = false;
+	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
+	pkt->metadata.TCP_name_size = strlen( pkt->TCP_name );
+	pkt->metadata.payload_offset = sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + sizeof( EOS )/*to read hdr name faster*/;
 	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );
 
 	int output_tcp_socket_error_tolerance_count = 0; // restart socket after many error accur
@@ -146,12 +148,10 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 	}
 
 	// to be insure we used correct tcp output
-	M_BREAK_STAT( dict_fst_get_hash_id_bykey( &_g->hdls.map_tcp_socket , pkt->TCP_name , &pkt->flags.tcp_name_key_hash , &pkt->flags.tcp_name_uniq_id ) , 0 );
+	M_BREAK_STAT( dict_fst_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
 
 	//WARNING( pb->tcps_count >= 1 );
 	//AB_tcp * tcp = pb->tcps; // caution . in this type of bridge udp conn must be just one
-
-	//while ( !__ccont );
 
 	while ( 1 )
 	{
@@ -176,9 +176,11 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 
 		// from ring pcap to stack general
 		//while ( cbuf_pked_pop( hlpr->ring_buf , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
-		while( poped_defraged_packet( pb , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz ) == errOK )
+		while( poped_defraged_packet( pb , buffer + pkt->metadata.payload_offset /*hdr + pkt*/ , &sz , &pkt->metadata.udp_hdr ) == errOK )
 		{
-			clock_gettime( CLOCK_MONOTONIC_COARSE , &pkt->flags.rec_t );
+			pkt->metadata.udp_hdr.log_double_checked = false;
+			pkt->metadata.udp_hdr.logged_2_mem = false;
+			//clock_gettime( CLOCK_MONOTONIC_COARSE , &pkt->flags.rec_t );
 
 			if ( pb->trd.cmn.do_close_thread )
 			{
@@ -191,7 +193,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 
 			// CAUTION . in this broadcast it must store packet and return as soon as possible
 
-			if ( distributor_publish_buffer_int( hlpr->poped_payload , buffer , sz + pkt->flags.payload_offset , NULL ) != errOK ) // 14040622 . do replicate or roundrobin
+			if ( distributor_publish_buffer_size( hlpr->poped_payload , buffer , sz + pkt->metadata.payload_offset , NULL ) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;
 
 			pb->stat.round_zero_set.continuously_unsuccessful_send_error = 0;

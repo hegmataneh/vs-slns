@@ -1,3 +1,5 @@
+#define Uses_timeval_diff_ms
+#define Uses_WARNING
 #define Uses_udphdr
 #define Uses_ether_header
 #define Uses_errno
@@ -14,9 +16,7 @@ status init_udps_fgms( udps_fgms * fgms )
 	return errOK;
 }
 
-//bool __ccont = 0;
-
-// called by producer. so it has to be as fast as possible
+// called by producer. so it has to be as fast as possible . super fast
 _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void_p src_packet )
 {
 	AB * pb = ( AB * )src_pb;
@@ -82,12 +82,12 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 	}
 	
 
-	dfrg_udp my_hdr/* = {0}*/; // just think about execution speed. because here we are at getter side of rign so we should get as much as possible
-	my_hdr.mark_memory = MARKER_MEM; // to check memory validity
-	my_hdr.srcIP = src;
-	my_hdr.dstIP = dst;
-	my_hdr.proto = proto;
-	gettimeofday( &my_hdr.tm , NULL );
+	dfrg_udp_metadata udp_spec/* = {0}*/; // just think about execution speed. because here we are at getter side of rign so we should get as much as possible
+	udp_spec.mark_memory = MARKER_MEM; // to check memory validity
+	udp_spec.hdr.srcIP = src;
+	udp_spec.hdr.dstIP = dst;
+	udp_spec.proto = proto;
+	gettimeofday( &udp_spec.hdr.tm , NULL );
 
 	/* Case 1: not fragmented => whole udp packet */
 	if ( !frag_offset && !more )
@@ -96,12 +96,12 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 
 		//my_hdr.frag_offset = 0;
 		//my_hdr.udp_pkt_id = 0;
-		my_hdr.data_length = payload_len;
-		my_hdr.data_progress = payload_len;
+		udp_spec.data_length = payload_len;
+		udp_spec.data_progress = payload_len;
 
-		status d_error = cbuf_pked_push( &pb->trd.cmn.ring_buf , ( buffer )&my_hdr , sizeof( my_hdr ) , sizeof( my_hdr ) , NULL );
+		status d_error = cbuf_pked_push( &pb->trd.cmn.ring_buf , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , NULL );
 		if ( d_error != errOK ) return d_error;
-		return cbuf_pked_push( &pb->trd.cmn.ring_buf , udp_payload , my_hdr.data_progress , my_hdr.data_length , NULL );
+		return cbuf_pked_push( &pb->trd.cmn.ring_buf , udp_payload , udp_spec.data_progress , udp_spec.data_length , NULL );
 	}
 
 	uint16_t udp_pkt_id = ntohs( *( uint16_t * )( packet + 4 ) ); // IP ID field -> upd pkt id
@@ -112,31 +112,31 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		uint16_t payload_len = udp_dg_len - sizeof(struct udphdr);
 		uint16_t seg_payload_len = frag_len - sizeof(struct udphdr);
 
-		my_hdr.frag_offset = 0;
-		my_hdr.udp_pkt_id = udp_pkt_id;
-		my_hdr.data_length = payload_len;
-		my_hdr.data_progress = seg_payload_len; // use this field at defrag step and it is sign that say udp received completly
+		udp_spec.frag_offset = 0;
+		udp_spec.hdr.udp_pkt_id = udp_pkt_id;
+		udp_spec.data_length = payload_len;
+		udp_spec.data_progress = seg_payload_len; // use this field at defrag step and it is sign that say udp received completly
 
 		size_t hdr_addr , pyld_addr;
-		status d_error = cbuf_pked_push( &pb->trd.cmn.ring_buf , ( buffer )&my_hdr , sizeof( my_hdr ) , sizeof( my_hdr ) , &hdr_addr );
+		status d_error = cbuf_pked_push( &pb->trd.cmn.ring_buf , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , &hdr_addr );
 		if ( d_error != errOK ) return d_error;
-		d_error = cbuf_pked_push( &pb->trd.cmn.ring_buf , udp_payload , my_hdr.data_progress , my_hdr.data_length , &pyld_addr ); // for first one allocate more space then in read defrag by copyting them in their place
+		d_error = cbuf_pked_push( &pb->trd.cmn.ring_buf , udp_payload , udp_spec.data_progress , udp_spec.data_length , &pyld_addr ); // for first one allocate more space then in read defrag by copyting them in their place
 		if ( d_error == errOK )
 		{
 			#ifdef CCH
 			#undef CCH
 			#endif
-			#define CCH pb->trd.cmn.cached_udp.ids[ my_hdr.udp_pkt_id ]
+			#define CCH pb->trd.cmn.cached_udp.ids[ udp_spec.hdr.udp_pkt_id ]
 
-			if ( CCH.dirty && ( CCH.srcIP != my_hdr.srcIP || CCH.dstIP != my_hdr.dstIP ) )
+			if ( CCH.dirty && ( CCH.srcIP != udp_spec.hdr.srcIP || CCH.dstIP != udp_spec.hdr.dstIP ) )
 			{
 				MEMSET_ZERO_O( &CCH ); // maybe second part arrived first
 			}
 
-			CCH.data_length = my_hdr.data_length;
-			CCH.data_progress += my_hdr.data_progress;
-			CCH.srcIP = my_hdr.srcIP;
-			CCH.dstIP = my_hdr.dstIP;
+			CCH.data_length = udp_spec.data_length;
+			CCH.data_progress += udp_spec.data_progress;
+			CCH.srcIP = udp_spec.hdr.srcIP;
+			CCH.dstIP = udp_spec.hdr.dstIP;
 			CCH.dirty = 1;
 			CCH.ring_addr[ 0 ][ 0 ] = hdr_addr; // So, the ring handles translation to memory
 			CCH.ring_addr[ 0 ][ 1 ] = pyld_addr;
@@ -156,26 +156,26 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		if ( !frag_offset || frag_offset > ETHERNET_MTU ) return errGeneral;
 		uint16_t seg_payload_len = frag_len /* - sizeof(struct udphdr)*/;
 
-		my_hdr.frag_offset = frag_offset;
-		my_hdr.udp_pkt_id = udp_pkt_id;
-		my_hdr.data_length = 0; // not usable in here . because this is middle or terminate packet
-		my_hdr.data_progress = seg_payload_len; // be zero it means this is partial data udp
+		udp_spec.frag_offset = frag_offset;
+		udp_spec.hdr.udp_pkt_id = udp_pkt_id;
+		udp_spec.data_length = 0; // not usable in here . because this is middle or terminate packet
+		udp_spec.data_progress = seg_payload_len; // be zero it means this is partial data udp
 
 		size_t hdr_addr , pyld_addr;
-		status d_error = cbuf_pked_push( &pb->trd.cmn.ring_buf , ( buffer )&my_hdr , sizeof( my_hdr ) , sizeof( my_hdr ) , &hdr_addr );
+		status d_error = cbuf_pked_push( &pb->trd.cmn.ring_buf , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , &hdr_addr );
 		if ( d_error != errOK ) return d_error;
-		d_error = cbuf_pked_push( &pb->trd.cmn.ring_buf , udp_payload , my_hdr.data_progress , my_hdr.data_progress , &pyld_addr ); // for first one allocate more space then in read defrag by copyting them in their place
+		d_error = cbuf_pked_push( &pb->trd.cmn.ring_buf , udp_payload , udp_spec.data_progress , udp_spec.data_progress , &pyld_addr ); // for first one allocate more space then in read defrag by copyting them in their place
 		if ( d_error == errOK )
 		{
-			if ( CCH.dirty && ( CCH.srcIP != my_hdr.srcIP || CCH.dstIP != my_hdr.dstIP ) )
+			if ( CCH.dirty && ( CCH.srcIP != udp_spec.hdr.srcIP || CCH.dstIP != udp_spec.hdr.dstIP ) )
 			{
 				MEMSET_ZERO_O( &CCH ); // maybe second part arrived first
 			}
 
 			//CCH.data_length = my_hdr.data_length;
-			CCH.data_progress += my_hdr.data_progress;
-			CCH.srcIP = my_hdr.srcIP;
-			CCH.dstIP = my_hdr.dstIP;
+			CCH.data_progress += udp_spec.data_progress;
+			CCH.srcIP = udp_spec.hdr.srcIP;
+			CCH.dstIP = udp_spec.hdr.dstIP;
 			CCH.dirty = 1;
 			CCH.ring_addr[ CCH.last_pos + 1 ][ 0 ] = hdr_addr; // So, the ring handles translation to memory
 			CCH.ring_addr[ CCH.last_pos + 1 ][ 1 ] = pyld_addr;
@@ -183,8 +183,6 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 			if ( CCH.data_length && CCH.data_progress == CCH.data_length )
 			{
 				sem_post( &pb->trd.cmn.cached_udp.gateway ); // some udp packet complete
-
-				//__ccont = 1;
 			}
 
 			#undef CCH
@@ -195,12 +193,12 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 }
 
 // get udp packet payload plus extra hdr that not usabale . called in slower mode side of ring( consumer )
-status poped_defraged_packet( void_p src_pb , buffer out_buf , size_t * payload_len )
+status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_t * out_len , OUTcpy udp_hdr_t * out_hdr )
 {
 	AB * pb = ( AB * )src_pb;
 	
 	status d_error;
-	dfrg_udp tmp_hdr;
+	dfrg_udp_metadata tmp_hdr;
 	size_t hdr_sz = 0;
 	if ( ( d_error = cbuf_pked_pop( &pb->trd.cmn.ring_buf , &tmp_hdr , &hdr_sz , 60/*timeout*/ ) ) != errOK ) return d_error;
 
@@ -212,7 +210,7 @@ status poped_defraged_packet( void_p src_pb , buffer out_buf , size_t * payload_
 	#ifdef CCH
 	#undef CCH
 	#endif
-	#define CCH pb->trd.cmn.cached_udp.ids[ tmp_hdr.udp_pkt_id ]
+	#define CCH pb->trd.cmn.cached_udp.ids[ tmp_hdr.hdr.udp_pkt_id ]
 
 	if ( CCH.done )
 	{
@@ -221,7 +219,8 @@ status poped_defraged_packet( void_p src_pb , buffer out_buf , size_t * payload_
 
 	if ( tmp_hdr.data_length && tmp_hdr.data_length == tmp_hdr.data_progress ) // it is completed
 	{
-		return cbuf_pked_pop( &pb->trd.cmn.ring_buf , out_buf , payload_len , 60/*timeout*/ ); // most of the packet get here na dis normal
+		if ( out_hdr ) MEMCPY( out_hdr , &tmp_hdr.hdr );
+		return cbuf_pked_pop( &pb->trd.cmn.ring_buf , out_buf , out_len , 60/*timeout*/ ); // most of the packet get here na dis normal
 	}
 
 	// until this line complete and simple packet sent . now we have hdr that says next buf block situation
@@ -248,7 +247,7 @@ status poped_defraged_packet( void_p src_pb , buffer out_buf , size_t * payload_
 
 		struct timeval tnow;
 		gettimeofday( &tnow , NULL );
-		if ( timeval_diff_ms( &tmp_hdr.tm , &tnow ) > 5 )
+		if ( timeval_diff_ms( &tmp_hdr.hdr.tm , &tnow ) > 5 )
 		{
 			break;
 		}
@@ -265,35 +264,36 @@ status poped_defraged_packet( void_p src_pb , buffer out_buf , size_t * payload_
 
 	for ( uint8_t ipos = 0 ; ipos <= CCH.last_pos ; ipos++ )
 	{
-		dfrg_udp segm;
+		dfrg_udp_metadata segm;
 		// is bad mem . should not be proc because first one in grg peak . first one is main so others must be not
 		if ( cbuf_pked_blindcopy( &pb->trd.cmn.ring_buf , &segm , CCH.ring_addr[ ipos ][ 0 ] ) != errOK
-			|| segm.mark_memory != MARKER_MEM || !segm.data_progress )
+			|| segm.mark_memory != MARKER_MEM || !segm.data_progress ) // hdr
 		{
 			goto _ignore;
 		}
 
 		if ( ipos == 0 )
 		{
-			if ( payload_len ) *payload_len = segm.data_length;
+			if ( out_len ) *out_len = segm.data_length;
+			if ( out_hdr ) MEMCPY( out_hdr , &segm.hdr );
 		}
 		
 		// sag to rohehet agar kar nakoni . var gorbeh be jamalet agar kar koni
-		cbuf_pked_blindcopy( &pb->trd.cmn.ring_buf , out_buf + segm.frag_offset , CCH.ring_addr[ ipos ][ 1 ] );
+		cbuf_pked_blindcopy( &pb->trd.cmn.ring_buf , out_buf + segm.frag_offset , CCH.ring_addr[ ipos ][ 1 ] ); // data
 	}
 
-	CCH.done = 1;
+	CCH.done = 1; // to just later access ignored and do nothing
 
-	cbuf_pked_pop( &pb->trd.cmn.ring_buf , NULL , NULL , 1 ); // just ignore it
+	cbuf_pked_pop( &pb->trd.cmn.ring_buf , NULL , NULL , 1 ); // just ignore first occurance of fregmented part
 	#undef CCH
 
 
 	gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
 	pb->stat.round_zero_set.udp.total_udp_get_count++;
-	pb->stat.round_zero_set.udp.total_udp_get_byte += *payload_len;
+	pb->stat.round_zero_set.udp.total_udp_get_byte += *out_len;
 	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
-	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += *payload_len;
+	pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += *out_len;
 
 	pb->stat.round_zero_set.udp_get_data_alive_indicator++;
 

@@ -1,3 +1,5 @@
+#define Uses_iSTR_SAME
+#define Uses_WARNING
 #define Uses_init_udps_fgms
 #define Uses_proc_krnl_udp_capture
 #define Uses_pthread_create

@@ -1,3 +1,5 @@
+#define Uses_WARNING
+#define Uses_STR_DIFF
 #define Uses_MEMSET
 #define Uses_INIT_BREAKABLE_FXN
 #define Uses_TWD
