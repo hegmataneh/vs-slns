@@ -66,7 +66,7 @@
 	#define Uses_dict_o_t
 	#define Uses_distributor_t
 	#define Uses_pcap
-	#define Uses_WINDOW
+	//#define Uses_WINDOW
 	#define Uses_BridgeConfig
 	#define Uses_pthread_t
 	#define __INC_Bridge
@@ -78,7 +78,6 @@
 
 #ifdef Uses_BridgeConfig
 	#define Uses_CFG_ITM
-	//#define Uses_bool
 	#define __INC_BridgeConfig
 #endif
 
@@ -91,7 +90,7 @@
 	#define __INC_definition
 #endif
 
-#ifdef Uses_helper
+#ifdef Uses_globals
 	#define Uses_prst_csh_t
 	#define Uses_pkt_mgr_t
 	#define Uses_nnc_req
@@ -99,7 +98,7 @@
 	#define Uses_config
 	#define Uses_Bridge
 	#define Uses_statistics
-	#define __INC_helper
+	#define __INC_globals
 #endif
 
 #ifdef Uses_statistics
@@ -108,7 +107,7 @@
 	#define Uses_definition
 	#define Uses_WINDOW
 	#define Uses_cbuf_metr
-	#define Uses_helper
+	#define Uses_globals
 	#define __INC_statistics
 #endif
 

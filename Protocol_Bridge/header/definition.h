@@ -35,7 +35,10 @@
 #define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
 
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
-#define CLOSE_APP_VAR() ( _g->cmd.quit_app )
+
+#define GRACEFULLY_END_THREAD() ( _g->cmd.quit_thread_3 )
+
+//#define CLOSE_APP_VAR() ( _g->cmd.quit_app_4 )
 
 // TODO . maybe in middle of config change bug appear ad app unexpectedly quit but that sit is very rare
 #define RETRY_UNEXPECTED_WAIT_FOR_SOCK() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.retry_unexpected_wait_for_sock : 3 )
@@ -62,3 +65,25 @@ typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
 #define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit ) ( NUMBER_IN_SHORT_FORM() ? /*make cell string in short form or long*/ \
 		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit ) :\
 		__snprintf( baaf , sizeof(baaf) , "%llu" , val ) )
+
+
+extern char __arrr[ 10000 ];
+extern int __arrr_n;
+
+enum cleanup_priority_order /*ascending termination priority*/
+{
+	clean_globals ,
+	clean_config ,
+
+	clean_persistant_cache_mgr ,
+	clean_packet_mngr , /*most have higher priority than persistant_cache_mgr*/
+
+	clean_threads , /*wait until all thread go away*/
+
+	clean_try_post_packet , // before thread goes down
+
+	clean_bridges ,
+
+	clean_connections , // close connection for no more data
+};
+

@@ -7,7 +7,7 @@
 #define Uses_pthread_t
 #define Uses_ncurses
 #define Uses_statistics
-#define Uses_helper
+#define Uses_globals
 #include <Protocol_Bridge.dep>
 
 GLOBAL_VAR extern G * _g;
@@ -25,13 +25,13 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
 
 	init_tui( _g );
 
-	init_bypass_stdout( _g );
+	//init_bypass_stdout( _g );
 
 	distributor_init( &_g->distributors.throttling_refresh_stat , 1 );
 }
 
 __attribute__( ( constructor( 103 ) ) )
-static void pre_main_init_stat_component( void )
+_PRIVATE_FXN void pre_main_init_stat_component( void )
 {
 	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_stat ) , _g );
 }
@@ -211,19 +211,12 @@ _CALLBACK_FXN void g_every_ticking_refresh( pass_p src_g )
 
 _THREAD_FXN void_p stats_thread( pass_p src_g )
 {
-	//static TWD twd = { 0 };
-	//if ( twd.threadId == 0 )
-	//{
-	//	twd.threadId = pthread_self();
-	//	twd.cal = stats_thread; // self function address
-	//	twd.callback_arg = src_g;
-	//}
-	//if ( src_g == NULL )
-	//{
-	//	return ( void_p )&twd;
-	//}
 	G * _g = ( G * )src_g;
-
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	
 	distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( g_every_ticking_refresh ) , _g );
 	_g->distributors.throttling_refresh_stat.iteration_dir = tail_2_head; // first order issued then applied
 
@@ -231,7 +224,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 
 	while ( 1 )
 	{
-		if ( CLOSE_APP_VAR() ) break; // keep track changes until app is down
+		if ( GRACEFULLY_END_THREAD() ) break; // keep track changes until app is down
 
 		// distribute statistic referesh pulse
 		distributor_publish_void( &_g->distributors.throttling_refresh_stat , NULL/*each subscriber set what it need*/ );
@@ -273,7 +266,7 @@ status init_notcursor( G * _g )
 	INIT_BREAKABLE_FXN();
 
 	M_BREAK_STAT( nnc_begin_init_mode( &_g->stat.nc_h ) , 0 );
-	M_BREAK_STAT( array_init( &_g->stat.nc_s_req.field_keeper , sizeof( nnc_cell_content ) , 10 , 1 , 0 ) , 0 );
+	M_BREAK_STAT( mms_array_init( &_g->stat.nc_s_req.field_keeper , sizeof( nnc_cell_content ) , 1 , GROW_STEP , 0 ) , 0 );
 	//M_BREAK_STAT( dict_fst_create( &_g->stat.nc_s_req.map_flds , 256 ) , 0 );
 
 	M_BREAK_STAT( nnc_add_table( &_g->stat.nc_h , "P.B. overview" , &_g->stat.nc_s_req.pgeneral_tbl ) , 0 );
@@ -300,21 +293,21 @@ status init_notcursor( G * _g )
 	//// time title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 0 , "time" ) , 0 );
 	// time cell
-	M_BREAK_STAT( array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_time_cell ) , 0 );
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_time_cell ) , 0 );
 	_g->stat.nc_s_req.ov_time_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_time_cell->conversion_fxn = ov_cell_time_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 1 , _g->stat.nc_s_req.ov_time_cell ) , 0 );
 	//// ver title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , 0 , 2 , "ver" ) , 0 );
 	// ver cell
-	M_BREAK_STAT( array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_ver_cell ) , 0 );
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_ver_cell ) , 0 );
 	_g->stat.nc_s_req.ov_ver_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_ver_cell->conversion_fxn = ov_cell_version_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , 0 , 3 , _g->stat.nc_s_req.ov_ver_cell ) , 0 );
 	//// elapse time title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , 0 , 4 , "elapse" ) , 0 );
 	// elapse time cell
-	M_BREAK_STAT( array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_elapse_cell ) , 0 );
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_elapse_cell ) , 0 );
 	_g->stat.nc_s_req.ov_elapse_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_elapse_cell->conversion_fxn = ov_time_elapse_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , 0 , 5 , _g->stat.nc_s_req.ov_elapse_cell ) , 0 );
@@ -324,7 +317,7 @@ status init_notcursor( G * _g )
 	//// sys fault coun
 	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 0 , "fault" ) , 0 );
 	// UDP conn cell
-	M_BREAK_STAT( array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_fault_cell ) , 0 );
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_fault_cell ) , 0 );
 	_g->stat.nc_s_req.ov_fault_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_fault_cell->conversion_fxn = ov_fault_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 1 , _g->stat.nc_s_req.ov_fault_cell ) , 0 );
@@ -334,14 +327,14 @@ status init_notcursor( G * _g )
 	//// UDP conn title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 0 , "UDP conn" ) , 0 );
 	// UDP conn cell
-	M_BREAK_STAT( array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_UDP_conn_cell ) , 0 );
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_UDP_conn_cell ) , 0 );
 	_g->stat.nc_s_req.ov_UDP_conn_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_UDP_conn_cell->conversion_fxn = ov_UDP_conn_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 1 , _g->stat.nc_s_req.ov_UDP_conn_cell ) , 0 );
 	//// TCP conn title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 2 , "TCP conn" ) , 0 );
 	// TCP conn cell
-	M_BREAK_STAT( array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_TCP_conn_cell ) , 0 );
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_TCP_conn_cell ) , 0 );
 	_g->stat.nc_s_req.ov_TCP_conn_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_TCP_conn_cell->conversion_fxn = ov_TCP_conn_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 3 , _g->stat.nc_s_req.ov_TCP_conn_cell ) , 0 );
@@ -351,14 +344,14 @@ status init_notcursor( G * _g )
 	//// UDP retry conn title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 0 , "UDP retry" ) , 0 );
 	// UDP conn cell
-	M_BREAK_STAT( array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_UDP_retry_conn_cell ) , 0 );
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_UDP_retry_conn_cell ) , 0 );
 	_g->stat.nc_s_req.ov_UDP_retry_conn_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_UDP_retry_conn_cell->conversion_fxn = ov_UDP_retry_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 1 , _g->stat.nc_s_req.ov_UDP_retry_conn_cell ) , 0 );
 	//// TCP retry conn title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 2 , "TCP retry" ) , 0 );
 	// TCP conn cell
-	M_BREAK_STAT( array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_TCP_retry_conn_cell ) , 0 );
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_TCP_retry_conn_cell ) , 0 );
 	_g->stat.nc_s_req.ov_TCP_retry_conn_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_TCP_retry_conn_cell->conversion_fxn = ov_TCP_retry_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 3 , _g->stat.nc_s_req.ov_TCP_retry_conn_cell ) , 0 );

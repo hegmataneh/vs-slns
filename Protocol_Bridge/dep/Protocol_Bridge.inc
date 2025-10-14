@@ -35,8 +35,8 @@
 	#include "Bridge.h"
 #endif
 
-#ifdef __INC_helper
-	#include "helper.h"
+#ifdef __INC_globals
+	#include "globals.h"
 #endif
 
 #ifdef __INC__1_pcap_udp_counter

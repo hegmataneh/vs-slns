@@ -2,15 +2,27 @@
 #define Uses_persistant_cache_mgr
 #define Uses_MEMSET_ZERO_O
 #define Uses_errno
-#define Uses_helper
+#define Uses_globals
 #define Uses_Bridge
 #define Uses_INIT_BREAKABLE_FXN
-//#define Uses_DGB
 #include <Protocol_Bridge.dep>
 
-//CODE_DBG_TOOLS();
-
 GLOBAL_VAR extern G * _g;
+
+_PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr( pass_p src_g , long v )
+{
+	G * _g = ( G * )src_g;
+
+	sem_destroy( &_g->hdls.prst_csh.pagestack_gateway_open_sem );
+}
+
+_PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr_fetch( pass_p src_g , long v )
+{
+	G * _g = ( G * )src_g;
+
+	sem_post( &_g->hdls.prst_csh.pagestack_gateway_open_sem );
+	_g->hdls.prst_csh.pagestack_gateway_open_val = 0;
+}
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p src_g )
 {
@@ -22,7 +34,12 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p sr
 	distributor_init( &_g->hdls.prst_csh.pagestack_pakcets , 1 );
 	
 	distributor_subscribe( &_g->hdls.prst_csh.store_data , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( persistant_cache_mngr_store_data ) , _g );
-	distributor_subscribe( &_g->hdls.prst_csh.pagestack_gateway_status , SUB_INT , SUB_FXN( persistant_cache_mngr_control_pg_gateway ) , _g );
+	distributor_subscribe( &_g->hdls.prst_csh.pagestack_gateway_status , SUB_LONG , SUB_FXN( persistant_cache_mngr_control_pg_gateway ) , _g );
+
+	// register here to get quit cmd
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr ) , _g , clean_persistant_cache_mgr ); // when file write goes down
+
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr_fetch ) , _g , clean_try_post_packet ); // when fetch from file not need
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p src_g )
@@ -40,10 +57,8 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p s
 	M_V_END_RET
 }
 
-//sem_destroy( &vc->gateway );
-
 __attribute__( ( constructor( 106 ) ) )
-static void pre_main_init_persistant_cache_mngr_component( void )
+_PRIVATE_FXN void pre_main_init_persistant_cache_mngr_component( void )
 {
 	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_persistant_cache_mngr ) , _g );
 	distributor_subscribe( &_g->distributors.post_config_stablished , SUB_VOID , SUB_FXN( post_config_init_persistant_cache_mngr ) , _g );
@@ -57,7 +72,7 @@ _CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src
 	return pg_stk_store( &_g->hdls.prst_csh.page_stack , src_rdy_pkt1 , sz );
 }
 
-_CALLBACK_FXN void persistant_cache_mngr_control_pg_gateway( pass_p src_g , int open_close )
+_CALLBACK_FXN void persistant_cache_mngr_control_pg_gateway( pass_p src_g , long open_close )
 {
 	G * _g = ( G * )src_g;
 	
@@ -84,7 +99,8 @@ _CALLBACK_FXN void persistant_cache_mngr_control_pg_gateway( pass_p src_g , int 
 _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p src_g , void_p data , size_t len )
 {
 	G * _g = ( G * )src_g;
-	if ( CLOSE_APP_VAR() ) return pgstk_not_send__stop_sending;
+
+	if ( _g->cmd.block_sending_1 ) return pgstk_not_send__stop_sending;
 	status ret = distributor_publish_buffer_size( &_g->hdls.prst_csh.pagestack_pakcets , data , len , NULL );
 	switch ( ret )
 	{
@@ -107,10 +123,15 @@ _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p 
 _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+
 	status ret;
 	do
 	{
-		if ( CLOSE_APP_VAR() ) break;
+		if ( GRACEFULLY_END_THREAD() ) break;
 		sem_wait( &_g->hdls.prst_csh.pagestack_gateway_open_sem ); // wait until gate open
 		while ( _g->hdls.prst_csh.pagestack_gateway_open_val ) // do discharge untill open
 		{

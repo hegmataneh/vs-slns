@@ -1,3 +1,4 @@
+#define Uses_pthread_kill
 #define Uses_format_elapsed_time_with_millis
 #define Uses_format_clock_time
 #define Uses_iSTR_SAME
@@ -18,11 +19,13 @@
 #define Uses_read
 #define Uses_TWD
 #define Uses_pthread_t
-#define Uses_helper
+#define Uses_globals
 #define Uses_statistics
 #include <Protocol_Bridge.dep>
 
 GLOBAL_VAR extern G * _g;
+
+#ifndef DEBUG_section
 
 GLOBAL_VAR _STRONG_ATTR void M_showMsg( LPCSTR msg )
 {
@@ -35,20 +38,85 @@ GLOBAL_VAR void _Breaked()
 	i++;
 }
 
+#endif
+
+#ifndef main_initializer
+
+_PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
+{
+	G * _g = ( G * )src_g;
+	pthread_mutex_destroy(&_g->hdls.thread_close_mtx);   // init lock
+}
+
+_PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
+{
+	G * _g = ( G * )src_g;
+	size_t sz = array_get_count( &_g->trds.registered_thread );
+	pthread_t * ppthread_t = NULL;
+	
+	bool bcontinue = true;
+	while( bcontinue )
+	{
+		bool one_thread_still = false;
+		for ( int idx = 0 ; idx < sz ; idx++ )
+		{
+			if ( array_get_s( &_g->trds.registered_thread , idx , ( void ** )&ppthread_t ) == errOK && *ppthread_t )
+			{
+				one_thread_still = true;
+				//break;
+				//time_t tbegin = time( NULL );
+				//time_t tnow = tbegin;
+				//int ret = 0;
+				//while( ( ret = pthread_kill( *ppthread_t , 0 ) ) && ( ( tnow - tbegin ) < 10 ) ) // signal 0: no signal sent
+				//{
+				//	tnow = time( NULL );
+				//	mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
+				//}
+			}
+		}
+		if ( !one_thread_still )
+		{
+			bcontinue = false;
+		}
+	}
+	int i = 2 + 2;
+}
+
+_CALLBACK_FXN void thread_registration( pass_p src_g , long src_pthread_t )
+{
+	G * _g = ( G * )src_g;
+	pthread_mutex_lock( &_g->hdls.thread_close_mtx );
+	array_add( &_g->trds.registered_thread , ( void * )&src_pthread_t );
+	pthread_mutex_unlock( &_g->hdls.thread_close_mtx );
+}
+
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 {
 	G * _g = ( G * )src_g;
 
+	pthread_mutex_init(&_g->hdls.thread_close_mtx, NULL);   // init lock
+
+	array_init( &_g->trds.registered_thread , sizeof( pthread_t ) , 1 , GROW_STEP , 0 ); // keep started thread
+
 	////pthread_mutex_init( &_g->sync.mutex , NULL );
 	////pthread_cond_init( &_g->sync.cond , NULL );
 
-	distributor_init( &_g->distributors.quit_interrupt_dist , 1 );
+	distributor_init( &_g->distributors.thread_startup , 1 ); // to trace thread activity
+	distributor_subscribe( &_g->distributors.thread_startup , SUB_LONG , SUB_FXN( thread_registration ) , _g );
 
-	signal( SIGINT , quit_interrupt );
-	signal( SIGTERM , quit_interrupt );
-	signal( SIGPIPE , quit_interrupt );
-	// SIGBUS
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_threads ) , _g , clean_threads ); // wait for open threads
 
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_globals ) , _g , clean_globals ); // place to release global variables
+
+	//struct sigaction sa;
+	//sa.sa_handler = quit_interrupt;
+	//sigemptyset( &sa.sa_mask );
+	//sa.sa_flags = 0;
+	//sigaction( SIGINT , &sa , NULL );
+	//signal( SIGINT , quit_interrupt );
+	//signal( SIGTERM , quit_interrupt );
+	//signal( SIGPIPE , quit_interrupt );
+	//SIGBUS
 	//SIGSEGV
 	//SIGFPE
 
@@ -62,70 +130,23 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 	distributor_init( &_g->distributors.pb_tcp_connected_dist , 1 );
 	distributor_init( &_g->distributors.pb_tcp_disconnected_dist , 1 );
 
-	distributor_subscribe( &_g->distributors.pb_udp_connected_dist , SUB_INT , SUB_FXN( udp_connected ) , NULL );
-	distributor_subscribe( &_g->distributors.pb_udp_disconnected_dist , SUB_INT , SUB_FXN( udp_disconnected ) , NULL );
-	distributor_subscribe( &_g->distributors.pb_tcp_connected_dist , SUB_INT , SUB_FXN( tcp_connected ) , NULL );
-	distributor_subscribe( &_g->distributors.pb_tcp_disconnected_dist , SUB_INT , SUB_FXN( tcp_disconnected ) , NULL );
+	distributor_subscribe( &_g->distributors.pb_udp_connected_dist , SUB_LONG , SUB_FXN( udp_connected ) , NULL );
+	distributor_subscribe( &_g->distributors.pb_udp_disconnected_dist , SUB_LONG , SUB_FXN( udp_disconnected ) , NULL );
+	distributor_subscribe( &_g->distributors.pb_tcp_connected_dist , SUB_LONG , SUB_FXN( tcp_connected ) , NULL );
+	distributor_subscribe( &_g->distributors.pb_tcp_disconnected_dist , SUB_LONG , SUB_FXN( tcp_disconnected ) , NULL );
 }
 
 __attribute__( ( constructor( 104 ) ) )
-static void pre_main_init_helper_component( void )
+_PRIVATE_FXN void pre_main_init_helper_component( void )
 {
 	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_helper ) , _g );
+	
+	distributor_init_withOrder( &_g->distributors.quit_interrupt_dist , 1 );
 }
 
-_THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
-{
-	static TWD twd = { 0 };
-	if ( twd.threadId == 0 )
-	{
-		twd.threadId = pthread_self();
-		twd.cal = stdout_bypass_thread; // self function address
-		twd.callback_arg = src_g;
-	}
-	if ( src_g == NULL )
-	{
-		return ( void_p )&twd;
-	}
-	G * _g = ( G * )src_g;
+#endif
 
-	fd_set readfds;
-	char buffer[ DEFAULT_BUF_SIZE ];
-	while ( 1 )
-	{
-		FD_ZERO( &readfds );
-		FD_SET( _g->stat.pipefds[ 0 ] , &readfds );
-
-		int ready = select( _g->stat.pipefds[ 0 ] + 1 , &readfds , NULL , NULL , NULL );
-		if ( ready > 0 && FD_ISSET( _g->stat.pipefds[ 0 ] , &readfds ) )
-		{
-			int n = read( _g->stat.pipefds[ 0 ] , buffer , DEFAULT_BUF_SIZE - 1 );
-			buffer[ n ] = EOS;
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
-			strncpy( _g->stat.last_command , buffer , sizeof( _g->stat.last_command ) - 1 );
-#pragma GCC diagnostic pop
-		}
-	}
-	return NULL;
-}
-
-void init_bypass_stdout( G * _g )
-{
-	//int pipefd[ 2 ];
-	//MEMSET( pipefd , 0 , sizeof( pipefd ) );
-
-	// Make pipe
-	if ( pipe( _g->stat.pipefds ) == -1 )
-	{
-	}
-
-	// Redirect stdout
-	//fflush( stdout );
-	dup2( _g->stat.pipefds[ 1 ] , fileno( stderr ) );
-
-	pthread_t tid_stdout_bypass;
-	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( pass_p )_g );
-}
+#ifndef event_handler
 
 _CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg )
 {
@@ -134,7 +155,6 @@ _CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg )
 	_g->stat.aggregate_stat.app_fault_count++;
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_fault_cell );
 }
-
 _CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg )
 {
 	AB * pb = ( AB * )src_pb;
@@ -145,14 +165,14 @@ _CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg )
 	nnc_cell_triggered( pb->stat.pb_fault_cell ); // this is how i priotorized error view by addign this line in changes call back. instead if i added this line in some place that like pool and every for example one second call that it has lower prio .
 }
 
-_CALLBACK_FXN void udp_connected( pass_p src_AB , int v )
+_CALLBACK_FXN void udp_connected( pass_p src_AB , long v )
 {
 	AB * pb = ( AB * )src_AB;
 	
 	pb->stat.round_zero_set.udp_connection_count++;
 	pb->stat.round_zero_set.total_retry_udp_connection_count++;
 
-	//distributor_publish_int( &pudp->change_state_dist , 1 , src_AB_udp ); // transfer state per case
+	//distributor_publish_long( &pudp->change_state_dist , 1 , src_AB_udp ); // transfer state per case
 
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count++;
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_udp_connection_count++;
@@ -162,14 +182,14 @@ _CALLBACK_FXN void udp_connected( pass_p src_AB , int v )
 	nnc_cell_triggered( pb->stat.pb_UDP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_UDP_retry_conn_cell );
 }
-_CALLBACK_FXN void udp_disconnected( pass_p src_AB_udp , int v )
+_CALLBACK_FXN void udp_disconnected( pass_p src_AB_udp , long v )
 {
 	AB_udp * pudp = ( AB_udp * )src_AB_udp;
 	AB * pb = pudp->owner_pb;
 
 	pb->stat.round_zero_set.udp_connection_count--;
 
-	//distributor_publish_int( &pudp->change_state_dist , 0 , src_AB_udp ); // transfer state per case
+	//distributor_publish_long( &pudp->change_state_dist , 0 , src_AB_udp ); // transfer state per case
 
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count--;
 
@@ -178,17 +198,17 @@ _CALLBACK_FXN void udp_disconnected( pass_p src_AB_udp , int v )
 }
 
 // upper obeserver and distributor
-_CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , sockfd fd )
+_CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , long file_desc )
 {
 	AB_tcp * tcp = ( AB_tcp * )src_AB_tcp;
 	AB * pb = tcp->owner_pb;
 	
 	// first try to send by file desc if succ then pointer must be valid
-	dict_fst_put( &TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->hdls.pkt_mgr.map_tcp_socket , tcp->__tcp_cfg_pak->name , fd , ( void_p )tcp , NULL , NULL , NULL );
+	dict_fst_put( &TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->hdls.pkt_mgr.map_tcp_socket , tcp->__tcp_cfg_pak->name , ( int )file_desc , ( void_p )tcp , NULL , NULL , NULL );
 	tcp->owner_pb->stat.round_zero_set.tcp_connection_count++;
 	tcp->owner_pb->stat.round_zero_set.total_retry_tcp_connection_count++;
 
-	distributor_publish_int( &tcp->change_state_dist , 1 , src_AB_tcp ); // transfer state per case
+	distributor_publish_long( &tcp->change_state_dist , 1 , src_AB_tcp ); // transfer state per case
 
 	TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count++;
 	TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_tcp_connection_count++;
@@ -198,155 +218,19 @@ _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , sockfd fd )
 	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_TCP_retry_conn_cell );
 }
-_CALLBACK_FXN void tcp_disconnected( pass_p src_AB_tcp , int v )
+_CALLBACK_FXN void tcp_disconnected( pass_p src_AB_tcp , long v )
 {
 	AB_tcp * tcp = ( AB_tcp * )src_AB_tcp;
 	AB * pb = tcp->owner_pb;
 
 	pb->stat.round_zero_set.tcp_connection_count--;
 
-	distributor_publish_int( &tcp->change_state_dist , 0 , src_AB_tcp ); // transfer state per case
+	distributor_publish_long( &tcp->change_state_dist , 0 , src_AB_tcp ); // transfer state per case
 
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count--;
 
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
-}
-
-_CALLBACK_FXN void quit_interrupt( int sig )
-{
-	if ( sig ) ( void )sig; // TODO . what happeneed here
-	distributor_publish_int( &_g->distributors.quit_interrupt_dist , sig , NULL );
-	exit( 0 );
-}
-
-_THREAD_FXN void_p sync_thread( pass_p src_g ) // pause app until moment other app exist
-{
-	//INIT_BREAKABLE_FXN();
-	static TWD twd = { 0 };
-	if ( twd.threadId == 0 )
-	{
-		twd.threadId = pthread_self();
-		twd.cal = sync_thread; // self function address
-		twd.callback_arg = src_g;
-	}
-	if ( src_g == NULL )
-	{
-		return ( void_p )&twd;
-	}
-
-	//G * _g = ( G * )src_g;
-	////if ( _g->sync.lock_in_progress ) return NULL;
-
-	//struct timespec now , next_round_time;
-	//clock_gettime( CLOCK_REALTIME , &now );
-
-	////pthread_mutex_lock( &_g->sync.mutex );
-	//round_up_to_next_interval( &now , _g->appcfg.g_cfg->c.c.synchronization_min_wait , _g->appcfg.g_cfg->c.c.synchronization_max_roundup , &next_round_time );
-	////_g->sync.lock_in_progress = 1;
-	////pthread_mutex_unlock( &_g->sync.mutex );
-
-	////next_round_time.tv_sec += 5; // bridge start later
-
-	//format_clock_time( &next_round_time , __custom_message , sizeof( __custom_message ) );
-	//_DIRECT_ECHO( "Will wake at %s" , __custom_message );
-
-	//////pthread_mutex_lock(&_g->sync.mutex);
-	////// First thread sets the global target time
-	//////if (next_round_time.tv_sec == 0) {
-	//////	next_round_time = target;
-	//////}
-	//////pthread_mutex_unlock(&_g->sync.mutex);
-
-	//// Sleep until that global target time
-	//clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
-	//reset_nonuse_stat();
-
-	////pthread_mutex_lock( &_g->sync.mutex );
-	////_g->sync.lock_in_progress = 0;
-	////_g->sync.reset_static_after_lock = 1;
-	////pthread_cond_signal( &_g->sync.cond );
-	//////pthread_cond_broadcast( &_g->sync.cond );
-	////pthread_mutex_unlock( &_g->sync.mutex );
-
-	////clock_gettime( CLOCK_REALTIME , &now );
-	////_DIRECT_ECHO( "waked up" );
-	//_DIRECT_ECHO( "" );
-
-	return NULL;
-}
-
-_THREAD_FXN void_p input_thread( pass_p src_g )
-{
-	//INIT_BREAKABLE_FXN();
-	//static TWD twd = { 0 };
-	//if ( twd.threadId == 0 )
-	//{
-	//	twd.threadId = pthread_self();
-	//	twd.cal = input_thread; // self function address
-	//	twd.callback_arg = src_g;
-	//}
-	//if ( src_g == NULL )
-	//{
-	//	return ( void_p )&twd;
-	//}
-
-	//G * _g = ( G * )src_g;
-	while ( 1 )
-	{
-		//pthread_mutex_lock( &_g->stat.lock_data.lock );
-
-		//werase( _g->stat.input_win );
-		//box( _g->stat.input_win , 0 , 0 );
-
-		//pthread_mutex_unlock( &_g->stat.lock_data.lock );
-
-		//// Enable echo and get input
-		//echo();
-		//curs_set( 1 );
-		//wmove( _g->stat.input_win , 1 , 1 );
-		//wprintw( _g->stat.input_win , "cmd(quit,sync,rst): " );
-		//wrefresh( _g->stat.input_win );
-		//wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
-		//noecho();
-		//curs_set( 0 );
-
-		//pthread_mutex_lock( &_g->stat.lock_data.lock );
-		//Boolean boutput_command = True;
-
-		//if ( iSTR_SAME( _g->stat.input_buffer , "quit" ) )
-		//{
-		//	_g->cmd.quit_app = 1;
-		//	break;
-		//}
-		//else if ( iSTR_SAME( _g->stat.input_buffer , "sync" ) )
-		//{
-		//	boutput_command = False;
-		//	pthread_t thread;
-		//	if ( pthread_create( &thread , NULL , sync_thread , src_g ) != 0 )
-		//	{
-		//		_ECHO( "pthread_create" );
-		//	}
-		//	//break;
-		//}
-		//else if ( iSTR_SAME( _g->stat.input_buffer , "rst" ) )
-		//{
-		//	boutput_command = False;
-		//	reset_nonuse_stat();
-		//	//break;
-		//}
-		//
-		//if ( boutput_command )
-		//{
-		//	strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
-		//	_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
-		//}
-
-		//pthread_mutex_unlock( &_g->stat.lock_data.lock );
-	}
-	//BEGIN_SMPL
-	//M_V_END_RET
-	return NULL;
 }
 
 // TODO . close connection after change in config
@@ -358,9 +242,12 @@ _THREAD_FXN void_p input_thread( pass_p src_g )
 _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
-
 	AB * pb = ( AB * )src_pb;
 	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._pseudo_g;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
 
 	for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 	{
@@ -379,14 +266,14 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 		//MM_BREAK_IF( getsockopt( pb->udps[ iudp ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , &optlen ) < 0 , errSocket , 1 , "SO_REUSEADDR" );
 		MM_BREAK_IF( setsockopt( pb->udps[ iudp ].udp_sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , sizeof( optval ) ) < 0 , errSocket , 1 , "SO_REUSEADDR" );
 
-		int flags = fcntl( pb->udps[ iudp ].udp_sockfd, F_GETFL );
+		int flags = fcntl( pb->udps[ iudp ].udp_sockfd , F_GETFL );
 		fcntl( pb->udps[ iudp ].udp_sockfd , F_SETFL , flags | O_NONBLOCK );
 
 		// TODO . make it protocol independent
 		struct sockaddr_in server_addr;
 		MEMSET( &server_addr , 0 , sizeof( server_addr ) );
 		server_addr.sin_family = AF_INET; // IPv4
-		
+
 		int port = 0;
 		M_BREAK_IF( string_to_int( pb->udps[ iudp ].__udp_cfg_pak->data.UDP_origin_ports , &port ) , errGeneral , 0 );
 		WARNING( port > 0 );
@@ -403,7 +290,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 		MM_BREAK_IF( bind( pb->udps[ iudp ].udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errSocket , 1 , "bind sock error" );
 		pb->udps[ iudp ].udp_connection_established = 1;
 
-		distributor_publish_int( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )( AB_udp * )&( pb->udps[ iudp ] ) );
+		distributor_publish_long( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )( AB_udp * )&( pb->udps[ iudp ] ) );
 
 		//_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
 	}
@@ -414,7 +301,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 	return NULL; // Threads can return a value, but this example returns NULL
 }
 
-status connect_one_tcp( AB_tcp * tcp )
+_PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 {
 	INIT_BREAKABLE_FXN();
 	AB * pb = tcp->owner_pb;
@@ -450,7 +337,7 @@ status connect_one_tcp( AB_tcp * tcp )
 		{
 			tcp->tcp_connection_established = 1;
 			tcp->tcp_is_about_to_connect = 0;
-			distributor_publish_int( &_g->distributors.pb_tcp_connected_dist , tcp->tcp_sockfd , ( pass_p )tcp );
+			distributor_publish_long( &_g->distributors.pb_tcp_connected_dist , tcp->tcp_sockfd , ( pass_p )tcp );
 			return errOK;
 		}
 	}
@@ -468,13 +355,16 @@ status connect_one_tcp( AB_tcp * tcp )
 _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
-
 	AB * pb = ( AB * )src_pb;
 	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._pseudo_g;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
 
-	while( 1 )
+	while ( 1 )
 	{
-		if ( CLOSE_APP_VAR() ) break;
+		if ( GRACEFULLY_END_THREAD() ) break;
 
 		int all_tcp_connected = 0;
 		for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
@@ -493,13 +383,14 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
 		}
 	}
 
-	BREAK_OK(0); // to just ignore gcc warning
+	BREAK_OK( 0 ); // to just ignore gcc warning
 
 	BEGIN_SMPL
-	M_V_END_RET
-	return NULL; // Threads can return a value, but this example returns NULL
+		M_V_END_RET
+		return NULL; // Threads can return a value, but this example returns NULL
 }
 
+#endif
 
 /// <summary>
 /// this thread must be as simple as possible and without exception and any error because it is resposible for checking other and making them up
@@ -510,9 +401,9 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 
 	G * _g = ( G * )src_g;
 
-	while ( 1 )
+	while ( !_g->cmd.quit_app_4 )
 	{
-		if ( CLOSE_APP_VAR() ) break;
+		//if ( _g->cmd.quit_app_4 ) break; // most be closed when every thing closed
 
 		//for ( int imask = 0 ; imask < _g->bridges.ABhs_masks_count ; imask++ )
 		//{
@@ -613,6 +504,8 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 	return NULL; // Threads can return a value, but this time returns NULL
 }
 
+#ifndef usual_utils
+
 /// <summary>
 /// single point for thread wait
 /// </summary>
@@ -687,7 +580,7 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 
 	for ( int iint = 0 ; iint < *clusterd_cnt ; iint++ )
 	{
-		M_BREAK_IF( !( *interface_filter[ iint ] = strdup( distinct_interface.strs[ iint ] ) ) , errMemoryLow , 0 );
+		M_BREAK_IF( !( *interface_filter[ iint ] = STRDUP( distinct_interface.strs[ iint ] ) ) , errMemoryLow , 0 );
 	}
 	free_string_ar( &distinct_interface );
 
@@ -766,6 +659,185 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 	BEGIN_SMPL
 	M_V_END_RET
 }
+
+_CALLBACK_FXN void thread_goes_out_of_scope( void * ptr )
+{
+	pthread_mutex_lock( &_g->hdls.thread_close_mtx );
+	pthread_t * ptrd = ( pthread_t * )ptr;
+	size_t sz = array_get_count( &_g->trds.registered_thread );
+	pthread_t * ppthread_t = NULL;
+	for ( int idx = 0 ; idx < sz ; idx++ )
+	{
+		if ( array_get_s( &_g->trds.registered_thread , idx , ( void ** )&ppthread_t ) == errOK && *ppthread_t == *ptrd )
+		{
+			*ppthread_t = 0;
+		}
+	}
+	pthread_mutex_unlock( &_g->hdls.thread_close_mtx );
+}
+
+#endif
+
+#ifndef input_thread
+
+_THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
+{
+	G * _g = ( G * )src_g;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+
+	fd_set readfds;
+	char buffer[ DEFAULT_BUF_SIZE ];
+	while ( 1 )
+	{
+		FD_ZERO( &readfds );
+		FD_SET( _g->stat.pipefds[ 0 ] , &readfds );
+
+		int ready = select( _g->stat.pipefds[ 0 ] + 1 , &readfds , NULL , NULL , NULL );
+		if ( ready > 0 && FD_ISSET( _g->stat.pipefds[ 0 ] , &readfds ) )
+		{
+			int n = read( _g->stat.pipefds[ 0 ] , buffer , DEFAULT_BUF_SIZE - 1 );
+			buffer[ n ] = EOS;
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
+			strncpy( _g->stat.last_command , buffer , sizeof( _g->stat.last_command ) - 1 );
+#pragma GCC diagnostic pop
+		}
+	}
+	return NULL;
+}
+
+void init_bypass_stdout( G * _g )
+{
+	//int pipefd[ 2 ];
+	//MEMSET( pipefd , 0 , sizeof( pipefd ) );
+
+	// Make pipe
+	if ( pipe( _g->stat.pipefds ) == -1 )
+	{
+	}
+
+	// Redirect stdout
+	//fflush( stdout );
+	dup2( _g->stat.pipefds[ 1 ] , fileno( stderr ) );
+
+	pthread_t tid_stdout_bypass;
+	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( pass_p )_g );
+}
+
+_THREAD_FXN void_p sync_thread( pass_p src_g ) // pause app until moment other app exist
+{
+	//INIT_BREAKABLE_FXN();
+
+	//G * _g = ( G * )src_g;
+	// distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	//__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	////if ( _g->sync.lock_in_progress ) return NULL;
+
+	//struct timespec now , next_round_time;
+	//clock_gettime( CLOCK_REALTIME , &now );
+
+	////pthread_mutex_lock( &_g->sync.mutex );
+	//round_up_to_next_interval( &now , _g->appcfg.g_cfg->c.c.synchronization_min_wait , _g->appcfg.g_cfg->c.c.synchronization_max_roundup , &next_round_time );
+	////_g->sync.lock_in_progress = 1;
+	////pthread_mutex_unlock( &_g->sync.mutex );
+
+	////next_round_time.tv_sec += 5; // bridge start later
+
+	//format_clock_time( &next_round_time , __custom_message , sizeof( __custom_message ) );
+	//_DIRECT_ECHO( "Will wake at %s" , __custom_message );
+
+	//////pthread_mutex_lock(&_g->sync.mutex);
+	////// First thread sets the global target time
+	//////if (next_round_time.tv_sec == 0) {
+	//////	next_round_time = target;
+	//////}
+	//////pthread_mutex_unlock(&_g->sync.mutex);
+
+	//// Sleep until that global target time
+	//clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
+	//reset_nonuse_stat();
+
+	////pthread_mutex_lock( &_g->sync.mutex );
+	////_g->sync.lock_in_progress = 0;
+	////_g->sync.reset_static_after_lock = 1;
+	////pthread_cond_signal( &_g->sync.cond );
+	//////pthread_cond_broadcast( &_g->sync.cond );
+	////pthread_mutex_unlock( &_g->sync.mutex );
+
+	////clock_gettime( CLOCK_REALTIME , &now );
+	////_DIRECT_ECHO( "waked up" );
+	//_DIRECT_ECHO( "" );
+
+	return NULL;
+}
+
+_THREAD_FXN void_p input_thread( pass_p src_g )
+{
+	//INIT_BREAKABLE_FXN();
+	//G * _g = ( G * )src_g;
+	//distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	//__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+
+	while ( 1 )
+	{
+		//pthread_mutex_lock( &_g->stat.lock_data.lock );
+
+		//werase( _g->stat.input_win );
+		//box( _g->stat.input_win , 0 , 0 );
+
+		//pthread_mutex_unlock( &_g->stat.lock_data.lock );
+
+		//// Enable echo and get input
+		//echo();
+		//curs_set( 1 );
+		//wmove( _g->stat.input_win , 1 , 1 );
+		//wprintw( _g->stat.input_win , "cmd(quit,sync,rst): " );
+		//wrefresh( _g->stat.input_win );
+		//wgetnstr( _g->stat.input_win , _g->stat.input_buffer , INPUT_MAX - 1 );
+		//noecho();
+		//curs_set( 0 );
+
+		//pthread_mutex_lock( &_g->stat.lock_data.lock );
+		//Boolean boutput_command = True;
+
+		//if ( iSTR_SAME( _g->stat.input_buffer , "quit" ) )
+		//{
+		//	_g->cmd.quit_app_4 = 1;
+		//	break;
+		//}
+		//else if ( iSTR_SAME( _g->stat.input_buffer , "sync" ) )
+		//{
+		//	boutput_command = False;
+		//	pthread_t thread;
+		//	if ( pthread_create( &thread , NULL , sync_thread , src_g ) != 0 )
+		//	{
+		//		_ECHO( "pthread_create" );
+		//	}
+		//	//break;
+		//}
+		//else if ( iSTR_SAME( _g->stat.input_buffer , "rst" ) )
+		//{
+		//	boutput_command = False;
+		//	reset_nonuse_stat();
+		//	//break;
+		//}
+		//
+		//if ( boutput_command )
+		//{
+		//	strncpy( _g->stat.last_command , _g->stat.input_buffer , INPUT_MAX );
+		//	_g->stat.last_command[ INPUT_MAX - 1 ] = EOS;
+		//}
+
+		//pthread_mutex_unlock( &_g->stat.lock_data.lock );
+	}
+	//BEGIN_SMPL
+	//M_V_END_RET
+	return NULL;
+}
+
+#endif
 
 #ifndef update_cell_section
 

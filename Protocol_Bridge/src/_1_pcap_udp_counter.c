@@ -1,13 +1,13 @@
 #define Uses_WARNING
 #define Uses_FREE_DOUBLE_PTR
 #define Uses_errno
-#define Uses_helper
+#define Uses_globals
 #define Uses_Bridge
 #define Uses_INIT_BREAKABLE_FXN
 #define Uses_pcap
 #include <Protocol_Bridge.dep>
 
-void quit_interrupt_dist_pcap_udp_counter( pass_p src_pb , int v )
+_CALLBACK_FXN void quit_interrupt_dist_pcap_udp_counter( pass_p src_pb , long v )
 {
 	AB * pb = ( AB * )src_pb;
 	if ( pb->trd.t.p_pcap_udp_counter->handle )
@@ -17,7 +17,7 @@ void quit_interrupt_dist_pcap_udp_counter( pass_p src_pb , int v )
 	}
 }
 
-void handle_pcap_udp_counter( u_char * src_pb , const struct pcap_pkthdr * hdr , const u_char * packet )
+_CALLBACK_FXN void handle_pcap_udp_counter( u_char * src_pb , const struct pcap_pkthdr * hdr , const u_char * packet )
 {
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
@@ -36,9 +36,12 @@ void handle_pcap_udp_counter( u_char * src_pb , const struct pcap_pkthdr * hdr ,
 _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
-
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
 
 	//WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 	//char * dev = pb->cpy_cfg.m.m.maintained.in->data.UDP_origin_interface;
@@ -85,8 +88,9 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 		
 	}
 
-	distributor_publish_int( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )pb );
-	distributor_subscribe( &_g->distributors.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb );
+	distributor_publish_long( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )pb );
+	
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb , clean_connections );
 
 	// Capture indefinitely
 	MM_FMT_BREAK_IF( pcap_loop( pb->trd.t.p_pcap_udp_counter->handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->handle ) );

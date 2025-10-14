@@ -10,7 +10,7 @@ typedef struct udp_conn_cfg_data
 	CFG_ITM UDP_origin_interface;
 	int enable;
 	int reset_connection;
-} udp_cfg;
+} udp_cfg_t;
 
 typedef struct tcp_conn_cfg_data
 {
@@ -21,21 +21,21 @@ typedef struct tcp_conn_cfg_data
 	CFG_ITM TCP_destination_interface;
 	int enable;
 	int reset_connection;
-} tcp_cfg;
+} tcp_cfg_t;
 
 typedef struct bridge_cfg_input_part
 {
 	CFG_ITM name;
-	udp_cfg data;
+	udp_cfg_t data;
 
-} udp_cfg_pak;
+} udp_cfg_pak_t;
 
 typedef struct bridge_cfg_output_part
 {
 	CFG_ITM name;
-	tcp_cfg data;
+	tcp_cfg_t data;
 
-} tcp_cfg_pak;
+} tcp_cfg_pak_t;
 
 typedef struct bridge_cfg_0
 {
@@ -50,10 +50,10 @@ typedef struct bridge_cfg_0
 
 	struct bridge_maintained_parameter // options that stays in position
 	{
-		udp_cfg_pak *in;
+		udp_cfg_pak_t *in;
 		int in_count;
 
-		tcp_cfg_pak *out;
+		tcp_cfg_pak_t *out;
 		int out_count;
 
 		int enable;
@@ -79,12 +79,12 @@ typedef struct bridge_cfg_n
 typedef struct bridge_cfg // finalizer . protocol_bridge_cfg
 {
 	Bcfgn m; // be first member
-} Bcfg;
+} brg_cfg_t;
 
-void copy_bridge_cfg( Bcfg * dst , Bcfg * src );
+void copy_bridge_cfg( brg_cfg_t * dst , brg_cfg_t * src );
 
 int Bcfg0_id_equlity( Bcfg0 * left , Bcfg0 * right );
-int Bcfg_id_equlity( Bcfg * left , Bcfg * right );
+int Bcfg_id_equlity( brg_cfg_t * left , brg_cfg_t * right );
 
 int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right );
-int bridge_cfg_data_equlity( Bcfg * left , Bcfg * right );
+int bridge_cfg_data_equlity( brg_cfg_t * left , brg_cfg_t * right );

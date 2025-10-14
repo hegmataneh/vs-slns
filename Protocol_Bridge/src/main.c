@@ -4,7 +4,7 @@
 #define Uses_statistics
 #define Uses_config
 #define Uses_INIT_BREAKABLE_FXN
-#define Uses_helper
+#define Uses_globals
 #include <Protocol_Bridge.dep>
 
 GLOBAL_VAR G * _g = NULL; // just one global var
@@ -21,9 +21,43 @@ _PRIVATE_FXN void pre_main_top_prio_init( void )
 	distributor_init( &_g->distributors.pre_configuration , 1 );
 }
 
+extern mLeak_t __alc_hit[MLK_HASH_WIDTH][EACH_ADDR_COUNT];
+
+_CALLBACK_FXN void * signal_thread( void * arg )
+{
+	sigset_t * set = arg;
+	int sig;
+	sigwait( set , &sig ); // Wait for Ctrl+C (SIGINT)
+	_g->cmd.block_sending_1 = 1; // Signal all threads to stop
+	_g->cmd.burst_waiting_2 = true;
+	_g->cmd.quit_thread_3 = 1;
+	distributor_publish_long( &_g->distributors.quit_interrupt_dist , sig , NULL );
+	_g->cmd.quit_app_4 = 1;
+	printf( "\nSIGINT caught, stopping...\n" );
+	return NULL;
+}
+
+char __arrr[10000] = { 0 };
+int __arrr_n = { 0 };
+
 int main()
 {
 	INIT_BREAKABLE_FXN();
+
+	#ifndef decently_shutdown 
+	sigset_t set; // just in main fxn it is working and before everything
+	pthread_t th_signal;
+
+	// Block SIGINT in all threads (including main)
+	sigemptyset( &set );
+	sigaddset( &set , SIGINT );
+	sigaddset( &set , SIGTERM );
+	sigaddset( &set , SIGPIPE );
+	pthread_sigmask( SIG_BLOCK , &set , NULL );
+
+	// Start the signal handler thread
+	pthread_create( &th_signal , NULL , signal_thread , &set );
+	#endif
 
 	distributor_publish_void( &_g->distributors.pre_configuration , NULL ); // pre config state
 
@@ -37,9 +71,26 @@ int main()
 
 	M_BREAK_IF( pthread_join( _g->trds.trd_watchdog , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
 
+	FILE * fl = fopen( "leak.txt" , "w+" );
 
+	for ( int ii = 0 ; ii < MLK_HASH_WIDTH ; ii++ )
+	{
+		for ( int jj = 0 ; jj < EACH_ADDR_COUNT ; jj++ )
+		{
+			if ( __alc_hit[ ii ][ jj ].counter != 0 )
+			{
+				fprintf( fl ,  "\n" , __alc_hit[ ii ][ jj ].klstck );
+			}
+		}
+	}
+	fclose( fl );
+
+	sleep(1); // for sanitizer to dump
+	_exit(0);
 	return 0;
 	BEGIN_RET
 	M_V_END_RET
+	sleep( 1 );
+	_exit( 0 );
 	return 1;
 }

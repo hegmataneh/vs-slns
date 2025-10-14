@@ -35,6 +35,7 @@ typedef struct gather_defragmentated_udp_metadata // aligned for boost up
 } dfrg_udp_metadata;
 
 status init_udps_fgms( udps_fgms * fgms );
+void finalize_udps_fgms( udps_fgms * fgms );
 
 _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void_p src_packet );
 

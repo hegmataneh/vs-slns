@@ -84,7 +84,6 @@
     <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;*.txt;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
   </PropertyGroup>
   <ItemGroup>
-    <ClCompile Include="src\async_krnl_udp_store.c" />
     <ClCompile Include="src\Bridge.c" />
     <ClCompile Include="src\BridgeConfig.c" />
     <ClCompile Include="src\async_pcap_udp_store.c" />
@@ -101,7 +100,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="src\helper.c" />
+    <ClCompile Include="src\globals.c" />
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\statistics.c" />
     <ClCompile Include="src\_6_one2one_krnl2krnl_SF.c" />
@@ -120,14 +119,13 @@
     <ClInclude Include="header\persistant_cache_mgr.h" />
     <ClInclude Include="header\udp_defragmentator.h" />
     <ClInclude Include="header\_5_many2one_pcap_krnl_SF.h" />
-    <ClInclude Include="header\garage.h" />
     <ClInclude Include="header\_2_krnl_udp_counter.h" />
     <ClInclude Include="header\_4_one2many_pcap2krnl_SF.h" />
     <ClInclude Include="header\_3_one2one_pcap2krnl_SF.h" />
     <ClInclude Include="header\_1_pcap_udp_counter.h" />
     <ClInclude Include="header\config.h" />
     <ClInclude Include="header\definition.h" />
-    <ClInclude Include="header\helper.h" />
+    <ClInclude Include="header\globals.h" />
     <ClInclude Include="header\msg.h" />
     <ClInclude Include="header\statistics.h" />
     <ClInclude Include="header\_6_one2one_krnl2krnl_SF.h" />
@@ -171,7 +169,7 @@
       </Command>
     </RemotePreBuildEvent>
     <Link>
-      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core;tinfo</LibraryDependencies>
+      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core;tinfo;backtrace</LibraryDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

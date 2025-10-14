@@ -6,41 +6,86 @@
 #define Uses_pthread_t
 #define Uses_json
 #define Uses_config
-#define Uses_helper
+#define Uses_globals
 #include <Protocol_Bridge.dep>
 
 GLOBAL_VAR extern G * _g;
 
-//_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
-//{
-//	G * _g = ( G * )src_g;
-//}
+_PRIVATE_FXN _CALLBACK_FXN void cleanup_config( pass_p src_g , long v )
+{
+	G * _g = ( G * )src_g;
+	if ( _g->appcfg.prev_cfg )
+	{
+		DAC( _g->appcfg.prev_cfg->c.c.create_date );
+		DAC( _g->appcfg.prev_cfg->c.c.modify_date );
+		DAC( _g->appcfg.prev_cfg->c.c.config_name );
+		DAC( _g->appcfg.prev_cfg->c.c.config_tags );
+		DAC( _g->appcfg.prev_cfg->c.c.description );
+		DAC( _g->appcfg.prev_cfg->c.c.log_level );
+		DAC( _g->appcfg.prev_cfg->c.c.log_file );
+		DAC( _g->appcfg.prev_cfg->c.c.NetworkStack_FilterType );
+		DAC( _g->appcfg.prev_cfg );
+	}
+	if ( _g->appcfg.g_cfg )
+	{
+		DAC( _g->appcfg.g_cfg->c.c.create_date );
+		DAC( _g->appcfg.g_cfg->c.c.modify_date );
+		DAC( _g->appcfg.g_cfg->c.c.config_name );
+		DAC( _g->appcfg.g_cfg->c.c.config_tags );
+		DAC( _g->appcfg.g_cfg->c.c.description );
+		DAC( _g->appcfg.g_cfg->c.c.log_level );
+		DAC( _g->appcfg.g_cfg->c.c.log_file );
+		DAC( _g->appcfg.g_cfg->c.c.NetworkStack_FilterType );
+		DAC( _g->appcfg.g_cfg );
+	}
+
+	if ( _g->appcfg.old_bdj_psv_cfg )
+	{
+		for ( size_t idx = 0 ; idx < _g->appcfg.old_bdj_psv_cfg_count ; idx++ )
+		{
+			DAC( _g->appcfg.old_bdj_psv_cfg->m.m.maintained.in );
+			DAC( _g->appcfg.old_bdj_psv_cfg->m.m.maintained.out );
+		}
+		DAC( _g->appcfg.old_bdj_psv_cfg );
+	}
+
+	if ( _g->appcfg.bdj_psv_cfg )
+	{
+		for ( size_t idx = 0 ; idx < _g->appcfg.bdj_psv_cfg_count ; idx++ )
+		{
+			DAC( _g->appcfg.bdj_psv_cfg->m.m.maintained.in );
+			DAC( _g->appcfg.bdj_psv_cfg->m.m.maintained.out );
+		}
+		DAC( _g->appcfg.bdj_psv_cfg );
+	}
+}
+
+_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
+{
+	G * _g = ( G * )src_g;
+	
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_config ) , _g , clean_config );
+
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_bridges ) , _g , clean_bridges );
+}
 
 __attribute__( ( constructor( 102 ) ) )
-static void pre_main_init_config_component( void )
+_PRIVATE_FXN void pre_main_init_config_component( void )
 {
-	//distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g );
+	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g );
 	distributor_init( &_g->distributors.post_config_stablished , 1 );
 }
 
-// TODO . exit gracefully by auto mechanism
 // TODO . think about race condition
 _THREAD_FXN void_p version_checker( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
-	static TWD twd = { 0 };
-	if ( twd.threadId == 0 )
-	{
-		twd.threadId = pthread_self();
-		twd.cal = version_checker;
-		twd.callback_arg = src_g;
-	}
-	if ( src_g == NULL )
-	{
-		return ( void_p )&twd;
-	}
-
 	G * _g = ( G * )src_g;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+
 	char buf[ 50 ] = { 0 };
 	time_t prev_time = { 0 } , cur_time = { 0 };
 	struct Config_ver temp_ver = { 0 };
@@ -48,7 +93,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	{
 		cur_time = time( NULL );
 
-		if ( CLOSE_APP_VAR() ) break;
+		if ( GRACEFULLY_END_THREAD() ) break;
 
 		if ( _g->appcfg.ver == NULL || difftime( cur_time , prev_time ) > 5 )
 		{
@@ -95,29 +140,19 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	return VOID_RET;
 }
 
-// TODO . fix memory leak
 // TODO . echo acceptible config one time to inform user
 _THREAD_FXN void_p config_loader( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
-	static TWD twd = { 0 };
-	if ( twd.threadId == 0 )
-	{
-		twd.threadId = pthread_self();
-		twd.cal = config_loader;
-		twd.callback_arg = src_g;
-	}
-	if ( src_g == NULL )
-	{
-		return ( void_p )&twd;
-	}
-
 	G * _g = ( G * )src_g;
-	//time_t prev_time , cur_time;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
 	
 	while ( !_g->appcfg.version_changed ) // load after version loaded
 	{
-		if ( CLOSE_APP_VAR() ) break;
+		if ( GRACEFULLY_END_THREAD() ) break;
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 	
@@ -125,23 +160,19 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 	while ( 1 )
 	{
-		//cur_time = time( NULL );
-		if ( CLOSE_APP_VAR() ) break;
-		if ( _g->appcfg.g_cfg == NULL || _g->appcfg.version_changed /* || difftime(cur_time , prev_time) > 15 * 60*/ )
+		if ( GRACEFULLY_END_THREAD() ) break;
+		if ( _g->appcfg.g_cfg == NULL || _g->appcfg.version_changed )
 		{
-			//prev_time = prev_time; // to ignore warning
-			//prev_time = cur_time;
-	
 			Gcfg temp_config = { 0 };
 			Gcfg0 * pGeneralConfiguration = ( Gcfg0 * )&temp_config;
-			Bcfg * pProtocol_Bridges = NULL;
+			brg_cfg_t * pProtocol_Bridges = NULL;
 			size_t Protocol_Bridges_count = 0;
 			{
 				const char * Protocol_Bridge_config_file_content = read_file( CONFIG_ROOT_PATH "/Protocol_Bridge_config.txt" , NULL );
 				MM_BREAK_IF( !Protocol_Bridge_config_file_content , errNotFound , 0 , "cannot open config file" );
 					
 				result( json_element ) rs_Protocol_Bridge_config = json_parse( Protocol_Bridge_config_file_content );
-				free( ( void_p )Protocol_Bridge_config_file_content );
+				FREE( ( void_p )Protocol_Bridge_config_file_content );
 				MM_BREAK_IF( catch_error( &rs_Protocol_Bridge_config , "Protocol_Bridge_config" , 1 ) , errGeneral , 0 , "cannot parse config file" );
 				el_Protocol_Bridge_config = result_unwrap( json_element )( &rs_Protocol_Bridge_config );
 	
@@ -154,17 +185,17 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 					#define CFG_ELEM_STR( name )																			/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );									/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );								/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						NEWSTR( pGeneralConfiguration->name , el_##name.value.as_string , 0 );								/**/
 					#define CFG_ELEM_I( name )																				/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );									/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );								/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						pGeneralConfiguration->name = (int)el_##name.value.as_number.value.as_long;							/**/
 					#define CFG_ELEM_I64( name )																			/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );									/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );								/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						pGeneralConfiguration->name = (int64)el_##name.value.as_number.value.as_long;						/**/
 
@@ -204,10 +235,6 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 
 					CFG_ELEM_I( pkt_mgr_maximum_keep_unfinished_segment_sec );												/**/
 					
-
-					
-
-
 					#undef CFG_ELEM_I
 					#undef CFG_ELEM_STR
 				}
@@ -528,22 +555,15 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 _THREAD_FXN void_p config_executer( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
-	static TWD twd = { 0 };
-	if ( twd.threadId == 0 )
-	{
-		twd.threadId = pthread_self();
-		twd.cal = config_executer;
-		twd.callback_arg = src_g;
-	}
-	if ( src_g == NULL )
-	{
-		return ( void_p )&twd;
-	}
 	G * _g = ( G * )src_g;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
 
 	while ( !_g->appcfg.bdj_psv_cfg_count ) // load after any config loaded
 	{
-		if ( CLOSE_APP_VAR() ) break;
+		if ( GRACEFULLY_END_THREAD() ) break;
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
@@ -551,13 +571,13 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 
 	while ( 1 )
 	{
-		if ( CLOSE_APP_VAR() )
+		if ( GRACEFULLY_END_THREAD() )
 		{
-			for ( int icfg = 0 ; icfg < _g->appcfg.bdj_psv_cfg_count ; icfg++ )
-			{
-				_g->appcfg.bdj_psv_cfg[ icfg ].m.m.maintained.enable = 0;
-				apply_protocol_bridge_new_cfg_changes( _g , &_g->appcfg.bdj_psv_cfg[ icfg ] , &_g->appcfg.bdj_psv_cfg[ icfg ] );
-			}
+			//for ( int icfg = 0 ; icfg < _g->appcfg.bdj_psv_cfg_count ; icfg++ )
+			//{
+			//	_g->appcfg.bdj_psv_cfg[ icfg ].m.m.maintained.enable = 0;
+			//	apply_protocol_bridge_new_cfg_changes( _g , &_g->appcfg.bdj_psv_cfg[ icfg ] , &_g->appcfg.bdj_psv_cfg[ icfg ] );
+			//}
 			break;
 		}
 		if ( _g->appcfg.g_cfg_changed )
@@ -612,18 +632,13 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 
 void stop_protocol_bridge( G * _g , AB * pb )
 {
-	////INIT_BREAKABLE_FXN();
-
 	pb->cpy_cfg.m.m.maintained.enable = 0;
 	pb->cpy_cfg.m.m.temp_data.pcfg_changed = 1;
 	apply_new_protocol_bridge_config( _g , pb , &pb->cpy_cfg );
-	//// TODO
 }
 
-void apply_protocol_bridge_new_cfg_changes( G * _g , Bcfg * prev_pcfg , Bcfg * new_ccfg )
+void apply_protocol_bridge_new_cfg_changes( G * _g , brg_cfg_t * prev_pcfg , brg_cfg_t * new_ccfg )
 {
-	//INIT_BREAKABLE_FXN();
-
 	for ( int imsk = 0 ; imsk < _g->bridges.ABhs_masks_count ; imsk++ )
 	{
 		if ( _g->bridges.ABhs_masks[ imsk ] )
@@ -636,10 +651,8 @@ void apply_protocol_bridge_new_cfg_changes( G * _g , Bcfg * prev_pcfg , Bcfg * n
 	}
 }
 
-void remove_protocol_bridge( G * _g , Bcfg * pcfg )
+void remove_protocol_bridge( G * _g , brg_cfg_t * pcfg )
 {
-	////INIT_BREAKABLE_FXN();
-
 	for ( int imsk = 0 ; imsk < _g->bridges.ABhs_masks_count ; imsk++ )
 	{
 		if ( _g->bridges.ABhs_masks[ imsk ] )
@@ -654,7 +667,7 @@ void remove_protocol_bridge( G * _g , Bcfg * pcfg )
 	}
 }
 
-void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg )
+void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg )
 {
 	INIT_BREAKABLE_FXN();
 
@@ -697,4 +710,4 @@ void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg )
 		case 2: DAC( _g->bridges.ABhs_masks );
 		case 1: DIST_APP_FAILURE();
 	M_V_END_RET
-} // TODO . return value
+}

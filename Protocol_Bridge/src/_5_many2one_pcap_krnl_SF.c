@@ -1,12 +1,12 @@
 ﻿#define Uses_stablish_pcap_udp_connection
 #define Uses_distributor_init
 #define Uses_errno
-#define Uses_helper
+#define Uses_globals
 #define Uses_Bridge
 #define Uses_INIT_BREAKABLE_FXN
 #include <Protocol_Bridge.dep>
 
-void quit_interrupt_dist_push_many2many_pcap_krnl_SF( pass_p src_pb , int v )
+_CALLBACK_FXN void quit_interrupt_dist_push_many2many_pcap_krnl_SF( pass_p src_pb , long v )
 {
 	AB * pb = ( AB * )src_pb;
 	//if ( pb->trd.t.p_many2one_pcap2krnl_SF_serialize->handle )
@@ -28,6 +28,10 @@ _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
 	INIT_BREAKABLE_FXN();
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
 
 	//WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 
@@ -43,7 +47,7 @@ _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
 	pth.ring_buf = &pb->trd.cmn.ring_buf;
 
 	// register here to get quit cmd
-	distributor_subscribe( &_g->distributors.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_push_many2many_pcap_krnl_SF ) , pb );
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( quit_interrupt_dist_push_many2many_pcap_krnl_SF ) , pb , clean_connections );
 
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &pth ) , 1 );
 

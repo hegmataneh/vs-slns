@@ -2,13 +2,18 @@
 
 typedef struct app_cmd
 {
-	int quit_app;
+	int64 block_sending_1; // for nicely termination there should be flag that say no more sending
+	bool burst_waiting_2;
+	int64 quit_thread_3;
+	int64 quit_app_4;
 } Acmd;
 
 typedef struct global_distributor
 {
 	distributor_t pre_configuration;
 	distributor_t post_config_stablished;
+
+	distributor_t thread_startup; // every thread start up declare himself by this
 
 	distributor_t app_lvl_failure_dist;
 	distributor_t pb_lvl_failure_dist;
@@ -26,10 +31,10 @@ typedef struct global_distributor
 
 typedef struct global_handles
 {
-	//pcap_t * pcap_udp_counter_handle;
-
 	pkt_mgr_t pkt_mgr; // packet manager . receive from pcap ring and add to huge double circular linked list
 	prst_csh_t prst_csh; // persistent cache manager . 
+
+	pthread_mutex_t thread_close_mtx;
 
 } g_hdl;
 
@@ -45,6 +50,9 @@ typedef struct global_thread_handles
 	pthread_t trd_version_checker;
 	pthread_t trd_config_loader;
 	pthread_t trd_config_executer;
+
+	dyn_arr registered_thread;
+
 } g_trds;
 
 
@@ -75,32 +83,32 @@ status init_notcursor( G * _g );
 void init_tui( G * _g );
 
 //int _connect_tcp( AB * pb );
-status connect_one_tcp( AB_tcp * tcp );
-
+//status connect_one_tcp( AB_tcp * tcp );
+_REGULAR_FXN void compile_udps_config_for_pcap_filter( _IN AB * abs , _RET_VAL_P int * clusterd_cnt , _NEW_OUT_P strings * interface_filter , _NEW_OUT_P strings * port_filter );
 
 // because of recursive dependency declration come here
-void apply_new_protocol_bridge_config( G * _g , AB * pb , Bcfg * new_ccfg );
+void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t * new_ccfg );
 void stop_protocol_bridge( G * _g , AB * pb );
-void apply_protocol_bridge_new_cfg_changes( G * _g , Bcfg * prev_pcfg , Bcfg * new_ccfg );
-void remove_protocol_bridge( G * _g , Bcfg * pcfg );
-void add_new_protocol_bridge( G * _g , Bcfg * new_ccfg );
-
-// because of recursive dependency declration come here
-void draw_table( G * _g );
+void apply_protocol_bridge_new_cfg_changes( G * _g , brg_cfg_t * prev_pcfg , brg_cfg_t * new_ccfg );
+void remove_protocol_bridge( G * _g , brg_cfg_t * pcfg );
+void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg );
 
 void mng_basic_thread_sleep( G * _g , int priority );
-
-_REGULAR_FXN void compile_udps_config_for_pcap_filter( _IN AB * abs , _RET_VAL_P int * clusterd_cnt , _NEW_OUT_P strings * interface_filter , _NEW_OUT_P strings * port_filter );
 
 _CALLBACK_FXN void quit_interrupt( int sig );
 _CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg );
 _CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg );
-_CALLBACK_FXN void udp_connected( pass_p src_pb , int v );
-_CALLBACK_FXN void udp_disconnected( pass_p src_pb , int v );
-_CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , sockfd fd );
-_CALLBACK_FXN void tcp_disconnected( pass_p src_pb , int v );
+_CALLBACK_FXN void udp_connected( pass_p src_pb , long v );
+_CALLBACK_FXN void udp_disconnected( pass_p src_pb , long v );
+_CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , long fd );
+_CALLBACK_FXN void tcp_disconnected( pass_p src_pb , long v );
+
+_CALLBACK_FXN void thread_goes_out_of_scope(void *ptr);
 
 #ifndef update_cell_section
+
+// because of recursive dependency declration come here
+void draw_table( G * _g );
 
 _CALLBACK_FXN PASSED_CSTR ov_cell_time_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR ov_cell_version_2_str( pass_p src_pcell );

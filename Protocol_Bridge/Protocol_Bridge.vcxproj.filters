@@ -31,7 +31,7 @@
     <ClCompile Include="src\config.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\helper.c">
+    <ClCompile Include="src\globals.c">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\main.c">
@@ -44,9 +44,6 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\_6_one2one_krnl2krnl_SF.c">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\async_krnl_udp_store.c">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\udp_defragmentator.c">
@@ -78,9 +75,6 @@
     <ClInclude Include="header\async_tcp_forward.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\Bridge.h">
-      <Filter>header</Filter>
-    </ClInclude>
     <ClInclude Include="header\BridgeConfig.h">
       <Filter>header</Filter>
     </ClInclude>
@@ -90,10 +84,7 @@
     <ClInclude Include="header\definition.h">
       <Filter>header</Filter>
     </ClInclude>
-    <ClInclude Include="header\garage.h">
-      <Filter>header</Filter>
-    </ClInclude>
-    <ClInclude Include="header\helper.h">
+    <ClInclude Include="header\globals.h">
       <Filter>header</Filter>
     </ClInclude>
     <ClInclude Include="header\msg.h">
@@ -112,6 +103,9 @@
       <Filter>header</Filter>
     </ClInclude>
     <ClInclude Include="header\persistant_cache_mgr.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\Bridge.h">
       <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>

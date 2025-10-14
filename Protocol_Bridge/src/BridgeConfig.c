@@ -6,7 +6,7 @@
 #define Uses_INIT_BREAKABLE_FXN
 #include <Protocol_Bridge.dep>
 
-void copy_bridge_cfg( Bcfg * dst , Bcfg * src )
+void copy_bridge_cfg( brg_cfg_t * dst , brg_cfg_t * src )
 {
 	INIT_BREAKABLE_FXN();
 
@@ -36,7 +36,7 @@ int Bcfg0_id_equlity( Bcfg0 * left , Bcfg0 * right )
 	return MEMCMP( &left->id , &right->id ) == 0;
 }
 
-int Bcfg_id_equlity( Bcfg * left , Bcfg * right )
+int Bcfg_id_equlity( brg_cfg_t * left , brg_cfg_t * right )
 {
 	return Bcfg0_id_equlity( ( Bcfg0 * )left , ( Bcfg0 * )right );
 }
@@ -124,7 +124,7 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 	return 1;
 }
 
-int bridge_cfg_data_equlity( Bcfg * left , Bcfg * right )
+int bridge_cfg_data_equlity( brg_cfg_t * left , brg_cfg_t * right )
 {
 	return bridge_cfg0_data_equlity( ( Bcfg0 * )left , ( Bcfg0 * )right );
 }

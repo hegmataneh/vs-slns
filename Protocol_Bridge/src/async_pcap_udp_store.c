@@ -2,12 +2,12 @@
 #define Uses_FREE_DOUBLE_PTR
 #define Uses_udphdr
 #define Uses_errno
-#define Uses_helper
+#define Uses_globals
 #define Uses_Bridge
 #define Uses_INIT_BREAKABLE_FXN
 #include <Protocol_Bridge.dep>
 
-_PRIVATE_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr , const u_char * packet )
+_PRIVATE_FXN _CALLBACK_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr , const u_char * packet )
 {
 	AB * pb = ( AB * )src_pb;
 
@@ -64,7 +64,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	for ( int iinp = 0 ; iinp < pb->udps_count ; iinp++ )
 	{
 		pb->udps[ iinp ].udp_connection_established = 1;
-		distributor_publish_int( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )pb );
+		distributor_publish_long( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )pb );
 	}
 
 	// Capture indefinitely

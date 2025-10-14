@@ -16,4 +16,4 @@ typedef struct persistant_cache_prerequisite
 /*callback*/
 _CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p data , buffer buf , size_t sz );
 _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g );
-_CALLBACK_FXN void persistant_cache_mngr_control_pg_gateway( pass_p src_g , int open_close );
+_CALLBACK_FXN void persistant_cache_mngr_control_pg_gateway( pass_p src_g , long open_close );

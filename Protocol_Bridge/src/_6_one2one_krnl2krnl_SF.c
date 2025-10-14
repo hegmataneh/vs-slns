@@ -1,7 +1,7 @@
 #define Uses_many_tcp_out_thread_proc
 #define Uses__VERBOSE_ECHO
 #define Uses_errno
-#define Uses_helper
+#define Uses_globals
 #define Uses_Bridge
 #define Uses_INIT_BREAKABLE_FXN
 #include <Protocol_Bridge.dep>
@@ -22,6 +22,10 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	//AB_udp * pAB_udp = ( AB_udp * )src_AB_udp;
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
 
 	//while ( !pb->trd.cmn.bridg_prerequisite_stabled )
 	//{
@@ -281,7 +285,11 @@ _THREAD_FXN void_p proc_one2one_krnl_tcp_forward( pass_p src_pb )
 	INIT_BREAKABLE_FXN();
 
 	AB * pb = ( AB * )src_pb;
-	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
 
 	shrt_path pth;
 	mk_shrt_path( pb , &pth );

@@ -134,7 +134,7 @@ typedef struct notcurses_stat_req
 {
 	nnc_table * pgeneral_tbl; // general overview page. add gere for additional field addition
 
-	dyn_arr field_keeper; // one block keep array of field that dynamically changed. prevent memory fragment
+	dyn_mms_arr field_keeper; // one block keep array of field that dynamically changed. prevent memory fragment
 	//kv_table_t map_flds; // make access to field faster
 
 	// fastest way to access important cell

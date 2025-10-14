@@ -7,7 +7,8 @@ typedef struct packet_mngr_prerequisite
 	ci_sgmgr_t aggr_inp_pkt; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
 	pthread_t trd_tcp_sender; // get filled segment and send them
 
-	ci_sgmgr_t sent_package_log;
+	//ci_sgmgr_t sent_package_log;
+
 } pkt_mgr_t;
 
 //// ready packet

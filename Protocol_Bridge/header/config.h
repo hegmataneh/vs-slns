@@ -69,10 +69,10 @@ typedef struct App_Config // global config
 	int g_cfg_changed;
 
 	// protocol_bridge 
-	Bcfg * old_bdj_psv_cfg; // maybe later in some condition we need to rollback to prev config
+	brg_cfg_t * old_bdj_psv_cfg; // maybe later in some condition we need to rollback to prev config
 	size_t old_bdj_psv_cfg_count;
 
-	Bcfg * bdj_psv_cfg; // passive config
+	brg_cfg_t * bdj_psv_cfg; // passive config
 	size_t bdj_psv_cfg_count;
 
 	int psv_cfg_changed; // somewhere in cfg something was changed

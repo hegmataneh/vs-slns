@@ -7,7 +7,7 @@
 #define Uses_token_ring_p_t
 #define Uses_distributor_init
 #define Uses_errno
-#define Uses_helper
+#define Uses_globals
 #define Uses_Bridge
 #define Uses_INIT_BREAKABLE_FXN
 #define Uses_async_tcp_forward
@@ -143,7 +143,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 
 	//while ( !pb->trd.cmn.bridg_prerequisite_stabled )
 	//{
-	//	if ( CLOSE_APP_VAR() ) break;
+	//	if ( GRACEFULLY_END_THREAD() ) break;
 	//	mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	//}
 

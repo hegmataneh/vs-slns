@@ -4,19 +4,20 @@
 #define Uses_distributor_init
 #define Uses_stablish_pcap_udp_connection
 #define Uses_errno
-#define Uses_helper
+#define Uses_globals
 #define Uses_Bridge
 #define Uses_INIT_BREAKABLE_FXN
 #include <Protocol_Bridge.dep>
 
 
-void quit_interrupt_dist_one2one_pcap2krnl_SF( pass_p src_pb , int v )
+_CALLBACK_FXN void quit_interrupt_dist_one2one_pcap2krnl_SF( pass_p src_pb , long v )
 {
 	AB * pb = ( AB * )src_pb;
 	if ( pb->trd.t.p_one2one_pcap2krnl_SF->handle )
 	{
 		pcap_breakloop( pb->trd.t.p_one2one_pcap2krnl_SF->handle ); // in case we're inside pcap_loop
 		pcap_close( pb->trd.t.p_one2one_pcap2krnl_SF->handle );
+		pb->trd.t.p_one2one_pcap2krnl_SF->handle = NULL;
 	}
 }
 
@@ -32,6 +33,10 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	INIT_BREAKABLE_FXN();
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
 
 	WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 
@@ -53,8 +58,8 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	pth.handle = &pb->trd.t.p_one2one_pcap2krnl_SF->handle;
 
 	// register here to get quit cmd
-	distributor_subscribe( &_g->distributors.quit_interrupt_dist , SUB_INT , SUB_FXN( quit_interrupt_dist_one2one_pcap2krnl_SF ) , pb );
-	
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( quit_interrupt_dist_one2one_pcap2krnl_SF ) , pb , clean_connections );
+
 	// call general 
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &pth ) , 1 );
 
@@ -72,7 +77,11 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_tcp_out( pass_p src_pb )
 	INIT_BREAKABLE_FXN();
 
 	AB * pb = ( AB * )src_pb;
-	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
+	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
+	
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
 
 	shrt_path pth;
 	mk_shrt_path( pb , &pth );

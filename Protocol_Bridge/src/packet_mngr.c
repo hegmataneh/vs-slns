@@ -4,17 +4,31 @@
 #define Uses_packet_mngr
 #define Uses_MEMSET_ZERO_O
 #define Uses_errno
-#define Uses_helper
+#define Uses_globals
 #define Uses_Bridge
 #define Uses_INIT_BREAKABLE_FXN
-//#define Uses_DGB
 
 #include <Protocol_Bridge.dep>
 
-
-//CODE_DBG_TOOLS();
-
 GLOBAL_VAR extern G * _g;
+
+_PRIVATE_FXN _CALLBACK_FXN bool always_say_is_filled_callback( const buffer buf , size_t sz )
+{
+	return true;
+}
+
+_PRIVATE_FXN _CALLBACK_FXN void cleanup_packet_mngr( pass_p src_g , long v )
+{
+	G * _g = ( G * )src_g;
+	ci_sgm_peek_decide_active( &_g->hdls.pkt_mgr.aggr_inp_pkt , always_say_is_filled_callback );
+
+	time_t tbegin = time( NULL );
+	time_t tnow = tbegin;
+	while ( !ci_sgm_is_empty( &_g->hdls.pkt_mgr.aggr_inp_pkt ) && ( ( tnow - tbegin ) < 60 ) )
+	{
+		tnow = time( NULL );
+	}
+}
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
 {
@@ -23,6 +37,9 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
 	distributor_init( &_g->hdls.pkt_mgr.throttling_release_halffill_segment , 1 );
 	dict_fst_create( &_g->hdls.pkt_mgr.map_tcp_socket , 0 );
 	distributor_subscribe( &_g->hdls.pkt_mgr.throttling_release_halffill_segment , SUB_VOID , SUB_FXN( release_halffill_segment ) , _g );
+
+	// register here to get quit cmd
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_packet_mngr ) , _g , clean_packet_mngr );
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
@@ -32,7 +49,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
 
 	segmgr_init( &_g->hdls.pkt_mgr.aggr_inp_pkt , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_segment_capacity , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_offsets_capacity , True );
 	MM_BREAK_IF( pthread_create( &_g->hdls.pkt_mgr.trd_tcp_sender , NULL , process_filled_tcp_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
-	segmgr_init( &_g->hdls.pkt_mgr.sent_package_log , 3200000 , 100000 , True );
+	//segmgr_init( &_g->hdls.pkt_mgr.sent_package_log , 3200000 , 100000 , True );
 	M_BREAK_STAT( distributor_subscribe( &_g->hdls.prst_csh.pagestack_pakcets , SUB_DIRECT_ONE_CALL_BUFFER_SIZE , SUB_FXN( descharge_persistent_storage_data ) , _g ) , 0 );
 	
 	BEGIN_SMPL
@@ -40,7 +57,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
 }
 
 __attribute__( ( constructor( 105 ) ) )
-static void pre_main_init_packet_mngr_component( void )
+_PRIVATE_FXN void pre_main_init_packet_mngr_component( void )
 {
 	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_packet_mngr ) , _g );
 	distributor_subscribe( &_g->distributors.post_config_stablished , SUB_VOID , SUB_FXN( post_config_init_packet_mngr ) , _g );
@@ -79,6 +96,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	bool try_resolve_route = false;
 
 	if ( pkt1->metadata.sent ) return errOK;
+	if ( _g->cmd.block_sending_1 ) return errCanceled;
 
 	time_t tnow = 0;
 	tnow = time( NULL );
@@ -211,13 +229,13 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	else
 	{
 		// add log
-		if ( !pkt1->metadata.udp_hdr.logged_2_mem )
-		{
-			if ( segmgr_append( &_g->hdls.pkt_mgr.sent_package_log , &pkt1->metadata.udp_hdr , sizeof( pkt1->metadata.udp_hdr ) ) == errOK )
-			{
-				pkt1->metadata.udp_hdr.logged_2_mem = true;
-			}
-		}
+		//if ( !pkt1->metadata.udp_hdr.logged_2_mem )
+		//{
+		//	if ( segmgr_append( &_g->hdls.pkt_mgr.sent_package_log , &pkt1->metadata.udp_hdr , sizeof( pkt1->metadata.udp_hdr ) ) == errOK )
+		//	{
+		//		pkt1->metadata.udp_hdr.logged_2_mem = true;
+		//	}
+		//}
 	}
 
 	if ( pb )
@@ -277,6 +295,10 @@ _CALLBACK_FXN status descharge_persistent_storage_data( pass_p src_g , buffer bu
 _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
+	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+
 	ci_sgm_t * pseg = NULL;
 	
 	struct
@@ -294,18 +316,14 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 
 	do
 	{
-		if ( CLOSE_APP_VAR() ) break;
-
-		//SYS_ALIVE_CHECK();
+		if ( GRACEFULLY_END_THREAD() ) break;
 
 		pseg = segmgr_pop_filled_segment( &_g->hdls.pkt_mgr.aggr_inp_pkt , False , seg_trv_LIFO );
 		if ( pseg ) // poped on memory packets
 		{
-		//SYS_ALIVE_CHECK();
-
 			cpu_unburne.idx = ( cpu_unburne.idx + 1 ) % sizeof( cpu_unburne.arr );
 			cpu_unburne.arr.bytes[ cpu_unburne.idx ] = 1;
-			distributor_publish_int( &_g->hdls.prst_csh.pagestack_gateway_status , 0 , NULL ); // stop persistent storage discharge
+			distributor_publish_long( &_g->hdls.prst_csh.pagestack_gateway_status , 0 , NULL ); // stop persistent storage discharge
 
 			// try to send from mem under tcp to dst
 			if ( ci_sgm_iter_items( pseg , process_segment_itm , src_g , true ) != errOK ) // some fault detected
@@ -315,27 +333,21 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 			}
 			// then close segment
 			ci_sgm_mark_empty( &_g->hdls.pkt_mgr.aggr_inp_pkt , pseg ); // pop last emptied segment
-
-			//SYS_ALIVE_CHECK();
 		}
 		else // there is no packet in memory so fetch persisted packets
 		{
 			cpu_unburne.idx = ( cpu_unburne.idx + 1 ) % sizeof( cpu_unburne.arr );
 			cpu_unburne.arr.bytes[ cpu_unburne.idx ] = 0;
-			distributor_publish_int( &_g->hdls.prst_csh.pagestack_gateway_status , 1 , NULL ); // resume persistent storage discharge
-
-			//SYS_ALIVE_CHECK();
+			distributor_publish_long( &_g->hdls.prst_csh.pagestack_gateway_status , 1 , NULL ); // resume persistent storage discharge
 		}
 		
-		//SYS_ALIVE_CHECK();
-
 		if ( !cpu_unburne.arr.big_data.a && !cpu_unburne.arr.big_data.b ) // enough time for packet arrive
 		{
 			mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 		}
 	}
 	while( 1 );
-	distributor_publish_int( &_g->hdls.prst_csh.pagestack_gateway_status , 0 , NULL ); // stop persistent storage discharge
+	distributor_publish_long( &_g->hdls.prst_csh.pagestack_gateway_status , 0 , NULL ); // stop persistent storage discharge
 	return NULL;
 }
 
@@ -350,6 +362,7 @@ _PRIVATE_FXN _CALLBACK_FXN bool peek_decide_active_sgm( const buffer buf , size_
 	return timeval_diff_ms( &pkt1->metadata.udp_hdr.tm , &tnow ) > _g->appcfg.g_cfg->c.c.pkt_mgr_maximum_keep_unfinished_segment_sec;
 }
 
+// check if condition is true then set halffill segemtn as fill
 _CALLBACK_FXN void release_halffill_segment( pass_p src_g )
 {
 	G * _g = ( G * )src_g;

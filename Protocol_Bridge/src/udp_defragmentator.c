@@ -16,6 +16,11 @@ status init_udps_fgms( udps_fgms * fgms )
 	return errOK;
 }
 
+void finalize_udps_fgms( udps_fgms * fgms )
+{
+	sem_destroy( &fgms->gateway );
+}
+
 // called by producer. so it has to be as fast as possible . super fast
 _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void_p src_packet )
 {
