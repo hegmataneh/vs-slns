@@ -14,14 +14,20 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr( pass_p src_g , lo
 	G * _g = ( G * )src_g;
 
 	sem_destroy( &_g->hdls.prst_csh.pagestack_gateway_open_sem );
+	pg_stk_shutdown( &_g->hdls.prst_csh.page_stack );
+	sub_destroy( &_g->hdls.prst_csh.store_data );
+	sub_destroy( &_g->hdls.prst_csh.pagestack_gateway_status );
+	sub_destroy( &_g->hdls.prst_csh.pagestack_pakcets );
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr_fetch( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 
-	sem_post( &_g->hdls.prst_csh.pagestack_gateway_open_sem );
-	_g->hdls.prst_csh.pagestack_gateway_open_val = 0;
+	for ( _g->hdls.prst_csh.pagestack_gateway_open_val = ( _g->hdls.prst_csh.pagestack_gateway_open_val >= 0 ? 0 : _g->hdls.prst_csh.pagestack_gateway_open_val ) ; _g->hdls.prst_csh.pagestack_gateway_open_val >= 0 ; sleep( 1 ) )
+	{
+		sem_post( &_g->hdls.prst_csh.pagestack_gateway_open_sem );
+	}
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p src_g )
@@ -57,7 +63,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p s
 	M_V_END_RET
 }
 
-__attribute__( ( constructor( 106 ) ) )
+PRE_MAIN_INITIALIZATION( 106 )
 _PRIVATE_FXN void pre_main_init_persistant_cache_mngr_component( void )
 {
 	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_persistant_cache_mngr ) , _g );
@@ -93,7 +99,10 @@ _CALLBACK_FXN void persistant_cache_mngr_control_pg_gateway( pass_p src_g , long
 	{
 		while ( sem_trywait( &_g->hdls.prst_csh.pagestack_gateway_open_sem ) == 0 );
 	}
-	_g->hdls.prst_csh.pagestack_gateway_open_val = open_close;
+	if ( _g->hdls.prst_csh.pagestack_gateway_open_val >= 0 )
+	{
+		_g->hdls.prst_csh.pagestack_gateway_open_val = open_close;
+	}
 }
 
 _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p src_g , void_p data , size_t len )
@@ -133,15 +142,25 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 	{
 		if ( GRACEFULLY_END_THREAD() ) break;
 		sem_wait( &_g->hdls.prst_csh.pagestack_gateway_open_sem ); // wait until gate open
-		while ( _g->hdls.prst_csh.pagestack_gateway_open_val ) // do discharge untill open
+		while ( _g->hdls.prst_csh.pagestack_gateway_open_val > 0 ) // do discharge untill open
 		{
 			ret = pg_stk_try_to_pop_latest( &_g->hdls.prst_csh.page_stack , persistant_cache_mngr_relay_packet );
+			time_t tnow = time( NULL );
 			switch ( ret )
 			{
 				case errEmpty: // actually this fxn has loop and discharge it self
 				{
 					while ( sem_trywait( &_g->hdls.prst_csh.pagestack_gateway_open_sem ) == 0 ); // reset semaphore
 					_g->hdls.prst_csh.pagestack_gateway_open_val = 0;
+					if ( _g->hdls.prst_csh.cool_down_attempt_onEmpty && _g->hdls.prst_csh.cool_down_attempt_onEmpty == *( int * )&tnow ) // in one second we should not attempt . and this check and possiblity is rare in not too many attempt situation
+					{
+						mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+					}
+					else
+					{
+						tnow = time( NULL );
+						_g->hdls.prst_csh.cool_down_attempt_onEmpty = *( int * )&tnow;
+					}
 					continue;
 				}
 				case errTooManyAttempt: // let get the cpu some air
@@ -153,5 +172,6 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 		}
 	}
 	while( 1 );
+	_g->hdls.prst_csh.pagestack_gateway_open_val = -1;
 	return NULL;
 }

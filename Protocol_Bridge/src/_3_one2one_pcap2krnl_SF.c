@@ -13,11 +13,10 @@
 _CALLBACK_FXN void quit_interrupt_dist_one2one_pcap2krnl_SF( pass_p src_pb , long v )
 {
 	AB * pb = ( AB * )src_pb;
-	if ( pb->trd.t.p_one2one_pcap2krnl_SF->handle )
+	for ( ; pb->trd.t.p_one2one_pcap2krnl_SF->pcp_handle ; sleep( pb->trd.t.p_one2one_pcap2krnl_SF->pcp_handle ? 1 : 0 ) )
 	{
-		pcap_breakloop( pb->trd.t.p_one2one_pcap2krnl_SF->handle ); // in case we're inside pcap_loop
-		pcap_close( pb->trd.t.p_one2one_pcap2krnl_SF->handle );
-		pb->trd.t.p_one2one_pcap2krnl_SF->handle = NULL;
+		pcap_breakloop( pb->trd.t.p_one2one_pcap2krnl_SF->pcp_handle ); // in case we're inside pcap_loop
+		// close really happened after loop closed
 	}
 }
 
@@ -25,7 +24,7 @@ _CALLBACK_FXN void quit_interrupt_dist_one2one_pcap2krnl_SF( pass_p src_pb , lon
 //_PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2one_pcap2krnl_SF( pass_p data , buffer buf , int payload_len )
 //{
 //	AB * pb = ( AB * )data;
-//	return cbuf_pked_push( &pb->trd.cmn.ring_buf , buf , payload_len );
+//	return cbuf_pked_push( &pb->trd.cmn.fast_wrt_cache , buf , payload_len );
 //}
 
 _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_udp_pcap( pass_p src_pb )
@@ -44,21 +43,19 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 
 	WARNING( pb->udps_count == 1 );
 
-	M_BREAK_STAT( distributor_init( &pb->trd.cmn.pcap_defrag_udp_push , 1 ) , 1 );
-	M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.pcap_defrag_udp_push , SUB_DIRECT_ONE_CALL_3VOIDP ,
+	M_BREAK_STAT( distributor_init( &pb->trd.cmn.fragmented_udp_packet_on_pcap_received_event , 1 ) , 1 );
+	M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.fragmented_udp_packet_on_pcap_received_event , SUB_DIRECT_ONE_CALL_3VOIDP ,
 		SUB_FXN( defragment_pcap_data ) , src_pb ) , 1 );
 
-	//M_BREAK_STAT( distributor_init( &pb->trd.cmn.payload_push , 1 ) , 1 );
-	//M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.payload_push , SUB_DIRECT_ONE_CALL_BUFFER_INT ,
-	//	SUB_FXN( buffer_push_one2one_pcap2krnl_SF ) , src_pb ) , 1 );
+	
 	
 	// in addition to make shrt_path complete based on type and dependency is detached
 	shrt_path pth; // 1 . we have simple pth here
 	mk_shrt_path( pb , &pth ); // 2 . and fill it
-	pth.handle = &pb->trd.t.p_one2one_pcap2krnl_SF->handle;
+	pth.pcp_handle = &pb->trd.t.p_one2one_pcap2krnl_SF->pcp_handle;
 
 	// register here to get quit cmd
-	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( quit_interrupt_dist_one2one_pcap2krnl_SF ) , pb , clean_connections );
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( quit_interrupt_dist_one2one_pcap2krnl_SF ) , pb , clean_input_connections );
 
 	// call general 
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &pth ) , 1 );
@@ -85,8 +82,8 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_tcp_out( pass_p src_pb )
 
 	shrt_path pth;
 	mk_shrt_path( pb , &pth );
-	pth.ring_buf = &pb->trd.cmn.ring_buf;
-	pth.poped_payload = &pb->trd.cmn.poped_payload_from_rbuf;
+	pth.fast_wrt_cache = &pb->trd.cmn.fast_wrt_cache;
+	pth.defrg_pcap_payload = &pb->trd.cmn.defraged_pcap_udp_payload_event;
 
 	many_tcp_out_thread_proc( pb , &pth );
 

@@ -10,8 +10,14 @@
 _PRIVATE_FXN _CALLBACK_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr , const u_char * packet )
 {
 	AB * pb = ( AB * )src_pb;
-
-	if ( distributor_publish_onedirectcall_3voidp( &pb->trd.cmn.pcap_defrag_udp_push , ( void_p )src_pb , ( void_p )hdr , ( void_p )packet ) != errOK ) return; // dist udp packet
+	if ( pb->trd.cmn.stop_receiving )
+	{
+		pb->trd.cmn.receive_stoped = true;
+	}
+	else
+	{
+		if ( distributor_publish_onedirectcall_3voidp( &pb->trd.cmn.fragmented_udp_packet_on_pcap_received_event , ( void_p )src_pb , ( void_p )hdr , ( void_p )packet ) != errOK ) return; // dist udp packet
+	}
 }
 
 _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
@@ -22,7 +28,6 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	char errbuf[ PCAP_ERRBUF_SIZE ] = { 0 };
 	struct bpf_program fp;
 	bpf_u_int32 net = 0 , mask = 0;
-	pcap_t *handle;
 
 	// TODO . handle multiple interface
 
@@ -37,21 +42,16 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf) == -1 , errDevice , 1 , "use correct interface %s\n" , errbuf);
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	MM_FMT_BREAK_IF( !( handle = pcap_open_live( interface_filter[ 0 ] , 65535, 1, 1000 , errbuf) ) , errDevice , 1 , "exe by pcap prmit usr %s\n" , interface_filter[0] , errbuf);
+	MM_FMT_BREAK_IF( !( *pth->pcp_handle = pcap_open_live( interface_filter[ 0 ] , 65535, 1, 1000 , errbuf) ) , errDevice , 1 , "exe by pcap prmit usr %s\n" , interface_filter[0] , errbuf);
 
 	// Compile and apply filter
-	MM_FMT_BREAK_IF( pcap_compile( handle , &fp , port_filter[ 0 ] , 1 , mask) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr(handle));
-	MM_FMT_BREAK_IF( pcap_setfilter( handle , &fp ) == -1 , errDevice , 3 , "Couldn't install filter %s\n" , pcap_geterr( handle ) );
+	MM_FMT_BREAK_IF( pcap_compile( *pth->pcp_handle , &fp , port_filter[ 0 ] , 1 , mask) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr(*pth->pcp_handle));
+	MM_FMT_BREAK_IF( pcap_setfilter( *pth->pcp_handle , &fp ) == -1 , errDevice , 3 , "Couldn't install filter %s\n" , pcap_geterr( *pth->pcp_handle ) );
 
 	FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
 	FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
 
 	pcap_freecode( &fp );
-	WARNING( pth->handle );
-	if ( pth->handle )
-	{
-		*pth->handle = handle;
-	}
 
 	// set a large buffer (e.g., 10 MB)
 	//MM_FMT_BREAK_IF( pcap_set_buffer_size( handle , 1024 * 1024 ) != 0 , errDevice , 2 , "failed to set buffer size %s\n" , pcap_geterr( handle ) );
@@ -68,15 +68,19 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	}
 
 	// Capture indefinitely
-	MM_FMT_BREAK_IF( pcap_loop( handle , -1 , handle_pcap_udp_receiver , ( pass_p )pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( handle ) );
+	MM_FMT_BREAK_IF( pcap_loop( *pth->pcp_handle , -1 , handle_pcap_udp_receiver , ( pass_p )pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( *pth->pcp_handle ) );
+
+	pcap_close( *pth->pcp_handle );
+	*pth->pcp_handle = NULL; // closed successfully
+	pb->trd.cmn.receive_stoped = true;
 
 	BEGIN_RET
 	// TODO . FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
 	// FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
 	case 4:
 	{
-		pcap_breakloop( handle ); // in case we're inside pcap_loop
-		pcap_close( handle );
+		pcap_breakloop( *pth->pcp_handle ); // in case we're inside pcap_loop
+		pcap_close( *pth->pcp_handle );
 		break;
 	}
 	case 3:
@@ -85,7 +89,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	}
 	case 2:
 	{
-		pcap_close( handle );
+		pcap_close( *pth->pcp_handle );
 	}
 	case 1:
 	{

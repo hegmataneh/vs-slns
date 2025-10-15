@@ -1,4 +1,6 @@
-﻿#define Uses_MEMSET_ZERO_O
+﻿#define Uses_strings_ar
+
+#define Uses_MEMSET_ZERO_O
 #define Uses_ci_sgmgr_t
 #define Uses_pthread_t
 #define Uses_statistics
@@ -12,7 +14,7 @@ GLOBAL_VAR G * _g = NULL; // just one global var
 /// <summary>
 /// اینجوری می خواستم هر قسمت را یک کامپوننت بدانم و در نتیجه هر کسی مسئول ایجاد زیر ساختهای لازم برای خودش است
 /// </summary>
-__attribute__( ( constructor( 101 ) ) )
+PRE_MAIN_INITIALIZATION( 101 )
 _PRIVATE_FXN void pre_main_top_prio_init( void )
 {
 	static G g = {0};
@@ -21,19 +23,22 @@ _PRIVATE_FXN void pre_main_top_prio_init( void )
 	distributor_init( &_g->distributors.pre_configuration , 1 );
 }
 
+#ifdef Uses_MLEAK
 extern mLeak_t __alc_hit[MLK_HASH_WIDTH][EACH_ADDR_COUNT];
+#endif
 
 _CALLBACK_FXN void * signal_thread( void * arg )
 {
 	sigset_t * set = arg;
 	int sig;
 	sigwait( set , &sig ); // Wait for Ctrl+C (SIGINT)
+	printf( "\nSIGINT caught, stopping...\n" );
 	_g->cmd.block_sending_1 = 1; // Signal all threads to stop
 	_g->cmd.burst_waiting_2 = true;
 	_g->cmd.quit_thread_3 = 1;
 	distributor_publish_long( &_g->distributors.quit_interrupt_dist , sig , NULL );
+	sub_destroy( &_g->distributors.quit_interrupt_dist );
 	_g->cmd.quit_app_4 = 1;
-	printf( "\nSIGINT caught, stopping...\n" );
 	return NULL;
 }
 
@@ -71,6 +76,7 @@ int main()
 
 	M_BREAK_IF( pthread_join( _g->trds.trd_watchdog , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
 
+	#ifdef Uses_MLEAK
 	FILE * fl = fopen( "leak.txt" , "w+" );
 
 	for ( int ii = 0 ; ii < MLK_HASH_WIDTH ; ii++ )
@@ -79,14 +85,15 @@ int main()
 		{
 			if ( __alc_hit[ ii ][ jj ].counter != 0 )
 			{
-				fprintf( fl ,  "\n" , __alc_hit[ ii ][ jj ].klstck );
+				fprintf( fl , "%d %s\n" , __alc_hit[ ii ][ jj ].counter , __alc_hit[ ii ][ jj ].klstck.temp_buf );
 			}
 		}
 	}
 	fclose( fl );
+	#endif
 
-	sleep(1); // for sanitizer to dump
-	_exit(0);
+	//sleep(1); // for sanitizer to dump
+	_exit( 0 );
 	return 0;
 	BEGIN_RET
 	M_V_END_RET

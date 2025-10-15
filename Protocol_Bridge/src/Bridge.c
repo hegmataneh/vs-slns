@@ -1,6 +1,6 @@
 #define Uses_iSTR_SAME
 #define Uses_WARNING
-#define Uses_init_udps_fgms
+#define Uses_init_udps_defragmentator
 #define Uses_proc_krnl_udp_capture
 #define Uses_pthread_create
 #define Uses_proc_many2many_pcap_krnl_SF
@@ -15,17 +15,102 @@
 #define Uses_globals
 #include <Protocol_Bridge.dep>
 
-_CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
+_CALLBACK_FXN void stop_sending_by_bridge( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 	for ( size_t idx = 0 ; idx < _g->bridges.ABhs_masks_count ; idx++ )
 	{
 		if ( _g->bridges.ABhs_masks[ idx ] )
 		{
-			_g->bridges.ABs[ idx ].single_AB->trd.cmn.do_close_thread = 1;
+			for ( _g->bridges.ABs[ idx ].single_AB->trd.cmn.stop_sending = 1 ; !_g->bridges.ABs[ idx ].single_AB->trd.cmn.send_stoped ; sleep( 1 ) ) // order to stop. then after stop continue to clean up
+			{
+			}
 		}
 	}
 }
+
+
+_CALLBACK_FXN void bridge_stoping_input( pass_p src_pb , long v )
+{
+	AB * pb = ( AB * )src_pb;
+	if ( pb )
+	{
+		for ( pb->trd.cmn.stop_receiving = true ; !pb->trd.cmn.receive_stoped ; sleep( 1 ) ) // order to stop. then after stop continue to clean up
+		{
+		}
+	}
+}
+
+_CALLBACK_FXN void cleanup_sending_part_bridge( pass_p src_pb , long v )
+{
+	AB * pb = ( AB * )src_pb;
+	if ( pb )
+	{
+		for ( pb->trd.cmn.stop_receiving = true ; !pb->trd.cmn.receive_stoped ; sleep(1) ) // order to stop. then after stop continue to clean up
+		{ }
+
+		cbuf_pked_destroy( &pb->trd.cmn.fast_wrt_cache );
+		finalize_udps_defragmentator( &pb->trd.cmn.defraged_udps );
+
+		sub_destroy( &pb->trd.cmn.kernel_udp_payload_ready_event );
+		sub_destroy( &pb->trd.cmn.fragmented_udp_packet_on_pcap_received_event );
+		sub_destroy( &pb->trd.cmn.defraged_pcap_udp_payload_event );
+	}
+}
+
+_CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
+{
+	G * _g = ( G * )src_g;
+	
+	for ( size_t idx = 0 ; idx < _g->bridges.ABhs_masks_count ; idx++ )
+	{
+		if ( _g->bridges.ABhs_masks[ idx ] )
+		{
+			AB * pb = _g->bridges.ABs->single_AB;
+			if ( pb )
+			{
+				cleaup_brg_cfg( &pb->cpy_cfg );
+
+				DAC( pb->trd.t.p_pcap_udp_counter );
+				DAC( pb->trd.t.p_krnl_udp_counter );
+				DAC( pb->trd.t.p_one2one_krnl2krnl_SF );
+				DAC( pb->trd.t.p_one2one_pcap2krnl_SF );
+
+				if ( pb->trd.t.p_one2many_pcap2krnl_SF )
+				{
+					dict_o_free( &pb->trd.t.p_one2many_pcap2krnl_SF->dc_token_ring );
+					DAC( pb->trd.t.p_one2many_pcap2krnl_SF );
+				}
+
+				if ( pb->trd.t.p_many2one_pcap2krnl_SF_serialize )
+				{
+					dict_o_free( &pb->trd.t.p_many2one_pcap2krnl_SF_serialize->dc_token_ring );
+					DAC( pb->trd.t.p_many2one_pcap2krnl_SF_serialize );
+				}
+
+				cbuf_m_free( &pb->stat.round_init_set.udp_stat_5_sec_count );
+				cbuf_m_free( &pb->stat.round_init_set.udp_stat_5_sec_bytes );
+				cbuf_m_free( &pb->stat.round_init_set.udp_stat_10_sec_count );
+				cbuf_m_free( &pb->stat.round_init_set.udp_stat_10_sec_bytes );
+				cbuf_m_free( &pb->stat.round_init_set.udp_stat_40_sec_count );
+				cbuf_m_free( &pb->stat.round_init_set.udp_stat_40_sec_bytes );
+				cbuf_m_free( &pb->stat.round_init_set.tcp_stat_5_sec_count );
+				cbuf_m_free( &pb->stat.round_init_set.tcp_stat_5_sec_bytes );
+				cbuf_m_free( &pb->stat.round_init_set.tcp_stat_10_sec_count );
+				cbuf_m_free( &pb->stat.round_init_set.tcp_stat_10_sec_bytes );
+				cbuf_m_free( &pb->stat.round_init_set.tcp_stat_40_sec_count );
+				cbuf_m_free( &pb->stat.round_init_set.tcp_stat_40_sec_bytes );
+
+				//DAC( pb->udps );
+				//DAC( pb->tcps );
+			}
+			DAC( pb );
+		}
+	}
+	DAC( _g->bridges.ABhs_masks );
+	DAC( _g->bridges.ABs );
+}
+
 
 _CALLBACK_FXN void pb_every_ticking_refresh( pass_p src_pb )
 {
@@ -86,6 +171,15 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 			distributor_init( &pb->tcps[ itcp ].change_state_dist , 1 );
 		}
 	}
+
+	// TODO . if Ab goes away then unregister quit intrupt
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( bridge_stoping_input ) , pb , bridge_stop_input );
+
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_sending_part_bridge ) , pb , clean_bridge_send_part );
+
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_bridges ) , _g , clean_globals_shared_var );
+	
+	
 
 	#ifndef notcurses_Section
 
@@ -306,7 +400,7 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 
 
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( pb_every_ticking_refresh ) , pb ) , 1 ); // refresh cells by central ticking
-	init_udps_fgms( &pb->trd.cmn.cached_udp ); // fragmentor
+	init_udps_defragmentator( &pb->trd.cmn.defraged_udps ); // defragmentor
 
 	#endif
 
@@ -328,10 +422,10 @@ void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_path * hlpr )
 	hlpr->in_count = &pb->cpy_cfg.m.m.maintained.in_count;
 	hlpr->out_count = &pb->cpy_cfg.m.m.maintained.out_count;
 	hlpr->thread_is_created = &pb->trd.cmn.thread_is_created;
-	hlpr->do_close_thread = &pb->trd.cmn.do_close_thread;
+	//hlpr->do_close_thread = &pb->trd.cmn.do_close_thread;
 	//hlpr->creation_thread_race_cond = &pb->trd.cmn.creation_thread_race_cond;
 	//hlpr->bridg_prerequisite_stabled = &pb->trd.cmn.bridg_prerequisite_stabled;
-	//hlpr->buf_psh_distri = &pb->trd.cmn.payload_push;
+	
 }
 
 _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t * new_ccfg )
@@ -414,7 +508,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//pthread_mutex_lock( &pb->trd.cmn.creation_thread_race_cond );
 
 			// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.ring_buf , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.fast_wrt_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
 
 			if ( !pb->trd.cmn.thread_is_created )
 			{
@@ -445,7 +539,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//pthread_mutex_init( &pb->trd.cmn.do_all_prerequisite_stablished_race_cond , NULL );
 
 			// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.ring_buf , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.fast_wrt_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
 
 			//pthread_mutex_lock( &pb->trd.cmn.creation_thread_race_cond );
 			if ( !pb->trd.cmn.thread_is_created )
@@ -474,7 +568,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//pthread_mutex_init( &pb->trd.cmn.creation_thread_race_cond , NULL );
 			//pthread_mutex_init( &pb->trd.cmn.do_all_prerequisite_stablished_race_cond , NULL );
 			
-			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.ring_buf , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.fast_wrt_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
 
 			//pthread_mutex_lock( &pb->trd.cmn.creation_thread_race_cond );
 			if ( !pb->trd.cmn.thread_is_created )
@@ -502,7 +596,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 	//		//pthread_mutex_init( &pb->trd.cmn.creation_thread_race_cond , NULL );
 	//		//pthread_mutex_init( &pb->trd.cmn.do_all_prerequisite_stablished_race_cond , NULL );
 	//		// TODO . buff size came from config
-			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.ring_buf , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->trd.cmn.fast_wrt_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
 	//		//pthread_mutex_lock( &pb->trd.cmn.creation_thread_race_cond );
 			if ( !pb->trd.cmn.thread_is_created )
 			{

@@ -128,3 +128,10 @@ int bridge_cfg_data_equlity( brg_cfg_t * left , brg_cfg_t * right )
 {
 	return bridge_cfg0_data_equlity( ( Bcfg0 * )left , ( Bcfg0 * )right );
 }
+
+void cleaup_brg_cfg( brg_cfg_t * brg )
+{
+	DAC( brg->m.m.maintained.in );
+	DAC( brg->m.m.maintained.out );
+	MEMSET_ZERO_O( brg );
+}

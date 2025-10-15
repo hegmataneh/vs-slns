@@ -88,3 +88,5 @@ int Bcfg_id_equlity( brg_cfg_t * left , brg_cfg_t * right );
 
 int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right );
 int bridge_cfg_data_equlity( brg_cfg_t * left , brg_cfg_t * right );
+
+void cleaup_brg_cfg( brg_cfg_t * brg );

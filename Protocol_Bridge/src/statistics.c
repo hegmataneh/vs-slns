@@ -12,6 +12,17 @@
 
 GLOBAL_VAR extern G * _g;
 
+_CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
+{
+	G * _g = ( G * )src_g;
+
+	nnc_destroy( &_g->stat.nc_h );
+	mms_array_free( &_g->stat.nc_s_req.field_keeper );
+
+	sub_destroy( &_g->hdls.pkt_mgr.throttling_release_halffill_segment );
+	
+}
+
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
 {
 	G * _g = ( G * )src_g;
@@ -21,16 +32,18 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
 		gettimeofday( &_g->stat.aggregate_stat.t_begin , NULL );
 	}
 
-	pthread_mutex_init( &_g->stat.lock_data.lock , NULL );
+	//pthread_mutex_init( &_g->stat.lock_data.lock , NULL );
 
 	init_tui( _g );
 
 	//init_bypass_stdout( _g );
 
 	distributor_init( &_g->distributors.throttling_refresh_stat , 1 );
+
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_stat ) , _g , clean_stat );
 }
 
-__attribute__( ( constructor( 103 ) ) )
+PRE_MAIN_INITIALIZATION( 103 )
 _PRIVATE_FXN void pre_main_init_stat_component( void )
 {
 	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_stat ) , _g );
@@ -232,7 +245,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 		if ( !( tmp_debounce_release_segment++ % 5 ) )
 		{
 			// distribute segment management pulse
-			distributor_publish_void( &_g->hdls.pkt_mgr.throttling_release_halffill_segment , NULL/*each subscriber set what it need*/ );
+			distributor_publish_void( &_g->hdls.pkt_mgr.throttling_release_halffill_segment , NULL/*each subscriber set what it need*/ ); // check if condition is true then set halffill segemtn as fill
 		}
 
 		//pthread_mutex_lock( &_g->stat.lock_data.lock );
@@ -281,6 +294,7 @@ status init_notcursor( G * _g )
 	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 10 ) , 0 );
 
 	// one new row
+	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
@@ -355,6 +369,17 @@ status init_notcursor( G * _g )
 	_g->stat.nc_s_req.ov_TCP_retry_conn_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_TCP_retry_conn_cell->conversion_fxn = ov_TCP_retry_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 3 , _g->stat.nc_s_req.ov_TCP_retry_conn_cell ) , 0 );
+
+
+	irow++;
+	//// UDP retry conn title
+	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 0 , "thread cnt" ) , 0 );
+	// UDP conn cell
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_thread_cnt_cell ) , 0 );
+	_g->stat.nc_s_req.ov_thread_cnt_cell->storage.bt.pass_data = _g;
+	_g->stat.nc_s_req.ov_thread_cnt_cell->conversion_fxn = ov_thread_cnt_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 1 , _g->stat.nc_s_req.ov_thread_cnt_cell ) , 0 );
+	
 
 
 	BEGIN_RET

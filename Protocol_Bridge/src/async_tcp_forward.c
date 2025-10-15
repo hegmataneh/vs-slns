@@ -14,7 +14,7 @@
 
 #include <Protocol_Bridge.dep>
 
-// spec each bridge how to act with udp packet get
+// spec each bridge how to act with udp packet get. and deliver it to global ring cache
 _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 {
 	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
@@ -57,7 +57,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 	dict_s_i_init( &init_grp );
 
 	// init pop distributor . each output distributor register here so they get arrived data
-	distributor_init( hlpr->poped_payload , ( int )dict_s_i_count( &map_grp_idx ) );
+	distributor_init( hlpr->defrg_pcap_payload , ( int )dict_s_i_count( &map_grp_idx ) );
 
 	//// اینجا در گروه ها می چرخد و هر مورد را به ساب اضافه می کند یعنی دریافت کننده یک دیتا
 	//// در نتیجه وقتی دیتایی برای تی سی پی بود بین همه موارد توزیع می شود
@@ -72,8 +72,8 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 		{
 			int igrp = -1;
 			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );
-			distributor_subscribe( hlpr->poped_payload , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE ,
-				SUB_FXN( operation_on_tcp_packet ) , pb->tcps + itcp );
+			distributor_subscribe( hlpr->defrg_pcap_payload , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE ,
+				SUB_FXN( fast_ring_2_huge_ring ) , pb->tcps + itcp );
 		}
 		else if ( iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_RoundRobin ) )
 		{
@@ -97,8 +97,8 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 			WARNING( pring );
 
 			// add callback receiver of each tcp grp
-			distributor_subscribe_with_ring( hlpr->poped_payload ,
-				igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( operation_on_tcp_packet ) , pb->tcps + itcp , pring );
+			distributor_subscribe_with_ring( hlpr->defrg_pcap_payload ,
+				igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( fast_ring_2_huge_ring ) , pb->tcps + itcp , pring );
 		}
 		else
 		{
@@ -126,7 +126,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 	init_many_tcp( pb , hlpr );
 
 	// try to find AB of udp getter
-	BREAK_STAT( distributor_get_data( hlpr->poped_payload , &pdata ) , 0 );
+	BREAK_STAT( distributor_get_data( hlpr->defrg_pcap_payload , &pdata ) , 0 );
 	AB_tcp * tcp = ( AB_tcp * )pdata;
 	
 	rdy_pkt1 * pkt = ( rdy_pkt1 * )buffer; // plain cup for packet
@@ -169,20 +169,20 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 		//	//	MEMSET( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 		//	//}
 
-		if ( pb->trd.cmn.do_close_thread )
+		if ( pb->trd.cmn.stop_sending )
 		{
 			break;
 		}
 
 		// from ring pcap to stack general
-		//while ( cbuf_pked_pop( hlpr->ring_buf , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
+		//while ( cbuf_pked_pop( hlpr->fast_wrt_cache , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
 		while( poped_defraged_packet( pb , buffer + pkt->metadata.payload_offset /*hdr + pkt*/ , &sz , &pkt->metadata.udp_hdr ) == errOK )
 		{
 			pkt->metadata.udp_hdr.log_double_checked = false;
 			pkt->metadata.udp_hdr.logged_2_mem = false;
 			//clock_gettime( CLOCK_MONOTONIC_COARSE , &pkt->flags.rec_t );
 
-			if ( pb->trd.cmn.do_close_thread )
+			if ( pb->trd.cmn.stop_sending )
 			{
 				break;
 			}
@@ -191,7 +191,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 
 			// TODO . result must be seperated from each other to make right statistic
 
-			if ( distributor_publish_buffer_size( hlpr->poped_payload , buffer , sz + pkt->metadata.payload_offset , NULL ) != errOK ) // 14040622 . do replicate or roundrobin
+			if ( distributor_publish_buffer_size( hlpr->defrg_pcap_payload , buffer , sz + pkt->metadata.payload_offset , NULL ) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;
 
 			pb->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
@@ -209,5 +209,6 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
+	if ( pb->trd.cmn.stop_sending ) pb->trd.cmn.send_stoped = true;
 	return NULL;
 }

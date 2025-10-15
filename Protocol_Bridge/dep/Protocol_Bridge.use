@@ -2,7 +2,7 @@
 	#define Uses_packet_mngr
 #endif
 
-#ifdef Uses_udp_hdr_t
+#ifdef Uses_rdy_udp_hdr_t
 	#define Uses_packet_mngr
 #endif
 
@@ -10,7 +10,7 @@
 	#define Uses_packet_mngr
 #endif
 
-#ifdef Uses_init_udps_fgms
+#ifdef Uses_init_udps_defragmentator
 	#define Uses_udp_defragmentator
 #endif
 
@@ -123,7 +123,7 @@
 
 #ifdef Uses_udp_defragmentator
 	#define Uses_ci_sgmgr_t
-	#define Uses_udp_hdr_t
+	#define Uses_rdy_udp_hdr_t
 	#define __INC_udp_defragmentator
 #endif
 

@@ -3,7 +3,7 @@
 typedef struct app_cmd
 {
 	int64 block_sending_1; // for nicely termination there should be flag that say no more sending
-	bool burst_waiting_2;
+	volatile bool burst_waiting_2;
 	int64 quit_thread_3;
 	int64 quit_app_4;
 } Acmd;
@@ -62,11 +62,14 @@ typedef struct App_Data
 	ABhs bridges;
 	Stt stat;
 
-	Acmd cmd;
-	g_dst distributors;
-	g_hdl hdls; // holders
-	g_bufs bufs;
-	g_trds trds; // threads
+	struct
+	{
+		Acmd cmd;
+		g_dst distributors;
+		g_hdl hdls; // holders
+		g_bufs bufs;
+		g_trds trds; // threads
+	};
 } G;
 
 _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g );
@@ -103,7 +106,7 @@ _CALLBACK_FXN void udp_disconnected( pass_p src_pb , long v );
 _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , long fd );
 _CALLBACK_FXN void tcp_disconnected( pass_p src_pb , long v );
 
-_CALLBACK_FXN void thread_goes_out_of_scope(void *ptr);
+_CALLBACK_FXN void thread_goes_out_of_scope( void *ptr );
 
 #ifndef update_cell_section
 
@@ -118,6 +121,8 @@ _CALLBACK_FXN PASSED_CSTR ov_UDP_retry_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR ov_TCP_retry_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR ov_fault_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR ov_time_elapse_2_str( pass_p src_pcell );
+
+_CALLBACK_FXN PASSED_CSTR ov_thread_cnt_2_str( pass_p src_pcell );
 
 _CALLBACK_FXN PASSED_CSTR pb_time_elapse_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_fault_2_str( pass_p src_pcell );

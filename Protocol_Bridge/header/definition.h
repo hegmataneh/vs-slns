@@ -73,17 +73,26 @@ extern int __arrr_n;
 enum cleanup_priority_order /*ascending termination priority*/
 {
 	clean_globals ,
+
+	clean_globals_shared_var ,
+
 	clean_config ,
+
+	clean_stat ,
 
 	clean_persistant_cache_mgr ,
 	clean_packet_mngr , /*most have higher priority than persistant_cache_mgr*/
 
 	clean_threads , /*wait until all thread go away*/
 
+	clean_bridge_send_part ,
+
 	clean_try_post_packet , // before thread goes down
 
-	clean_bridges ,
+	stop_send_by_bridge ,
 
-	clean_connections , // close connection for no more data
+	bridge_stop_input ,
+
+	clean_input_connections , // close connection for no more input data
 };
 

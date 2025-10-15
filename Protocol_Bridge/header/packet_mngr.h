@@ -2,9 +2,9 @@
 
 typedef struct packet_mngr_prerequisite
 {
-	distributor_t throttling_release_halffill_segment;
+	distributor_t throttling_release_halffill_segment; // check if condition is true then set halffill segemtn as fill
 	kv_table_t map_tcp_socket; // keep mapping between tcp & id
-	ci_sgmgr_t aggr_inp_pkt; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
+	ci_sgmgr_t huge_cache; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
 	pthread_t trd_tcp_sender; // get filled segment and send them
 
 	//ci_sgmgr_t sent_package_log;
@@ -20,7 +20,7 @@ typedef struct udp_packet_header
 	uint16_t udp_pkt_id;
 	bool logged_2_mem;
 	bool log_double_checked;
-} udp_hdr_t;
+} rdy_udp_hdr_t;
 
 typedef struct ready_2_send_packet_v1
 {
@@ -28,7 +28,7 @@ typedef struct ready_2_send_packet_v1
 
 	struct
 	{
-		udp_hdr_t udp_hdr; // header from udp gatherer
+		rdy_udp_hdr_t udp_hdr; // header from udp gatherer
 
 		struct
 		{
@@ -69,10 +69,13 @@ typedef struct ready_2_send_packet_v1
 //} pkt_wal_t;
 
 
-_CALLBACK_FXN status operation_on_tcp_packet( pass_p data , buffer buf , size_t sz );
+_CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz );
 
 _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g );
 
 _CALLBACK_FXN void release_halffill_segment( pass_p src_g );
 
 _CALLBACK_FXN status descharge_persistent_storage_data( pass_p data , buffer buf , size_t sz );
+
+void cleanup_pkt_mgr( pkt_mgr_t * pktmgr );
+

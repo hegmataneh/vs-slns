@@ -36,7 +36,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 	int config_changes = 0;
 	do
 	{
-		if ( pb->trd.cmn.do_close_thread )
+		if ( pb->trd.cmn.stop_receiving )
 		{
 			break;
 		}
@@ -88,7 +88,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 			//}
 
 
-			if ( pb->trd.cmn.do_close_thread )
+			if ( pb->trd.cmn.stop_receiving )
 			{
 				break;
 			}
@@ -259,6 +259,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
+	pb->trd.cmn.receive_stoped = true;
 
 	return NULL;
 }

@@ -20,14 +20,16 @@ _PRIVATE_FXN _CALLBACK_FXN bool always_say_is_filled_callback( const buffer buf 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_packet_mngr( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
-	ci_sgm_peek_decide_active( &_g->hdls.pkt_mgr.aggr_inp_pkt , always_say_is_filled_callback );
+	ci_sgm_peek_decide_active( &_g->hdls.pkt_mgr.huge_cache , always_say_is_filled_callback );
 
 	time_t tbegin = time( NULL );
 	time_t tnow = tbegin;
-	while ( !ci_sgm_is_empty( &_g->hdls.pkt_mgr.aggr_inp_pkt ) && ( ( tnow - tbegin ) < 60 ) )
+	while ( !ci_sgm_is_empty( &_g->hdls.pkt_mgr.huge_cache ) && ( ( tnow - tbegin ) < 60 ) )
 	{
 		tnow = time( NULL );
 	}
+
+	cleanup_pkt_mgr( &_g->hdls.pkt_mgr );
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
@@ -47,7 +49,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
-	segmgr_init( &_g->hdls.pkt_mgr.aggr_inp_pkt , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_segment_capacity , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_offsets_capacity , True );
+	segmgr_init( &_g->hdls.pkt_mgr.huge_cache , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_segment_capacity , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_offsets_capacity , True );
 	MM_BREAK_IF( pthread_create( &_g->hdls.pkt_mgr.trd_tcp_sender , NULL , process_filled_tcp_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
 	//segmgr_init( &_g->hdls.pkt_mgr.sent_package_log , 3200000 , 100000 , True );
 	M_BREAK_STAT( distributor_subscribe( &_g->hdls.prst_csh.pagestack_pakcets , SUB_DIRECT_ONE_CALL_BUFFER_SIZE , SUB_FXN( descharge_persistent_storage_data ) , _g ) , 0 );
@@ -56,7 +58,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
 	M_V_END_RET
 }
 
-__attribute__( ( constructor( 105 ) ) )
+PRE_MAIN_INITIALIZATION( 105 )
 _PRIVATE_FXN void pre_main_init_packet_mngr_component( void )
 {
 	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_packet_mngr ) , _g );
@@ -67,7 +69,7 @@ _PRIVATE_FXN void pre_main_init_packet_mngr_component( void )
 /// from rings of each pcap or etc to global buffer
 /// most be fast . but its not necessary to be fast as defragment_pcap_data
 /// </summary>
-_CALLBACK_FXN status operation_on_tcp_packet( pass_p data , buffer buf , size_t sz )
+_CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz )
 {
 	INIT_BREAKABLE_FXN();
 
@@ -75,7 +77,7 @@ _CALLBACK_FXN status operation_on_tcp_packet( pass_p data , buffer buf , size_t 
 	AB * pb = tcp->owner_pb;
 	G * _g = ( G * )tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
-	status ret = segmgr_append( &_g->hdls.pkt_mgr.aggr_inp_pkt , buf , sz ); // store whole pakt + hdr into global buffer
+	status ret = segmgr_append( &_g->hdls.pkt_mgr.huge_cache , buf , sz ); // store whole pakt + hdr into global buffer
 	RANJE_ACT1( ret , errArg , NULL_ACT , MACRO_E( M_BREAK_STAT( ret , 0 ) ) );
 
 	// TODO . add record to file if memory about to full
@@ -109,7 +111,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	{
 		if ( pkt1->metadata.cool_down_attempt && pkt1->metadata.cool_down_attempt == *( uchar * )&tnow ) // in one second we should not attempt . and this check and possiblity is rare in not too many attempt situation
 		{
-			return errTooManyAttempt;
+			return errTooManyAttempt; // cannot send and too many attempt to send
 		}
 		pkt1->metadata.cool_down_attempt = *( uchar * )&tnow;
 	}
@@ -290,7 +292,7 @@ _CALLBACK_FXN status descharge_persistent_storage_data( pass_p src_g , buffer bu
 	return process_segment_itm( buf , sz , src_g );
 }
 
-// emptied buffer cache( aggr_inp_pkt ) then on failure go to persistent storage cache and get from it
+// emptied buffer cache( huge_cache ) then on failure go to persistent storage cache and get from it
 // this fxn do empty segment by segment
 _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 {
@@ -309,16 +311,16 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 			{
 				long a , b;
 			} big_data;
-			char bytes[16];
+			char bytes[ 16 ];
 		} arr;
 		uchar idx;
-	} cpu_unburne = {0}; // suppress long time useless fetch rate
+	} cpu_unburne = { 0 }; // suppress long time useless fetch rate
 
 	do
 	{
 		if ( GRACEFULLY_END_THREAD() ) break;
 
-		pseg = segmgr_pop_filled_segment( &_g->hdls.pkt_mgr.aggr_inp_pkt , False , seg_trv_LIFO );
+		pseg = segmgr_pop_filled_segment( &_g->hdls.pkt_mgr.huge_cache , False , seg_trv_LIFO );
 		if ( pseg ) // poped on memory packets
 		{
 			cpu_unburne.idx = ( cpu_unburne.idx + 1 ) % sizeof( cpu_unburne.arr );
@@ -332,7 +334,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 				ci_sgm_iter_items( pseg , process_faulty_itm , src_g , true );
 			}
 			// then close segment
-			ci_sgm_mark_empty( &_g->hdls.pkt_mgr.aggr_inp_pkt , pseg ); // pop last emptied segment
+			ci_sgm_mark_empty( &_g->hdls.pkt_mgr.huge_cache , pseg ); // pop last emptied segment
 		}
 		else // there is no packet in memory so fetch persisted packets
 		{
@@ -366,5 +368,12 @@ _PRIVATE_FXN _CALLBACK_FXN bool peek_decide_active_sgm( const buffer buf , size_
 _CALLBACK_FXN void release_halffill_segment( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
-	ci_sgm_peek_decide_active( &_g->hdls.pkt_mgr.aggr_inp_pkt , peek_decide_active_sgm );
+	ci_sgm_peek_decide_active( &_g->hdls.pkt_mgr.huge_cache , peek_decide_active_sgm );
+}
+
+void cleanup_pkt_mgr( pkt_mgr_t * pktmgr )
+{
+	sub_destroy( &pktmgr->throttling_release_halffill_segment );
+	dict_fst_destroy( &pktmgr->map_tcp_socket );
+	segmgr_destroy( &pktmgr->huge_cache );
 }

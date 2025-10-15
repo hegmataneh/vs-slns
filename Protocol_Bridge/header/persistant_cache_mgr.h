@@ -8,9 +8,10 @@ typedef struct persistant_cache_prerequisite
 
 	distributor_t pagestack_gateway_status; // open clost page stack discharge
 	sem_t pagestack_gateway_open_sem; // prevent cpu burne
-	int pagestack_gateway_open_val; // assist gateway status
+	int pagestack_gateway_open_val; // assist gateway status . also -1 means close persistent mngr
+	int cool_down_attempt_onEmpty;
 	distributor_t pagestack_pakcets; // every one who need data sub here
-
+	
 } prst_csh_t; // place who responsible for manage persistent storage for packet manager
 
 /*callback*/

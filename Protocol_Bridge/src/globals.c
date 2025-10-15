@@ -46,6 +46,20 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 	pthread_mutex_destroy(&_g->hdls.thread_close_mtx);   // init lock
+
+	sub_destroy( &_g->distributors.throttling_refresh_stat );
+	sub_destroy( &_g->distributors.pre_configuration );
+	sub_destroy( &_g->distributors.post_config_stablished );
+	sub_destroy( &_g->distributors.thread_startup );
+	sub_destroy( &_g->distributors.app_lvl_failure_dist );
+	sub_destroy( &_g->distributors.pb_lvl_failure_dist );
+	sub_destroy( &_g->distributors.pb_udp_connected_dist );
+	sub_destroy( &_g->distributors.pb_udp_disconnected_dist );
+	sub_destroy( &_g->distributors.pb_tcp_connected_dist );
+	sub_destroy( &_g->distributors.pb_tcp_disconnected_dist );
+	//sub_destroy( &_g->distributors.quit_interrupt_dist );
+
+	array_free( &_g->trds.registered_thread );
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
@@ -79,7 +93,6 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 			bcontinue = false;
 		}
 	}
-	int i = 2 + 2;
 }
 
 _CALLBACK_FXN void thread_registration( pass_p src_g , long src_pthread_t )
@@ -88,6 +101,8 @@ _CALLBACK_FXN void thread_registration( pass_p src_g , long src_pthread_t )
 	pthread_mutex_lock( &_g->hdls.thread_close_mtx );
 	array_add( &_g->trds.registered_thread , ( void * )&src_pthread_t );
 	pthread_mutex_unlock( &_g->hdls.thread_close_mtx );
+	
+	nnc_cell_triggered( _g->stat.nc_s_req.ov_thread_cnt_cell );
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
@@ -136,7 +151,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 	distributor_subscribe( &_g->distributors.pb_tcp_disconnected_dist , SUB_LONG , SUB_FXN( tcp_disconnected ) , NULL );
 }
 
-__attribute__( ( constructor( 104 ) ) )
+PRE_MAIN_INITIALIZATION( 104 )
 _PRIVATE_FXN void pre_main_init_helper_component( void )
 {
 	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_helper ) , _g );
@@ -540,7 +555,7 @@ void mng_basic_thread_sleep( G * _g , int priority )
 /// <summary>
 /// used in collect_strings_itr to pack vary strings
 /// </summary>
-_CALLBACK_FXN LPCSTR itr_interfaces( const pass_p arr , size_t i )
+_PRIVATE_FXN _CALLBACK_FXN LPCSTR itr_interfaces( const pass_p arr , size_t i )
 {
 	return ( ( AB_udp * )arr )[ i ].__udp_cfg_pak->data.UDP_origin_interface;
 };
@@ -906,6 +921,14 @@ _CALLBACK_FXN PASSED_CSTR ov_time_elapse_2_str( pass_p src_pcell )
 	gettimeofday( &t_end , NULL );
 	G * _g = ( G * )pcell->storage.bt.pass_data;
 	format_elapsed_time_with_millis( _g->stat.aggregate_stat.t_begin , t_end , pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , 1 );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR ov_thread_cnt_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	G * _g = ( G * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%d" , _g->trds.registered_thread.count );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 

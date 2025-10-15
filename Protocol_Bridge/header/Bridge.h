@@ -1,12 +1,12 @@
 ﻿#pragma once
 
-typedef union AB_handler_prerequisite
+typedef struct AB_handler_prerequisite
 {
 
 	struct s_pcap_udp_counter // one thread for send and receive
 	{
 		pthread_t trd_id;
-		pcap_t * handle;
+		pcap_t * pcp_handle;
 	} *p_pcap_udp_counter;
 
 	struct s_krnl_udp_counter
@@ -24,7 +24,7 @@ typedef union AB_handler_prerequisite
 	{
 		pthread_t income_trd_id;
 		pthread_t outgoing_trd_id;
-		pcap_t * handle;
+		pcap_t * pcp_handle;
 	} *p_one2one_pcap2krnl_SF;
 
 	struct s_one2many_pcap2krnl_SF // one thread for each direction with store & forward method
@@ -32,7 +32,7 @@ typedef union AB_handler_prerequisite
 		pthread_t income_trd_id;
 		pthread_t outgoing_trd_id;
 		dict_o_t dc_token_ring; // config may have multi rings and each one is for one grp
-		pcap_t * handle;
+		pcap_t * pcp_handle;
 	} *p_one2many_pcap2krnl_SF;
 
 	struct s_many2one_pcap2krnl_SF_serialize // one thread for each direction with store & forward method
@@ -46,18 +46,36 @@ typedef union AB_handler_prerequisite
 
 typedef struct AB_thread // threads use to recv and send data
 {
-	struct AB_common_prerequisite
+	struct AB_common_prerequisite // TODO . aware for cache line alignment
 	{
+		
+		union
+		{
+			struct
+			{
+				bool stop_receiving; // command from outside to inside thread
+				bool receive_stoped;
+			};
+			uchar pad1[64];
+		};
+		union
+		{
+			struct
+			{
+				bool stop_sending;
+				bool send_stoped;
+			};
+			uchar pad2[ 64 ];
+		};
 		int thread_is_created;
-		int do_close_thread; // command from outside to inside thread
 		//int bridg_prerequisite_stabled; // because udp port may start after thread started . if all the condition is ready to bridge thread start
 
-		cbuf_pked ring_buf; // ring buffer of input udp . why i use packed buffer . because each pcap has one ring and it consume lot of memory to keep pesimistic block( consider 8k for each pkt )
-		udps_fgms cached_udp; // used as fast access
+		cbuf_pked fast_wrt_cache; // ring buffer of input udp . why i use packed buffer . because each pcap has one ring and it consume lot of memory to keep pesimistic block( consider 8k for each pkt )
+		defraged_udps_t defraged_udps;
 
-		distributor_t pcap_defrag_udp_push; // used when raw socket worked
-		distributor_t payload_push; // just complete payload pushed( i insist on payload concept not buffer litteraly )
-		distributor_t poped_payload_from_rbuf; // just payload poped( i insist on payload concept not buffer litteraly )
+		distributor_t fragmented_udp_packet_on_pcap_received_event; // used when raw socket worked
+		distributor_t kernel_udp_payload_ready_event; // just complete payload pushed( i insist on payload concept not buffer litteraly )
+		distributor_t defraged_pcap_udp_payload_event; // just payload poped( i insist on payload concept not buffer litteraly )
 	} cmn;
 
 	ex_preq t;
@@ -133,18 +151,18 @@ typedef struct ActiveBridgeShortPathHelper // every virtually inherit struct mus
 	int * in_count;
 	int * out_count;
 	int * thread_is_created;
-	int * do_close_thread;
+	//int * do_close_thread;
 
 	//int * bridg_prerequisite_stabled;
 	distributor_t * buf_psh_distri;
 
-	cbuf_pked * ring_buf; // buffer
-	distributor_t * poped_payload;
+	cbuf_pked * fast_wrt_cache; // buffer
+	distributor_t * defrg_pcap_payload;
 	dict_o_t * dc_token_ring;
-	pcap_t ** handle;
+	pcap_t ** pcp_handle; // address to pcap handler
 
 } shrt_path;
 
 void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_path * hlpr );
 
-_CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v );
+_CALLBACK_FXN void stop_sending_by_bridge( pass_p src_g , long v );

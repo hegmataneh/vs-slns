@@ -19,7 +19,7 @@ _CALLBACK_FXN void quit_interrupt_dist_push_many2many_pcap_krnl_SF( pass_p src_p
 //_PRIVATE_FXN _CALLBACK_FXN status buffer_push_many2many_pcap_krnl_SF( pass_p data , buffer buf , int payload_len )
 //{
 //	AB * pb = ( AB * )data;
-//	return cbuf_pked_push( &pb->trd.cmn.ring_buf , buf , payload_len );
+//	return cbuf_pked_push( &pb->trd.cmn.fast_wrt_cache , buf , payload_len );
 //}
 
 _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
@@ -35,19 +35,17 @@ _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
 
 	//WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 
-	//M_BREAK_STAT( distributor_init( &pb->trd.cmn.payload_push , 1 ) , 1 );
-	//M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.payload_push , SUB_DIRECT_ONE_CALL_BUFFER_INT ,
-	//	SUB_FXN( buffer_push_many2many_pcap_krnl_SF ) , src_pb ) , 1 );
+	
 
 	// in addition to make shrt_path complete based on type and dependency is detached
 	shrt_path pth; // 1 . we have simple pth here
 	mk_shrt_path( pb , &pth ); // 2 . and fill it
 	//pth.handle = &pb->trd.t.p_many2one_pcap2krnl_SF_serialize->handle;
 	pth.dc_token_ring = &pb->trd.t.p_many2one_pcap2krnl_SF_serialize->dc_token_ring;
-	pth.ring_buf = &pb->trd.cmn.ring_buf;
+	pth.fast_wrt_cache = &pb->trd.cmn.fast_wrt_cache;
 
 	// register here to get quit cmd
-	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( quit_interrupt_dist_push_many2many_pcap_krnl_SF ) , pb , clean_connections );
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( quit_interrupt_dist_push_many2many_pcap_krnl_SF ) , pb , clean_input_connections );
 
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &pth ) , 1 );
 

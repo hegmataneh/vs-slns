@@ -9,7 +9,7 @@
 _PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2one_krnl2krnl_SF( pass_p data , buffer buf , size_t payload_len )
 {
 	AB * pb = ( AB * )data;
-	return cbuf_pked_push( &pb->trd.cmn.ring_buf , buf , payload_len , payload_len , NULL );
+	return cbuf_pked_push( &pb->trd.cmn.fast_wrt_cache , buf , payload_len , payload_len , NULL );
 }
 
 /// <summary>
@@ -36,8 +36,8 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	//	mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	//}
 
-	M_BREAK_STAT( distributor_init( &pb->trd.cmn.payload_push , 1 ) , 1 );
-	M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.payload_push , SUB_DIRECT_ONE_CALL_BUFFER_SIZE ,
+	M_BREAK_STAT( distributor_init( &pb->trd.cmn.kernel_udp_payload_ready_event , 1 ) , 1 );
+	M_BREAK_STAT( distributor_subscribe( &pb->trd.cmn.kernel_udp_payload_ready_event , SUB_DIRECT_ONE_CALL_BUFFER_SIZE ,
 		SUB_FXN( buffer_push_one2one_krnl2krnl_SF ) , src_pb ) , 1 );
 
 	time_t tnow = 0;
@@ -47,7 +47,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	int config_changes = 0;
 	do
 	{
-		if ( pb->trd.cmn.do_close_thread )
+		if ( pb->trd.cmn.stop_receiving )
 		{
 			break;
 		}
@@ -99,7 +99,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 			//}
 
 
-			if ( pb->trd.cmn.do_close_thread )
+			if ( pb->trd.cmn.stop_receiving )
 			{
 				break;
 			}
@@ -248,7 +248,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 							pb->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
 							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
-							if ( distributor_publish_buffer_size( &pb->trd.cmn.payload_push , buffer , bytes_received , NULL ) != errOK ) continue; // dist udp packet
+							if ( distributor_publish_buffer_size( &pb->trd.cmn.kernel_udp_payload_ready_event , buffer , bytes_received , NULL ) != errOK ) continue; // dist udp packet
 
 							gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
@@ -277,6 +277,8 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	}
 	M_V_END_RET
 
+	pb->trd.cmn.receive_stoped = true;
+
 	return NULL;
 }
 
@@ -293,8 +295,8 @@ _THREAD_FXN void_p proc_one2one_krnl_tcp_forward( pass_p src_pb )
 
 	shrt_path pth;
 	mk_shrt_path( pb , &pth );
-	pth.ring_buf = &pb->trd.cmn.ring_buf;
-	pth.poped_payload = &pb->trd.cmn.poped_payload_from_rbuf;
+	pth.fast_wrt_cache = &pb->trd.cmn.fast_wrt_cache;
+	pth.defrg_pcap_payload = &pb->trd.cmn.defraged_pcap_udp_payload_event;
 
 	many_tcp_out_thread_proc( pb , &pth );
 

@@ -114,10 +114,10 @@ typedef struct s_bridge_stat
 
 #ifndef main_section
 
-struct statistics_lock_data
-{
-	pthread_mutex_t lock;
-};
+//struct statistics_lock_data
+//{
+//	pthread_mutex_t lock;
+//};
 
 typedef struct // can be memset to zero all byte
 {
@@ -146,6 +146,7 @@ typedef struct notcurses_stat_req
 	nnc_cell_content * ov_TCP_conn_cell;
 	nnc_cell_content * ov_UDP_retry_conn_cell;
 	nnc_cell_content * ov_TCP_retry_conn_cell;
+	nnc_cell_content * ov_thread_cnt_cell;
 
 } n_s_req;
 
@@ -167,7 +168,7 @@ typedef struct statistics
 	char input_buffer[ INPUT_MAX ];
 	int last_line_meet;
 	int alive_check_counter;
-	struct statistics_lock_data lock_data;
+	//struct statistics_lock_data lock_data;
 
 } Stt;
 

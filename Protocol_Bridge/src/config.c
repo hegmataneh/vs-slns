@@ -53,8 +53,8 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_config( pass_p src_g , long v )
 	{
 		for ( size_t idx = 0 ; idx < _g->appcfg.bdj_psv_cfg_count ; idx++ )
 		{
-			DAC( _g->appcfg.bdj_psv_cfg->m.m.maintained.in );
-			DAC( _g->appcfg.bdj_psv_cfg->m.m.maintained.out );
+			//DAC( _g->appcfg.bdj_psv_cfg->m.m.maintained.in );
+			//DAC( _g->appcfg.bdj_psv_cfg->m.m.maintained.out );
 		}
 		DAC( _g->appcfg.bdj_psv_cfg );
 	}
@@ -66,10 +66,10 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
 	
 	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_config ) , _g , clean_config );
 
-	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_bridges ) , _g , clean_bridges );
+	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( stop_sending_by_bridge ) , _g , stop_send_by_bridge );
 }
 
-__attribute__( ( constructor( 102 ) ) )
+PRE_MAIN_INITIALIZATION( 102 )
 _PRIVATE_FXN void pre_main_init_config_component( void )
 {
 	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g );
