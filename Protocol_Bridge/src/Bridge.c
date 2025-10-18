@@ -27,6 +27,7 @@ _CALLBACK_FXN void stop_sending_by_bridge( pass_p src_g , long v )
 			}
 		}
 	}
+	MARK_LINE();
 }
 
 
@@ -39,6 +40,7 @@ _CALLBACK_FXN void bridge_stoping_input( pass_p src_pb , long v )
 		{
 		}
 	}
+	MARK_LINE();
 }
 
 _CALLBACK_FXN void cleanup_sending_part_bridge( pass_p src_pb , long v )
@@ -56,6 +58,7 @@ _CALLBACK_FXN void cleanup_sending_part_bridge( pass_p src_pb , long v )
 		sub_destroy( &pb->trd.cmn.fragmented_udp_packet_on_pcap_received_event );
 		sub_destroy( &pb->trd.cmn.defraged_pcap_udp_payload_event );
 	}
+	MARK_LINE();
 }
 
 _CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
@@ -109,6 +112,7 @@ _CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
 	}
 	DAC( _g->bridges.ABhs_masks );
 	DAC( _g->bridges.ABs );
+	MARK_LINE();
 }
 
 

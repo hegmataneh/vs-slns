@@ -96,3 +96,6 @@ enum cleanup_priority_order /*ascending termination priority*/
 	clean_input_connections , // close connection for no more input data
 };
 
+#define MARK_START_THREAD() __arrr_n += sprintf( __arrr + __arrr_n , "%s started %lu\n" , __FUNCTION__ , trd_id );
+
+#define MARK_LINE() __arrr_n += sprintf( __arrr + __arrr_n , "%s %d\n" , __FUNCTION__ , __LINE__ );

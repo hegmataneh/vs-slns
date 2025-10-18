@@ -49,7 +49,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 
 	//WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 	//char * dev = pb->cpy_cfg.m.m.maintained.in->data.UDP_origin_interface;
@@ -102,7 +102,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 
 	// Capture indefinitely
 	MM_FMT_BREAK_IF( pcap_loop( pb->trd.t.p_pcap_udp_counter->pcp_handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->pcp_handle ) );
-
+	MARK_LINE();
 	BREAK_OK( 4 ); // clean every thing
 
 	BEGIN_RET

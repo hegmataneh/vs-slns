@@ -21,6 +21,7 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 
 	sub_destroy( &_g->hdls.pkt_mgr.throttling_release_halffill_segment );
 	
+	MARK_LINE();
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
@@ -228,7 +229,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 	
 	distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( g_every_ticking_refresh ) , _g );
 	_g->distributors.throttling_refresh_stat.iteration_dir = tail_2_head; // first order issued then applied

@@ -210,5 +210,6 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 	}
 	M_V_END_RET
 	if ( pb->trd.cmn.stop_sending ) pb->trd.cmn.send_stoped = true;
+	MARK_LINE();
 	return NULL;
 }

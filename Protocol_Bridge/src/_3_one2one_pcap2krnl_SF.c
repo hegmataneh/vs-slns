@@ -35,7 +35,7 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 
 	WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 
@@ -78,7 +78,7 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_tcp_out( pass_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 
 	shrt_path pth;
 	mk_shrt_path( pb , &pth );
@@ -86,7 +86,7 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_tcp_out( pass_p src_pb )
 	pth.defrg_pcap_payload = &pb->trd.cmn.defraged_pcap_udp_payload_event;
 
 	many_tcp_out_thread_proc( pb , &pth );
-
+	MARK_LINE();
 	return NULL;
 }
 

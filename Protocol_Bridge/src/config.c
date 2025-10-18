@@ -84,7 +84,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 
 	char buf[ 50 ] = { 0 };
 	time_t prev_time = { 0 } , cur_time = { 0 };
@@ -137,6 +137,9 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	BEGIN_RET
 		case 1: DIST_APP_FAILURE();
 	M_V_END_RET
+
+	MARK_LINE();
+
 	return VOID_RET;
 }
 
@@ -148,7 +151,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 	
 	while ( !_g->appcfg.version_changed ) // load after version loaded
 	{
@@ -548,6 +551,9 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 	BEGIN_SMPL
 	M_V_END_RET
+
+	MARK_LINE();
+
 	return NULL;
 }
 
@@ -559,7 +565,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 
 	while ( !_g->appcfg.bdj_psv_cfg_count ) // load after any config loaded
 	{

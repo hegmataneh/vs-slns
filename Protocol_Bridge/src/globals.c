@@ -60,10 +60,14 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 	//sub_destroy( &_g->distributors.quit_interrupt_dist );
 
 	array_free( &_g->trds.registered_thread );
+
+	MARK_LINE();
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 {
+	MARK_LINE();
+
 	G * _g = ( G * )src_g;
 	size_t sz = array_get_count( &_g->trds.registered_thread );
 	pthread_t * ppthread_t = NULL;
@@ -93,6 +97,8 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 			bcontinue = false;
 		}
 	}
+
+	MARK_LINE();
 }
 
 _CALLBACK_FXN void thread_registration( pass_p src_g , long src_pthread_t )
@@ -262,7 +268,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 
 	for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 	{
@@ -375,7 +381,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 
 	while ( 1 )
 	{
@@ -701,7 +707,7 @@ _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 
 	fd_set readfds;
 	char buffer[ DEFAULT_BUF_SIZE ];

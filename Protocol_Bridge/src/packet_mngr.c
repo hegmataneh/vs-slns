@@ -19,6 +19,8 @@ _PRIVATE_FXN _CALLBACK_FXN bool always_say_is_filled_callback( const buffer buf 
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_packet_mngr( pass_p src_g , long v )
 {
+MARK_LINE();
+
 	G * _g = ( G * )src_g;
 	ci_sgm_peek_decide_active( &_g->hdls.pkt_mgr.huge_cache , always_say_is_filled_callback );
 
@@ -30,6 +32,8 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_packet_mngr( pass_p src_g , long v )
 	}
 
 	cleanup_pkt_mgr( &_g->hdls.pkt_mgr );
+
+	MARK_LINE();
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
@@ -299,7 +303,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 	G * _g = ( G * )src_g;
 	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	__arrr_n += sprintf( __arrr + __arrr_n , "\t\t\t\t\t\t\t%s started %lu\n" , __FUNCTION__ , trd_id );
+	MARK_START_THREAD();
 
 	ci_sgm_t * pseg = NULL;
 	
@@ -350,6 +354,9 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 	}
 	while( 1 );
 	distributor_publish_long( &_g->hdls.prst_csh.pagestack_gateway_status , 0 , NULL ); // stop persistent storage discharge
+
+	MARK_LINE();
+
 	return NULL;
 }
 

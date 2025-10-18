@@ -42,7 +42,7 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	return NULL;
 }
 
-char __arrr[10000] = { 0 };
+char __arrr[ 10000 ] = { 0 };
 int __arrr_n = { 0 };
 
 int main()
@@ -76,21 +76,21 @@ int main()
 
 	M_BREAK_IF( pthread_join( _g->trds.trd_watchdog , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
 
-	#ifdef Uses_MLEAK
-	FILE * fl = fopen( "leak.txt" , "w+" );
+	//#ifdef Uses_MLEAK
+	//FILE * fl = fopen( "leak.txt" , "w+" );
 
-	for ( int ii = 0 ; ii < MLK_HASH_WIDTH ; ii++ )
-	{
-		for ( int jj = 0 ; jj < EACH_ADDR_COUNT ; jj++ )
-		{
-			if ( __alc_hit[ ii ][ jj ].counter != 0 )
-			{
-				fprintf( fl , "%d %s\n" , __alc_hit[ ii ][ jj ].counter , __alc_hit[ ii ][ jj ].klstck.temp_buf );
-			}
-		}
-	}
-	fclose( fl );
-	#endif
+	//for ( int ii = 0 ; ii < MLK_HASH_WIDTH ; ii++ )
+	//{
+	//	for ( int jj = 0 ; jj < EACH_ADDR_COUNT ; jj++ )
+	//	{
+	//		if ( __alc_hit[ ii ][ jj ].counter != 0 )
+	//		{
+	//			fprintf( fl , "%d %s (%lu)\n" , __alc_hit[ ii ][ jj ].counter , __alc_hit[ ii ][ jj ].klstck.temp_buf , __alc_hit[ ii ][ jj ].size );
+	//		}
+	//	}
+	//}
+	//fclose( fl );
+	//#endif
 
 	//sleep(1); // for sanitizer to dump
 	_exit( 0 );
