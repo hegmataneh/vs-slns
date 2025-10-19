@@ -13,6 +13,8 @@ typedef struct global_distributor
 	distributor_t pre_configuration;
 	distributor_t post_config_stablished;
 
+	distributor_t program_stabled;
+
 	distributor_t thread_startup; // every thread start up declare himself by this
 
 	distributor_t app_lvl_failure_dist;
@@ -27,12 +29,29 @@ typedef struct global_distributor
 	distributor_t quit_interrupt_dist; // quit interrupt dispatch to all pcap loop
 
 	distributor_t throttling_refresh_stat; // refresh stat intervally
+
+	distributor_t init_static_table; // table that is static with content . for now without AB
 } g_dst;
+
+typedef enum
+{
+	gws_die = -1 ,
+	gws_close = 0,
+	gws_open = 1
+} gateway_open_stat;
 
 typedef struct global_handles
 {
-	pkt_mgr_t pkt_mgr; // packet manager . receive from pcap ring and add to huge double circular linked list
-	prst_csh_t prst_csh; // persistent cache manager . 
+	struct
+	{
+		pkt_mgr_t pkt_mgr; // packet manager . receive from pcap ring and add to huge double circular linked list
+		prst_csh_t prst_csh; // persistent cache manager . 
+		struct
+		{
+			sem_t pagestack_gateway_open_sem; // prevent cpu burne
+			gateway_open_stat pagestack_gateway_open_val; // assist gateway status . also -1 means close persistent mngr
+		} gateway;
+	};
 
 	pthread_mutex_t thread_close_mtx;
 
@@ -81,9 +100,6 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g );
 
 void init_bypass_stdout( G * _g );
 void M_showMsg( LPCSTR msg );
-
-status init_notcursor( G * _g );
-void init_tui( G * _g );
 
 //int _connect_tcp( AB * pb );
 //status connect_one_tcp( AB_tcp * tcp );

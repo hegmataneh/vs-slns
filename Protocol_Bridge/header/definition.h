@@ -16,6 +16,7 @@
 #define LOW_PRIORITY_THREAD 1
 #define NORMAL_PRIORITY_THREAD 2
 #define HI_PRIORITY_THREAD 3
+#define VLOW_PRIORITY_THREAD 4
 
 #define DEFAULT_BUF_SIZE 2048
 
@@ -26,9 +27,11 @@
 #define STAT_REFERESH_INTERVAL_SEC_DEFUALT 1
 #define CLOSE_APP_VAR_DEFAULT 0
 
-#define DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC 3000000000
-#define DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC 1000000000
-#define DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC 1000000
+#define DEFAULT_VLOW_BASIC_THREAD_DELAY_NANOSEC 10000000000 /*10 sec*/
+
+#define DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC 3000000000 /*3 sec*/
+#define DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC 1000000000 /*1 sec*/
+#define DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC 1000000 /*1 milsec*/
 
 #define SNAP_LEN MAX_PACKET_SIZE/*1518*/  // max bytes per packet to capture
 
@@ -46,6 +49,7 @@
 
 #define NUMBER_IN_SHORT_FORM() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.number_in_short_form : 1 )
 
+#define VLOW_THREAD_DEFAULT_DELAY_NANOSEC() DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC
 #define LOW_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.default_low_basic_thread_delay_nanosec : DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC )
 #define NORMAL_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.default_normal_basic_thread_delay_nanosec : DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC )
 #define HI_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.default_hi_basic_thread_delay_nanosec : DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC )
@@ -94,6 +98,13 @@ enum cleanup_priority_order /*ascending termination priority*/
 	bridge_stop_input ,
 
 	clean_input_connections , // close connection for no more input data
+};
+
+enum stat_init_priority_order /*ascending termination priority*/
+{
+	statistics_is_stabled , // at last call like event
+	packetmgr_statistics ,
+	main_statistics
 };
 
 #define MARK_START_THREAD() __arrr_n += sprintf( __arrr + __arrr_n , "%s started %lu\n" , __FUNCTION__ , trd_id );

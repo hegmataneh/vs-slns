@@ -4,10 +4,20 @@ typedef struct packet_mngr_prerequisite
 {
 	distributor_t throttling_release_halffill_segment; // check if condition is true then set halffill segemtn as fill
 	kv_table_t map_tcp_socket; // keep mapping between tcp & id
-	ci_sgmgr_t huge_cache; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
+	ci_sgmgr_t huge_fst_cache; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
 	pthread_t trd_tcp_sender; // get filled segment and send them
 
+	pthread_t trd_clean_unused_segment; // to clean long time unused free segment
+
+	cbuf_metr last_60_sec_seg_count; // peek segment count every one second
+	volatile size_t strides_packet_peek; // take step and prevent segment burst
+
 	//ci_sgmgr_t sent_package_log;
+
+	timeval latest_huge_memory_time; // last successfull packet sent
+	timeval latest_memmap_time; // last stored in memmap
+
+	pthread_mutex_t pm_lock;		/* protect against reentrance of threads(pkt_mgr,persist_mgr) */
 
 } pkt_mgr_t;
 
@@ -79,3 +89,8 @@ _CALLBACK_FXN status descharge_persistent_storage_data( pass_p data , buffer buf
 
 void cleanup_pkt_mgr( pkt_mgr_t * pktmgr );
 
+_CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g );
+
+_THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g );
+
+_CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g );

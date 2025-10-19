@@ -69,12 +69,26 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
 	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( stop_sending_by_bridge ) , _g , stop_send_by_bridge );
 }
 
+_CALLBACK_FXN _PRIVATE_FXN void program_is_stabled( void_p src_g )
+{
+	G * _g = ( G * )src_g;
+	distributor_publish_void( &_g->distributors.post_config_stablished , SUBSCRIBER_PROVIDED );
+	distributor_publish_void( &_g->distributors.init_static_table , SUBSCRIBER_PROVIDED );
+}
+
 PRE_MAIN_INITIALIZATION( 102 )
 _PRIVATE_FXN void pre_main_init_config_component( void )
 {
+	// distribute initialization by the callback and throw components
+	distributor_init( &_g->distributors.pre_configuration , 1 );
 	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g );
+
 	distributor_init( &_g->distributors.post_config_stablished , 1 );
+
+	distributor_init( &_g->distributors.program_stabled , 1 );
+	distributor_subscribe( &_g->distributors.program_stabled , SUB_VOID , SUB_FXN( program_is_stabled ) , _g );
 }
+
 
 // TODO . think about race condition
 _THREAD_FXN void_p version_checker( pass_p src_g )
@@ -573,7 +587,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
-	distributor_publish_void( &_g->distributors.post_config_stablished , NULL );
+	distributor_publish_void( &_g->distributors.program_stabled , SUBSCRIBER_PROVIDED );
 
 	while ( 1 )
 	{

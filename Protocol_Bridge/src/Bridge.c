@@ -120,7 +120,6 @@ _CALLBACK_FXN void pb_every_ticking_refresh( pass_p src_pb )
 {
 	AB * pb = ( AB * )src_pb;
 
-	
 	nnc_cell_triggered( pb->stat.pb_elapse_cell );
 
 	nnc_cell_triggered( pb->stat.pb_total_udp_get_count_cell );

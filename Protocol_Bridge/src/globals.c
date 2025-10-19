@@ -57,6 +57,9 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 	sub_destroy( &_g->distributors.pb_udp_disconnected_dist );
 	sub_destroy( &_g->distributors.pb_tcp_connected_dist );
 	sub_destroy( &_g->distributors.pb_tcp_disconnected_dist );
+
+	sub_destroy( &_g->distributors.init_static_table );
+	sub_destroy( &_g->distributors.program_stabled );
 	//sub_destroy( &_g->distributors.quit_interrupt_dist );
 
 	array_free( &_g->trds.registered_thread );
@@ -367,7 +370,7 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 	case 1:
 	{
 		_close_socket( &tcp->tcp_sockfd );
-		DIST_BRIDGE_FAILURE();
+		//DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
 	return errSocket;
@@ -536,6 +539,11 @@ void mng_basic_thread_sleep( G * _g , int priority )
 	MEMSET_ZERO( &ts , 1 );
 	switch ( priority )
 	{
+		case VLOW_PRIORITY_THREAD:
+		{
+			ts.tv_nsec = VLOW_THREAD_DEFAULT_DELAY_NANOSEC();
+			break;
+		}
 		case LOW_PRIORITY_THREAD:
 		{
 			ts.tv_nsec = LOW_THREAD_DEFAULT_DELAY_NANOSEC();

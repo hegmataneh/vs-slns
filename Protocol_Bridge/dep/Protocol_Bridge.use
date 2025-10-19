@@ -116,6 +116,7 @@
 #endif
 
 #ifdef Uses_packet_mngr
+	#define Uses_cbuf_metr
 	#define Uses_distributor_t
 	#define Uses_kv_table_t
 	#define __INC_packet_mngr

@@ -19,8 +19,6 @@ _PRIVATE_FXN void pre_main_top_prio_init( void )
 {
 	static G g = {0};
 	_g = &g;
-	// distribute initialization by the callback and throw components
-	distributor_init( &_g->distributors.pre_configuration , 1 );
 }
 
 #ifdef Uses_MLEAK
@@ -36,7 +34,7 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	_g->cmd.block_sending_1 = 1; // Signal all threads to stop
 	_g->cmd.burst_waiting_2 = true;
 	_g->cmd.quit_thread_3 = 1;
-	distributor_publish_long( &_g->distributors.quit_interrupt_dist , sig , NULL );
+	distributor_publish_long( &_g->distributors.quit_interrupt_dist , sig , SUBSCRIBER_PROVIDED );
 	sub_destroy( &_g->distributors.quit_interrupt_dist );
 	_g->cmd.quit_app_4 = 1;
 	return NULL;
@@ -64,11 +62,11 @@ int main()
 	pthread_create( &th_signal , NULL , signal_thread , &set );
 	#endif
 
-	distributor_publish_void( &_g->distributors.pre_configuration , NULL ); // pre config state
+	distributor_publish_void( &_g->distributors.pre_configuration , SUBSCRIBER_PROVIDED ); // pre config state
 
 	// this thread keep everything alive and just check every thing just be at right position and do not do action with very risky consequenses and exception raiser
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_watchdog , NULL , watchdog_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create watchdog thread" );
-	pthread_create( &_g->trds.tid_stats , NULL , stats_thread , ( pass_p )_g );
+
 	//pthread_create( &_g->trds.tid_input , NULL , input_thread , ( pass_p )_g );
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_version_checker , NULL , version_checker , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create version_checker thread" );
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_loader , NULL , config_loader , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_loader thread" );

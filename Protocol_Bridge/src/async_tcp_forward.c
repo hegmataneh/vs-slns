@@ -132,7 +132,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 	rdy_pkt1 * pkt = ( rdy_pkt1 * )buffer; // plain cup for packet
 	pkt->metadata.version = TCP_PACKET_V1;
 	pkt->metadata.sent = false;
-	pkt->metadata.retry = true;
+	pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
 	pkt->metadata.retried = false;
 	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
 	pkt->metadata.TCP_name_size = strlen( pkt->TCP_name );
@@ -191,7 +191,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 
 			// TODO . result must be seperated from each other to make right statistic
 
-			if ( distributor_publish_buffer_size( hlpr->defrg_pcap_payload , buffer , sz + pkt->metadata.payload_offset , NULL ) != errOK ) // 14040622 . do replicate or roundrobin
+			if ( distributor_publish_buffer_size( hlpr->defrg_pcap_payload , buffer , sz + pkt->metadata.payload_offset , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;
 
 			pb->stat.round_zero_set.continuously_unsuccessful_send_error = 0;

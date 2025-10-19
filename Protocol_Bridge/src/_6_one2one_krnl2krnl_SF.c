@@ -248,7 +248,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 							pb->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
 							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
-							if ( distributor_publish_buffer_size( &pb->trd.cmn.kernel_udp_payload_ready_event , buffer , bytes_received , NULL ) != errOK ) continue; // dist udp packet
+							if ( distributor_publish_buffer_size( &pb->trd.cmn.kernel_udp_payload_ready_event , buffer , bytes_received , SUBSCRIBER_PROVIDED ) != errOK ) continue; // dist udp packet
 
 							gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
