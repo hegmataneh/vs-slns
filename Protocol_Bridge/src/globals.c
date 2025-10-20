@@ -359,6 +359,9 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		}
 		else
 		{
+			fcntl( tcp->tcp_sockfd , F_SETFL , O_NONBLOCK ); // to prevent tcp stack handles lingering to closed peer connection
+			//enable_keepalive_chaotic( tcp->tcp_sockfd ); // to keep alive and try to probe peer in semi normal sitribution time and does not have line up in connction
+
 			tcp->tcp_connection_established = 1;
 			tcp->tcp_is_about_to_connect = 0;
 			distributor_publish_long( &_g->distributors.pb_tcp_connected_dist , tcp->tcp_sockfd , ( pass_p )tcp );

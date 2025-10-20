@@ -184,13 +184,6 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_gateway_open_cell( pass_p src_pcell )
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
-_CALLBACK_FXN PASSED_CSTR auto_refresh_obsolete_count_cell( pass_p src_pcell )
-{
-	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
-	G * _g = ( G * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%zu" , _g->hdls.prst_csh.page_stack.obsolete_count );
-	return ( PASSED_CSTR )pcell->storage.tmpbuf;
-}
 _CALLBACK_FXN PASSED_CSTR auto_refresh_files_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
@@ -365,14 +358,6 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	irow++; icol = 0;
 	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 
-	// obsolete_count
-	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , icol++ , "obsolete_count" ) , 0 );
-	// 
-	pcell = NULL;
-	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
-	pcell->storage.bt.pass_data = _g;
-	pcell->conversion_fxn = auto_refresh_obsolete_count_cell;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , icol++ , pcell ) , 0 );
 
 	// files
 	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , icol++ , "files" ) , 0 );
@@ -713,10 +698,10 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 				_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
 
 				// try to send from mem under tcp to dst
-				if ( ci_sgm_iter_items( pseg , process_segment_itm , src_g , true , _g->hdls.pkt_mgr.strides_packet_peek ) != errOK ) // some fault detected
+				if ( ci_sgm_iter_items( pseg , process_segment_itm , src_g , true , _g->hdls.pkt_mgr.strides_packet_peek , tail_2_head ) != errOK ) // some fault detected
 				{
 					// if sending filled segment fail try to archive them
-					ci_sgm_iter_items( pseg , process_faulty_itm , src_g , true , 1 );
+					ci_sgm_iter_items( pseg , process_faulty_itm , src_g , true , 1 , head_2_tail );
 				}
 				// then close segment
 				ci_sgm_mark_empty( &_g->hdls.pkt_mgr.huge_fst_cache , pseg ); // pop last emptied segment
