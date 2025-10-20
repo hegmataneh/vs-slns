@@ -21,7 +21,7 @@ _PRIVATE_FXN void pre_main_top_prio_init( void )
 	_g = &g;
 }
 
-#ifdef Uses_MLEAK
+#ifdef Uses_MemLEAK
 extern mLeak_t __alc_hit[MLK_HASH_WIDTH][EACH_ADDR_COUNT];
 #endif
 
@@ -74,7 +74,7 @@ int main()
 
 	M_BREAK_IF( pthread_join( _g->trds.trd_watchdog , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
 
-	//#ifdef Uses_MLEAK
+	//#ifdef Uses_MemLEAK
 	//FILE * fl = fopen( "leak.txt" , "w+" );
 
 	//for ( int ii = 0 ; ii < MLK_HASH_WIDTH ; ii++ )

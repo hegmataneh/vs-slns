@@ -105,7 +105,7 @@
 	#define Uses_nnc_cell_content
 	#define Uses_distributor_t
 	#define Uses_definition
-	#define Uses_WINDOW
+	//#define Uses_WINDOW
 	#define Uses_cbuf_metr
 	#define Uses_globals
 	#define __INC_statistics

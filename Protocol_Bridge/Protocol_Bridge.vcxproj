@@ -177,10 +177,10 @@
     <ClCompile>
       <AdditionalIncludeDirectories>$(RemoteRootDir)/$(ProjectName)/dep;$(RemoteRootDir)/$(ProjectName)/header;%(ClCompile.AdditionalIncludeDirectories);$(RemoteHeadersDir);./header;$(RemoteRootDir)/general/dep;$(RemoteRootDir)/general/header</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>INTELISENSE_BUILD=$(IntelliSenseBuild);__PROJECT_NAME__=$(ProjectName);%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>-D__COMPILE %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-D__COMPILING %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <LibraryDependencies>ncurses;pcap;</LibraryDependencies>
+      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core</LibraryDependencies>
       <AdditionalOptions>-pthread %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <RemotePostBuildEvent>

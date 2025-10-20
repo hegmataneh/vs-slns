@@ -118,7 +118,7 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_total_bytes_cell( pass_p src_pcell )
 
 long long _suc = 0;
 long long _fail = 0;
-float _filled = 0;
+int _filled = 0;
 
 _CALLBACK_FXN PASSED_CSTR auto_refresh_suc_cell( pass_p src_pcell )
 {
@@ -138,7 +138,7 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_filled_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%f" , _filled );
+	sprintf( pcell->storage.tmpbuf , "%d" , _filled );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -816,7 +816,7 @@ _CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g )
 	G * _g = ( G * )src_g;
 	cbuf_m_advance( &_g->hdls.pkt_mgr.last_60_sec_seg_count , _g->hdls.pkt_mgr.huge_fst_cache.filled_count );
 	_filled = MAX( cbuf_m_regression_slope_all( &_g->hdls.pkt_mgr.last_60_sec_seg_count ) , 1 );
-	_g->hdls.pkt_mgr.strides_packet_peek = MAX( _filled , 1 );
+	_g->hdls.pkt_mgr.strides_packet_peek = ( size_t )_filled;
 }
 
 void cleanup_pkt_mgr( pkt_mgr_t * pktmgr )
