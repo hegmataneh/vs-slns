@@ -105,6 +105,7 @@
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\statistics.c" />
     <ClCompile Include="src\_6_one2one_krnl2krnl_SF.c" />
+    <ClCompile Include="src\_7_many2many_krnl2krnl_SF.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dep\Protocol_Bridge.dep" />
@@ -130,6 +131,7 @@
     <ClInclude Include="header\msg.h" />
     <ClInclude Include="header\statistics.h" />
     <ClInclude Include="header\_6_one2one_krnl2krnl_SF.h" />
+    <ClInclude Include="header\_7_many2many_krnl2krnl_SF.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\general-projects\general\general.vcxproj">

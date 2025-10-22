@@ -38,6 +38,7 @@ struct tcp_stat
 	__int64u total_tcp_put_byte;
 };
 
+#ifdef ENABLE_THROUGHPUT_MEASURE
 struct BenchmarkRound_initable_memory // must be init with own function
 {
 	cbuf_metr udp_stat_5_sec_count , udp_stat_5_sec_bytes;
@@ -48,6 +49,7 @@ struct BenchmarkRound_initable_memory // must be init with own function
 	cbuf_metr tcp_stat_10_sec_count , tcp_stat_10_sec_bytes;
 	cbuf_metr tcp_stat_40_sec_count , tcp_stat_40_sec_bytes;
 };
+#endif
 
 struct BenchmarkRound_zero_init_memory // can be memset to zero all byte
 {
@@ -79,7 +81,9 @@ struct BenchmarkRound_zero_init_memory // can be memset to zero all byte
 typedef struct s_bridge_stat
 {
 	struct BenchmarkRound_zero_init_memory  round_zero_set;
+	#ifdef ENABLE_THROUGHPUT_MEASURE
 	struct BenchmarkRound_initable_memory  round_init_set;
+	#endif
 
 	#ifdef HAS_STATISTICSS
 	nnc_cell_content * pb_elapse_cell;
@@ -95,6 +99,7 @@ typedef struct s_bridge_stat
 	nnc_cell_content * pb_total_tcp_put_count_cell;
 	nnc_cell_content * pb_total_tcp_put_byte_cell;
 
+	#ifdef ENABLE_THROUGHPUT_MEASURE
 	nnc_cell_content * pb_5s_udp_pps;
 	nnc_cell_content * pb_5s_udp_bps;
 	nnc_cell_content * pb_10s_udp_pps;
@@ -108,6 +113,7 @@ typedef struct s_bridge_stat
 	nnc_cell_content * pb_10s_tcp_bps;
 	nnc_cell_content * pb_40s_tcp_pps;
 	nnc_cell_content * pb_40s_tcp_bps;
+	#endif
 	#endif
 
 } ABstat;

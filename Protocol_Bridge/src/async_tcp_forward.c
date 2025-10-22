@@ -37,7 +37,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 		if ( strsistr( pkeys , keys_count , STR_RoundRobin ) >= 0 )
 		{
 			// TODO . i can make helper to reduce this path length 
-			dict_o_init( shrtcut->dc_token_ring );
+			dict_o_init( shrtcut->dc_token_ring , true );
 		}
 		dict_free( &dc_enum_grp_type );
 	}
@@ -72,7 +72,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 		{
 			int igrp = -1;
 			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );
-			distributor_subscribe( shrtcut->bcast_xudp_pkt , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE ,
+			distributor_subscribe_ingrp( shrtcut->bcast_xudp_pkt , (size_t)igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE ,
 				SUB_FXN( fast_ring_2_huge_ring ) , pb->tcps + itcp );
 		}
 		else if ( iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_RoundRobin ) )

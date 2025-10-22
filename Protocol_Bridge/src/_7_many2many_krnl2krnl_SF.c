@@ -1,3 +1,8 @@
+﻿#define Uses_token_ring_p_t
+#define Uses_WARNING
+#define Uses_iSTR_SAME
+#define Uses_dict_s_i_t
+#define Uses_dict_s_s_t
 #define Uses_sleep
 #define Uses_many_tcp_out_thread_proc
 #define Uses__VERBOSE_ECHO
@@ -7,42 +12,151 @@
 #define Uses_INIT_BREAKABLE_FXN
 #include <Protocol_Bridge.dep>
 
+
+_CALLBACK_FXN _PRIVATE_FXN status fast_ring_2_huge_ring_7_( pass_p data , buffer buf , size_t sz )
+{
+	AB_tcp * tcp = ( AB_tcp * )data;
+	AB * pb = tcp->owner_pb;
+	G * _g = ( G * )tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g;
+
+	xudp_hdr * pkt = ( xudp_hdr * )buf;
+	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
+
+	return fast_ring_2_huge_ring( data , buf , sz );
+}
+
+// spec each bridge how to act with udp packet get. and deliver it to global ring cache
+_PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
+{
+	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
+
+	// enumorate group type
+	{
+		dict_s_s_t dc_enum_grp_type;
+		dict_init( &dc_enum_grp_type );
+		for ( int iout = 0 ; iout < *shrtcut->out_count ; iout++ )
+		{
+			dict_put( &dc_enum_grp_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group_type );
+		}
+		//size_t key_count = dict_count( &dc_enum_grp_type );
+		//WARNING( key_count > 1 );
+
+		strings pkeys = NULL;
+		int keys_count = 0;
+		dict_get_keys_ref( &dc_enum_grp_type , &pkeys , &keys_count );
+
+		if ( strsistr( pkeys , keys_count , STR_RoundRobin ) >= 0 )
+		{
+			// TODO . i can make helper to reduce this path length 
+			dict_o_init( shrtcut->dc_token_ring , true );
+		}
+		dict_free( &dc_enum_grp_type );
+	}
+
+	// make map of tcp grp name to index
+	dict_s_i_t map_grp_idx;
+	dict_s_i_init( &map_grp_idx );
+	int igrpcounter = 0;
+	for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
+	{
+		//	dict_o_put( &dc_tcps , pb->tcps[ itcp ].__tcp_cfg_pak->name , pb->tcps[ itcp ].__tcp_cfg_pak );
+		dict_s_i_put( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , igrpcounter++ , 0 );
+	}
+
+	// to check weather first time grp take member. so we can init grp ring
+	dict_s_i_t init_grp;
+	dict_s_i_init( &init_grp );
+
+	// init pop distributor . each output distributor register here so they get arrived data
+	distributor_init( shrtcut->bcast_xudp_pkt , dict_s_i_count( &map_grp_idx ) );
+
+	//// اینجا در گروه ها می چرخد و هر مورد را به ساب اضافه می کند یعنی دریافت کننده یک دیتا
+	//// در نتیجه وقتی دیتایی برای تی سی پی بود بین همه موارد توزیع می شود
+	//// در راند رابین یک رینگ محافظت می کند که فقط اونی دیتا رو بگیره که توکن را داره
+	for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
+	{
+		if
+		(
+			iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_Replicate ) ||
+			iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_ONE_OUT )
+		)
+		{
+			int igrp = -1;
+			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );
+			distributor_subscribe_ingrp( shrtcut->bcast_xudp_pkt , (size_t)igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE ,
+				SUB_FXN( fast_ring_2_huge_ring_7_ ) , pb->tcps + itcp );
+		}
+		else if ( iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_RoundRobin ) )
+		{
+			int igrp = -1; // use map to add ring to right grp
+			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );
+			int exist = 1; // try to peek then if not insert grp to dic
+			dict_s_i_try_put( &init_grp , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , igrp , &exist );
+
+			if ( !exist )
+			{
+				// first elem spec group type
+				token_ring_p_t * tring = CALLOC_ONE( tring );
+				token_ring_p_init( tring );
+
+				dict_o_put( shrtcut->dc_token_ring , igrp , tring ); // TODO . each values from dic should freed
+				// TODO . release this ring finally
+			}
+
+			void_p pring = dict_o_get( shrtcut->dc_token_ring , igrp ); // get grp ring
+			WARNING( pring );
+
+			// add callback receiver of each tcp grp
+			distributor_subscribe_with_ring( shrtcut->bcast_xudp_pkt ,
+				( size_t )igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( fast_ring_2_huge_ring_7_ ) , pb->tcps + itcp , pring );
+		}
+		else
+		{
+			WARNING( 0 );
+		}
+	}
+
+	// TODO . call destroy or destructor of any dictionaries and collections
+}
+
+
 /// <summary>
 /// this fxn get uninitialized active bridge single udp cfg and open and initialized it
 /// </summary>
-_THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
+_THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 {
 	INIT_BREAKABLE_FXN();
 
-	sleep(5);
+	sleep( 5 );
 
 	//AB_udp * pAB_udp = ( AB_udp * )src_AB_udp;
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
-	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , ( long )pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 	MARK_START_THREAD();
 
-	// init pop distributor . each output distributor register here so they get arrived data
-	// it is multicast because of round robin and replication
-	distributor_init( &pb->comm.preq.bcast_xudp_pkt , 1 );
-	distributor_subscribe( &pb->comm.preq.bcast_xudp_pkt , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE ,
-		SUB_FXN( fast_ring_2_huge_ring ) , &pb->tcps[ 0 ] );
+	shrt_pth_t shrtcut;
+	mk_shrt_path( pb , &shrtcut );
+	shrtcut.dc_token_ring = &pb->comm.acts.p_one2many_krnl2krnl_SF->dc_token_ring;
+	//shrtcut.raw_xudp_cache = &pb->comm.preq.raw_xudp_cache;
+	shrtcut.bcast_xudp_pkt = &pb->comm.preq.bcast_xudp_pkt;
 
+	init_many_tcp( pb , &shrtcut ); // here make broadcaster then when i send to brodcast itself manage round robin and replicate
 
-	char buffer[ BUFFER_SIZE ] = {0}; // Define a buffer to store received data
+	char buffer[ BUFFER_SIZE ] = { 0 }; // Define a buffer to store received data
 
 	xudp_hdr * pkt = ( xudp_hdr * )buffer; // plain cup for packet
 	pkt->metadata.version = TCP_XPKT_V1;
 	pkt->metadata.sent = false;
 	pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
 	pkt->metadata.retried = false;
-	
+
 	// TODO . correct multi tcp policy
-	strcpy( pkt->TCP_name , pb->tcps[ 0 ].__tcp_cfg_pak->name ); // actually write on buffer
-	pkt->metadata.TCP_name_size = (uint8_t)strlen( pb->tcps[ 0 ].__tcp_cfg_pak->name );
-	pkt->metadata.payload_offset = (uint8_t)sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + (uint8_t)sizeof( EOS )/*to read hdr name faster*/;
+	//strcpy( pkt->TCP_name , pb->tcps[ 0 ].__tcp_cfg_pak->name ); // actually write on buffer
+	pkt->metadata.TCP_name_size = ( uint8_t )sizeof( pb->tcps[ 0 ].__tcp_cfg_pak->name );
+	pkt->metadata.payload_offset = ( uint8_t )sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + ( uint8_t )sizeof( EOS )/*to read hdr name faster*/;
 	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );
 
 	//while ( !pb->comm.preq.bridg_prerequisite_stabled )
@@ -99,30 +213,10 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 		{
 			#ifdef ENABLE_COMMUNICATION
 
-			//pthread_mutex_lock( &_g->sync.mutex );
-			//while ( _g->sync.lock_in_progress )
-			//{
-			//	////struct timespec ts = { 0, 10L };
-			//	////thrd_slep( &ts , NULL );
-			//	pthread_cond_wait( &_g->sync.cond , &_g->sync.mutex );
-			//}
-			//pthread_mutex_unlock( &_g->sync.mutex );
-			//if ( _g->sync.reset_static_after_lock )
-			//{
-			//	_g->sync.reset_static_after_lock = 0;
-			//	MEMSET( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
-			//}
-
-
 			if ( pb->comm.preq.stop_receiving )
 			{
 				break;
 			}
-			//if ( pb->under_listen_udp_sockets_group_changed )
-			//{
-			//	config_changes = 1;
-			//	break;
-			//}
 
 			//struct timeval timeout; // Set timeout (e.g., 5 seconds)
 			//timeout.tv_sec = ( input_udp_socket_error_tolerance_count + 1 ) * 2;
@@ -285,9 +379,9 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 							// TODO . we should determind that each udp send to which tcp
 
 							#ifdef SEND_DIRECTLY_ARRIVE_UDP
-								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , buffer + pkt->metadata.payload_offset , (int)bytes_received , 0 , 0 );
+								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , buffer + pkt->metadata.payload_offset , ( int )bytes_received , 0 , 0 );
 							#else
-								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , buffer , bytes_received + pkt->metadata.payload_offset , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
+								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , buffer , (size_t)( bytes_received + pkt->metadata.payload_offset ) , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 									continue;
 							#endif
 
@@ -296,9 +390,9 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 							gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
 							pb->stat.round_zero_set.udp.total_udp_get_count++;
-							pb->stat.round_zero_set.udp.total_udp_get_byte += (__int64u)bytes_received;
+							pb->stat.round_zero_set.udp.total_udp_get_byte += ( __int64u )bytes_received;
 							pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
-							pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += (__int64u)bytes_received;
+							pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += ( __int64u )bytes_received;
 							pb->stat.round_zero_set.udp_get_data_alive_indicator++;
 							#endif
 							#endif
@@ -306,9 +400,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 					}
 				}
 			}
-		
 			#endif
-
 		}
 
 	} while ( config_changes );
@@ -326,7 +418,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	M_V_END_RET
 
 	pb->comm.preq.receive_stoped = true;
-	
+
 
 	return NULL;
 }

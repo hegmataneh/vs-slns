@@ -17,7 +17,7 @@ typedef struct AB_thread_action_handler
 	struct s_one2one_krnl2krnl_SF // one thread for each direction with store & forward method . with kernel utils
 	{
 		pthread_t income_trd_id;
-		pthread_t outgoing_trd_id;
+		//pthread_t outgoing_trd_id;
 	} *p_one2one_krnl2krnl_SF;
 
 	struct s_one2one_pcap2krnl_SF // one thread for each direction with store & forward method
@@ -41,6 +41,14 @@ typedef struct AB_thread_action_handler
 		pthread_t outgoing_trd_id;
 		dict_o_t dc_token_ring; // config may have multi rings and each one is for one grp
 	} *p_many2one_pcap2krnl_SF_serialize;
+
+
+	struct s_one2many_krnl2krnl_SF // one thread for each direction with store & forward method
+	{
+		pthread_t income_trd_id;
+		//pthread_t outgoing_trd_id;
+		dict_o_t dc_token_ring; // config may have multi rings and each one is for one grp
+	} *p_one2many_krnl2krnl_SF;
 
 } trd_act_hdls;
 

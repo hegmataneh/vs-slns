@@ -594,6 +594,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	{
 		if ( difftime( tnow , pb->stat.round_zero_set.tcp_1_sec.t_tcp_throughput ) >= 1.0 )
 		{
+			#ifdef ENABLE_THROUGHPUT_MEASURE
 			if ( pb->stat.round_zero_set.tcp_1_sec.t_tcp_throughput > 0 )
 			{
 				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_5_sec_count , pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count );
@@ -605,6 +606,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_40_sec_count , pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count );
 				cbuf_m_advance( &pb->stat.round_init_set.tcp_stat_40_sec_bytes , pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes );
 			}
+			#endif
 			pb->stat.round_zero_set.tcp_1_sec.t_tcp_throughput = tnow;
 			pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_count = 0;
 			pb->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_put_bytes = 0;

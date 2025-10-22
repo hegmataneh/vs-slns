@@ -1,3 +1,7 @@
+#ifdef Uses_proc_many2many_krnl_udp_store
+	#define __INC__7_many2many_krnl2krnl_SF
+#endif
+
 #ifdef Uses_xudp_hdr
 	#define Uses_packet_mngr
 #endif

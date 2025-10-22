@@ -183,6 +183,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 			// udp
 			if ( difftime( tnow , pb->stat.round_zero_set.udp_1_sec.t_udp_throughput ) >= 1.0 )
 			{
+				#ifdef ENABLE_THROUGHPUT_MEASURE
 				if ( pb->stat.round_zero_set.udp_1_sec.t_udp_throughput > 0 )
 				{
 					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_5_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
@@ -194,6 +195,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_count , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count );
 					cbuf_m_advance( &pb->stat.round_init_set.udp_stat_40_sec_bytes , pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes );
 				}
+				#endif
 				pb->stat.round_zero_set.udp_1_sec.t_udp_throughput = tnow;
 				pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count = 0;
 				pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;

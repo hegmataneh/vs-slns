@@ -52,6 +52,9 @@
     <ClCompile Include="src\persistant_cache_mgr.c">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\_7_many2many_krnl2krnl_SF.c">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="header\_1_pcap_udp_counter.h">
@@ -106,6 +109,9 @@
       <Filter>header</Filter>
     </ClInclude>
     <ClInclude Include="header\Bridge.h">
+      <Filter>header</Filter>
+    </ClInclude>
+    <ClInclude Include="header\_7_many2many_krnl2krnl_SF.h">
       <Filter>header</Filter>
     </ClInclude>
   </ItemGroup>

@@ -70,3 +70,7 @@
 #ifdef __INC__6_one2one_krnl2krnl_SF
 	#include "_6_one2one_krnl2krnl_SF.h"
 #endif
+
+#ifdef __INC__7_many2many_krnl2krnl_SF
+	#include "_7_many2many_krnl2krnl_SF.h"
+#endif

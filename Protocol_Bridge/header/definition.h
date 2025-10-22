@@ -110,6 +110,8 @@ enum stat_init_priority_order /*ascending termination priority*/
 #define MARK_LINE() __arrr_n += sprintf( __arrr + __arrr_n , "%s %d\n" , __FUNCTION__ , __LINE__ );
 
 
+#ifndef control_app_segment_in_deep
+
 #define HAS_STATISTICSS
 
 #define ENABLE_COMMUNICATION
@@ -123,3 +125,7 @@ enum stat_init_priority_order /*ascending termination priority*/
 //#define SEND_DIRECTLY_ARRIVE_UDP
 
 #define ENABLE_VERBOSE_FAULT
+
+//#define ENABLE_THROUGHPUT_MEASURE
+
+#endif

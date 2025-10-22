@@ -977,6 +977,7 @@ _CALLBACK_FXN PASSED_CSTR pb_TCP_put_byte_2_str( pass_p src_pcell )
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
+#ifdef ENABLE_THROUGHPUT_MEASURE
 _CALLBACK_FXN PASSED_CSTR pb_5s_udp_pps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
@@ -1072,7 +1073,7 @@ _CALLBACK_FXN PASSED_CSTR pb_40s_tcp_bps_2_str( pass_p src_pcell )
 	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_40_sec_bytes ) , 4 , "B" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
-
+#endif
 #endif
 #endif
 
