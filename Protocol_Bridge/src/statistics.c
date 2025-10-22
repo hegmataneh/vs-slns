@@ -16,10 +16,12 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 
+	#ifdef HAS_STATISTICSS
 	nnc_destroy( &_g->stat.nc_h );
 	mms_array_free( &_g->stat.nc_s_req.field_keeper );
+	#endif
 
-	sub_destroy( &_g->hdls.pkt_mgr.throttling_release_halffill_segment );
+	sub_destroy( &_g->hdls.pkt_mgr.bcast_release_halffill_segment );
 	
 	MARK_LINE();
 }
@@ -35,30 +37,38 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
 
 	//pthread_mutex_init( &_g->stat.lock_data.lock , NULL );
 
+	#ifdef HAS_STATISTICSS
 	distributor_init_withOrder( &_g->distributors.init_static_table , 1 );
+	#endif
 
 	//init_tui( _g );
 	 
-	//init_bypass_stdout( _g );
+	init_bypass_stdout( _g );
 
+	#ifdef HAS_STATISTICSS
 	distributor_init( &_g->distributors.throttling_refresh_stat , 1 );
+	#endif
 
-	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_stat ) , _g , clean_stat );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_stat ) , _g , clean_stat );
 }
 
+#ifdef HAS_STATISTICSS
 _CALLBACK_FXN _PRIVATE_FXN void statistics_is_stabled_event( void_p src_g )
 {
 	G * _g = ( G * )src_g;
 	pthread_create( &_g->trds.tid_stats , NULL , stats_thread , ( pass_p )_g );
 }
+#endif
 
 _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
+	#ifdef HAS_STATISTICSS
 	distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( init_main_statistics ) , _g , main_statistics );
 	distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( statistics_is_stabled_event ) , _g , statistics_is_stabled );
+	#endif
 
 	BEGIN_SMPL
 	M_V_END_RET
@@ -67,8 +77,8 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat( void_p src_g )
 PRE_MAIN_INITIALIZATION( 103 )
 _PRIVATE_FXN void pre_main_init_stat_component( void )
 {
-	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_stat ) , _g );
-	distributor_subscribe( &_g->distributors.post_config_stablished , SUB_VOID , SUB_FXN( post_config_init_stat ) , _g );
+	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_stat ) , _g );
+	distributor_subscribe( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat ) , _g );
 }
 
 void reset_nonuse_stat()
@@ -100,10 +110,14 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 
+	#ifdef HAS_STATISTICSS
 	M_BREAK_STAT( nnc_begin_init_mode( &_g->stat.nc_h ) , 0 );
 	M_BREAK_STAT( mms_array_init( &_g->stat.nc_s_req.field_keeper , sizeof( nnc_cell_content ) , 1 , GROW_STEP , 0 ) , 0 ); // some place to store field in one place and prevent realease mutiple field sorage
+	#endif
+
 	//M_BREAK_STAT( dict_fst_create( &_g->stat.nc_s_req.map_flds , 256 ) , 0 );
 
+	#ifdef HAS_STATISTICSS
 	M_BREAK_STAT( nnc_add_table( &_g->stat.nc_h , "P.B. overview" , &_g->stat.nc_s_req.pgeneral_tbl ) , 0 );
 
 	nnc_table * ptbl = _g->stat.nc_s_req.pgeneral_tbl;
@@ -124,15 +138,14 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 
 	int irow = -1;
 
-
 	irow++;
 	//// time title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 0 , "time" ) , 0 );
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "time" ) , 0 );
 	// time cell
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_time_cell ) , 0 );
 	_g->stat.nc_s_req.ov_time_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_time_cell->conversion_fxn = ov_cell_time_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 1 , _g->stat.nc_s_req.ov_time_cell ) , 0 );
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , _g->stat.nc_s_req.ov_time_cell ) , 0 );
 	//// ver title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , 0 , 2 , "ver" ) , 0 );
 	// ver cell
@@ -148,60 +161,56 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 	_g->stat.nc_s_req.ov_elapse_cell->conversion_fxn = ov_time_elapse_2_str;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , 0 , 5 , _g->stat.nc_s_req.ov_elapse_cell ) , 0 );
 
-
 	irow++;
 	//// sys fault coun
-	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 0 , "fault" ) , 0 );
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "fault" ) , 0 );
 	// UDP conn cell
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_fault_cell ) , 0 );
 	_g->stat.nc_s_req.ov_fault_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_fault_cell->conversion_fxn = ov_fault_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 1 , _g->stat.nc_s_req.ov_fault_cell ) , 0 );
-
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , _g->stat.nc_s_req.ov_fault_cell ) , 0 );
 
 	irow++;
 	//// UDP conn title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 0 , "UDP conn" ) , 0 );
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "UDP conn" ) , 0 );
 	// UDP conn cell
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_UDP_conn_cell ) , 0 );
 	_g->stat.nc_s_req.ov_UDP_conn_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_UDP_conn_cell->conversion_fxn = ov_UDP_conn_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 1 , _g->stat.nc_s_req.ov_UDP_conn_cell ) , 0 );
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , _g->stat.nc_s_req.ov_UDP_conn_cell ) , 0 );
 	//// TCP conn title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 2 , "TCP conn" ) , 0 );
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "TCP conn" ) , 0 );
 	// TCP conn cell
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_TCP_conn_cell ) , 0 );
 	_g->stat.nc_s_req.ov_TCP_conn_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_TCP_conn_cell->conversion_fxn = ov_TCP_conn_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 3 , _g->stat.nc_s_req.ov_TCP_conn_cell ) , 0 );
-
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , _g->stat.nc_s_req.ov_TCP_conn_cell ) , 0 );
 
 	irow++;
 	//// UDP retry conn title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 0 , "UDP retry" ) , 0 );
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "UDP retry" ) , 0 );
 	// UDP conn cell
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_UDP_retry_conn_cell ) , 0 );
 	_g->stat.nc_s_req.ov_UDP_retry_conn_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_UDP_retry_conn_cell->conversion_fxn = ov_UDP_retry_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 1 , _g->stat.nc_s_req.ov_UDP_retry_conn_cell ) , 0 );
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , _g->stat.nc_s_req.ov_UDP_retry_conn_cell ) , 0 );
 	//// TCP retry conn title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 2 , "TCP retry" ) , 0 );
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "TCP retry" ) , 0 );
 	// TCP conn cell
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_TCP_retry_conn_cell ) , 0 );
 	_g->stat.nc_s_req.ov_TCP_retry_conn_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_TCP_retry_conn_cell->conversion_fxn = ov_TCP_retry_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 3 , _g->stat.nc_s_req.ov_TCP_retry_conn_cell ) , 0 );
-
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , _g->stat.nc_s_req.ov_TCP_retry_conn_cell ) , 0 );
 
 	irow++;
 	//// UDP retry conn title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , irow , 0 , "thread cnt" ) , 0 );
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "thread cnt" ) , 0 );
 	// UDP conn cell
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&_g->stat.nc_s_req.ov_thread_cnt_cell ) , 0 );
 	_g->stat.nc_s_req.ov_thread_cnt_cell->storage.bt.pass_data = _g;
 	_g->stat.nc_s_req.ov_thread_cnt_cell->conversion_fxn = ov_thread_cnt_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , irow , 1 , _g->stat.nc_s_req.ov_thread_cnt_cell ) , 0 );
-
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , _g->stat.nc_s_req.ov_thread_cnt_cell ) , 0 );
+	#endif
 
 	BEGIN_RET
 	M_V_END_RET
@@ -212,22 +221,26 @@ _CALLBACK_FXN void g_every_ticking_refresh( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
 
+	#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_time_cell );
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_elapse_cell );
 
 	continue_loop_callback( &_g->stat.nc_h );
+	#endif
 }
 
 _THREAD_FXN void_p stats_thread( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 	MARK_START_THREAD();
 	
+	#ifdef HAS_STATISTICSS
 	distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( g_every_ticking_refresh ) , _g );
 	_g->distributors.throttling_refresh_stat.iteration_dir = tail_2_head; // first order issued then applied
+	#endif
 
 	int tmp_debounce_release_segment = 0;
 
@@ -235,13 +248,15 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 	{
 		if ( GRACEFULLY_END_THREAD() ) break; // keep track changes until app is down
 
+		#ifdef HAS_STATISTICSS
 		// distribute statistic referesh pulse
 		distributor_publish_void( &_g->distributors.throttling_refresh_stat , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ );
+		#endif
 
 		if ( !( tmp_debounce_release_segment++ % 5 ) )
 		{
 			// distribute segment management pulse
-			distributor_publish_void( &_g->hdls.pkt_mgr.throttling_release_halffill_segment , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ ); // check if condition is true then set halffill segemtn as fill
+			distributor_publish_void( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ ); // check if condition is true then set halffill segemtn as fill
 		}
 
 		//pthread_mutex_lock( &_g->stat.lock_data.lock );

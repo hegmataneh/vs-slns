@@ -1,4 +1,5 @@
-﻿#define Uses_strings_ar
+﻿#define Uses_sleep
+#define Uses_strings_ar
 
 #define Uses_MEMSET_ZERO_O
 #define Uses_ci_sgmgr_t
@@ -34,8 +35,8 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	_g->cmd.block_sending_1 = 1; // Signal all threads to stop
 	_g->cmd.burst_waiting_2 = true;
 	_g->cmd.quit_thread_3 = 1;
-	distributor_publish_long( &_g->distributors.quit_interrupt_dist , sig , SUBSCRIBER_PROVIDED );
-	sub_destroy( &_g->distributors.quit_interrupt_dist );
+	distributor_publish_long( &_g->distributors.bcast_quit , sig , SUBSCRIBER_PROVIDED );
+	sub_destroy( &_g->distributors.bcast_quit );
 	_g->cmd.quit_app_4 = 1;
 	return NULL;
 }
@@ -55,14 +56,14 @@ int main()
 	sigemptyset( &set );
 	sigaddset( &set , SIGINT );
 	sigaddset( &set , SIGTERM );
-	sigaddset( &set , SIGPIPE );
+	//sigaddset( &set , SIGPIPE );
 	pthread_sigmask( SIG_BLOCK , &set , NULL );
 
 	// Start the signal handler thread
 	pthread_create( &th_signal , NULL , signal_thread , &set );
 	#endif
 
-	distributor_publish_void( &_g->distributors.pre_configuration , SUBSCRIBER_PROVIDED ); // pre config state
+	distributor_publish_void( &_g->distributors.bcast_pre_cfg , SUBSCRIBER_PROVIDED ); // pre config state
 
 	// this thread keep everything alive and just check every thing just be at right position and do not do action with very risky consequenses and exception raiser
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_watchdog , NULL , watchdog_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create watchdog thread" );
@@ -76,7 +77,6 @@ int main()
 
 	//#ifdef Uses_MemLEAK
 	//FILE * fl = fopen( "leak.txt" , "w+" );
-
 	//for ( int ii = 0 ; ii < MLK_HASH_WIDTH ; ii++ )
 	//{
 	//	for ( int jj = 0 ; jj < EACH_ADDR_COUNT ; jj++ )
@@ -89,6 +89,7 @@ int main()
 	//}
 	//fclose( fl );
 	//#endif
+
 
 	//sleep(1); // for sanitizer to dump
 	_exit( 0 );

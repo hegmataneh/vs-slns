@@ -81,6 +81,7 @@ typedef struct s_bridge_stat
 	struct BenchmarkRound_zero_init_memory  round_zero_set;
 	struct BenchmarkRound_initable_memory  round_init_set;
 
+	#ifdef HAS_STATISTICSS
 	nnc_cell_content * pb_elapse_cell;
 
 	nnc_cell_content * pb_fault_cell;
@@ -107,6 +108,7 @@ typedef struct s_bridge_stat
 	nnc_cell_content * pb_10s_tcp_bps;
 	nnc_cell_content * pb_40s_tcp_pps;
 	nnc_cell_content * pb_40s_tcp_bps;
+	#endif
 
 } ABstat;
 
@@ -132,6 +134,7 @@ typedef struct // can be memset to zero all byte
 
 typedef struct notcurses_stat_req
 {
+#ifdef HAS_STATISTICSS
 	nnc_table * pgeneral_tbl; // general overview page. add gere for additional field addition
 
 	dyn_mms_arr field_keeper; // one block keep array of field that dynamically changed. prevent memory fragment
@@ -147,7 +150,7 @@ typedef struct notcurses_stat_req
 	nnc_cell_content * ov_UDP_retry_conn_cell;
 	nnc_cell_content * ov_TCP_retry_conn_cell;
 	nnc_cell_content * ov_thread_cnt_cell;
-
+#endif
 } n_s_req;
 
 typedef struct statistics
@@ -156,15 +159,17 @@ typedef struct statistics
 	//int scr_height , scr_width;
 	//WINDOW * main_win;
 	//WINDOW * input_win;
-
+	
+	#ifdef HAS_STATISTICSS
 	nnc_req nc_h; // notcurses handle
 	n_s_req nc_s_req; // data viewed in not curses
+	#endif
 
 	stat_zero_init_memory aggregate_stat;
 
 	// cmd
 	int pipefds[ 2 ]; // used for bypass stdout
-	char last_command[ INPUT_MAX ];
+	//char last_command[ INPUT_MAX ];
 	char input_buffer[ INPUT_MAX ];
 	int last_line_meet;
 	int alive_check_counter;

@@ -1,4 +1,5 @@
-#define Uses_rdy_pkt1
+#define Uses_sleep
+#define Uses_xudp_hdr
 #define Uses_persistant_cache_mgr
 #define Uses_MEMSET_ZERO_O
 #define Uses_errno
@@ -15,8 +16,8 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr( pass_p src_g , lo
 
 	sem_destroy( &_g->hdls.gateway.pagestack_gateway_open_sem );
 	pg_stk_shutdown( &_g->hdls.prst_csh.page_stack );
-	sub_destroy( &_g->hdls.prst_csh.store_data );
-	sub_destroy( &_g->hdls.prst_csh.pagestack_pakcets );
+	sub_destroy( &_g->hdls.prst_csh.bcast_store_data );
+	sub_destroy( &_g->hdls.prst_csh.bcast_pagestacked_pkts );
 
 	MARK_LINE();
 }
@@ -42,16 +43,16 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p sr
 {
 	G * _g = ( G * )src_g;
 
-	distributor_init( &_g->hdls.prst_csh.store_data , 1 );
+	distributor_init( &_g->hdls.prst_csh.bcast_store_data , 1 );
 
-	distributor_init( &_g->hdls.prst_csh.pagestack_pakcets , 1 );
+	distributor_init( &_g->hdls.prst_csh.bcast_pagestacked_pkts , 1 );
 	
-	distributor_subscribe( &_g->hdls.prst_csh.store_data , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( persistant_cache_mngr_store_data ) , _g );
+	distributor_subscribe( &_g->hdls.prst_csh.bcast_store_data , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( persistant_cache_mngr_store_data ) , _g );
 
 	// register here to get quit cmd
-	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr ) , _g , clean_persistant_cache_mgr ); // when file write goes down
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr ) , _g , clean_persistant_cache_mgr ); // when file write goes down
 
-	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr_fetch ) , _g , clean_try_post_packet ); // when fetch from file not need
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr_fetch ) , _g , clean_try_post_packet ); // when fetch from file not need
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p src_g )
@@ -63,7 +64,9 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p s
 	sem_init( &_g->hdls.gateway.pagestack_gateway_open_sem , 0 , 0 );
 
 	M_BREAK_STAT( pg_stk_init( &_g->hdls.prst_csh.page_stack , "./" , _g ) , 0 );
+	#ifdef ENABLE_PERSISTENT_CACHE
 	MM_BREAK_IF( pthread_create( &_g->hdls.prst_csh.trd_pagestack_discharger , NULL , discharge_persistant_cache_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
+	#endif
 
 	BEGIN_SMPL
 	M_V_END_RET
@@ -72,16 +75,16 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p s
 PRE_MAIN_INITIALIZATION( 106 )
 _PRIVATE_FXN void pre_main_init_persistant_cache_mngr_component( void )
 {
-	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_persistant_cache_mngr ) , _g );
-	distributor_subscribe( &_g->distributors.post_config_stablished , SUB_VOID , SUB_FXN( post_config_init_persistant_cache_mngr ) , _g );
+	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_persistant_cache_mngr ) , _g );
+	distributor_subscribe( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_persistant_cache_mngr ) , _g );
 }
 
-_CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src_rdy_pkt1 , size_t sz )
+_CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src_xudp_hdr , size_t sz )
 {
 	G * _g = ( G * )src_g;
-	rdy_pkt1 * pkt1 = ( rdy_pkt1 * )src_rdy_pkt1;
+	xudp_hdr * pkt1 = ( xudp_hdr * )src_xudp_hdr;
 
-	return pg_stk_store( &_g->hdls.prst_csh.page_stack , src_rdy_pkt1 , sz );
+	return pg_stk_store( &_g->hdls.prst_csh.page_stack , src_xudp_hdr , sz );
 }
 
 _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p src_g , void_p data , size_t len )
@@ -89,7 +92,7 @@ _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p 
 	G * _g = ( G * )src_g;
 
 	if ( _g->cmd.block_sending_1 ) return pgstk_not_send__stop_sending;
-	status ret = distributor_publish_buffer_size( &_g->hdls.prst_csh.pagestack_pakcets , data , len , SUBSCRIBER_PROVIDED );
+	status ret = distributor_publish_buffer_size( &_g->hdls.prst_csh.bcast_pagestacked_pkts , data , len , SUBSCRIBER_PROVIDED );
 	switch ( ret )
 	{
 		case errOK:
@@ -121,7 +124,7 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 	MARK_START_THREAD();
 
@@ -138,7 +141,7 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 			{
 				case errEmpty: // actually this fxn has loop and discharge it self
 				{
-					//distributor_publish_buffer_size( &_g->hdls.prst_csh.pagestack_pakcets , NULL , 0 , SUBSCRIBER_PROVIDED );
+					//distributor_publish_buffer_size( &_g->hdls.prst_csh.bcast_pagestacked_pkts , NULL , 0 , SUBSCRIBER_PROVIDED );
 					_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
 					if ( _g->hdls.prst_csh.cool_down_attempt_onEmpty && _g->hdls.prst_csh.cool_down_attempt_onEmpty == *( int * )&tnow ) // in one second we should not attempt . and this check and possiblity is rare in not too many attempt situation
 					{

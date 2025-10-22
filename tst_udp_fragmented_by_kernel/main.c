@@ -13,8 +13,8 @@ int main()
 	int sock = socket( AF_INET , SOCK_DGRAM , 0 );
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons( 1234 );
-	inet_pton( AF_INET , "172.17.0.60" , &addr.sin_addr );
+	addr.sin_port = htons( 10200 );
+	inet_pton( AF_INET , "192.168.1.2" , &addr.sin_addr );
 
 	char buf[ 2000 ] = {0};
 

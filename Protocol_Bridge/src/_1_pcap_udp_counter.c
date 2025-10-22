@@ -10,10 +10,10 @@
 _CALLBACK_FXN void quit_interrupt_dist_pcap_udp_counter( pass_p src_pb , long v )
 {
 	AB * pb = ( AB * )src_pb;
-	if ( pb->trd.t.p_pcap_udp_counter->pcp_handle )
+	if ( pb->comm.acts.p_pcap_udp_counter->pcp_handle )
 	{
-		pcap_breakloop( pb->trd.t.p_pcap_udp_counter->pcp_handle ); // in case we're inside pcap_loop
-		pcap_close( pb->trd.t.p_pcap_udp_counter->pcp_handle );
+		pcap_breakloop( pb->comm.acts.p_pcap_udp_counter->pcp_handle ); // in case we're inside pcap_loop
+		pcap_close( pb->comm.acts.p_pcap_udp_counter->pcp_handle );
 	}
 }
 
@@ -25,9 +25,9 @@ _CALLBACK_FXN void handle_pcap_udp_counter( u_char * src_pb , const struct pcap_
 	( void )hdr;
 	( void )packet;
 
-	if ( pb->trd.cmn.stop_receiving )
+	if ( pb->comm.preq.stop_receiving )
 	{
-		pb->trd.cmn.receive_stoped = true;
+		pb->comm.preq.receive_stoped = true;
 	}
 	else
 	{
@@ -47,7 +47,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
-	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 	MARK_START_THREAD();
 
@@ -56,7 +56,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	char errbuf[ PCAP_ERRBUF_SIZE ] = { 0 };
 	struct bpf_program fp;
 	bpf_u_int32 net = 0 , mask = 0;
-	pb->trd.t.p_pcap_udp_counter->pcp_handle = NULL;
+	pb->comm.acts.p_pcap_udp_counter->pcp_handle = NULL;
 
 	int clusterd_cnt;
 	strings interface_filter = NULL;
@@ -69,17 +69,17 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf ) == -1 , errDevice , 1 , "use correct interface %s\n" , errbuf );
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	MM_FMT_BREAK_IF( !( pb->trd.t.p_pcap_udp_counter->pcp_handle = pcap_open_live( interface_filter[ 0 ] , SNAP_LEN , 1 , 1000 , errbuf ) ) , errDevice , 1 , "exe by pcap prmit usr %s: %s\n" , interface_filter[ 0 ] , errbuf );
+	MM_FMT_BREAK_IF( !( pb->comm.acts.p_pcap_udp_counter->pcp_handle = pcap_open_live( interface_filter[ 0 ] , SNAP_LEN , 1 , 1000 , errbuf ) ) , errDevice , 1 , "exe by pcap prmit usr %s: %s\n" , interface_filter[ 0 ] , errbuf );
 
-	int fd = pcap_get_selectable_fd( pb->trd.t.p_pcap_udp_counter->pcp_handle );
+	int fd = pcap_get_selectable_fd( pb->comm.acts.p_pcap_udp_counter->pcp_handle );
 	int busy_poll_time = 50;  // microseconds per syscall spin budget
 	M_BREAK_IF( setsockopt( fd , SOL_SOCKET , SO_BUSY_POLL , &busy_poll_time , sizeof( busy_poll_time ) ) < 0 , errSocket , 2 );
 
 	//const char * filter = pb->cpy_cfg.m.m.maintained.in->data.UDP_origin_ports;
 
 	// Compile and apply filter
-	MM_FMT_BREAK_IF( pcap_compile( pb->trd.t.p_pcap_udp_counter->pcp_handle , &fp , port_filter[ 0 ] , 1 , mask ) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->pcp_handle ) );
-	MM_FMT_BREAK_IF( pcap_setfilter( pb->trd.t.p_pcap_udp_counter->pcp_handle , &fp ) == -1 , errDevice , 3 , "Couldn't install filter %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->pcp_handle ) );
+	MM_FMT_BREAK_IF( pcap_compile( pb->comm.acts.p_pcap_udp_counter->pcp_handle , &fp , port_filter[ 0 ] , 1 , mask ) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr( pb->comm.acts.p_pcap_udp_counter->pcp_handle ) );
+	MM_FMT_BREAK_IF( pcap_setfilter( pb->comm.acts.p_pcap_udp_counter->pcp_handle , &fp ) == -1 , errDevice , 3 , "Couldn't install filter %s\n" , pcap_geterr( pb->comm.acts.p_pcap_udp_counter->pcp_handle ) );
 
 	FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
 	FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
@@ -96,21 +96,21 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 		
 	}
 
-	distributor_publish_long( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )pb );
+	distributor_publish_long( &_g->distributors.bcast_pb_udp_connected , 0 , ( pass_p )pb );
 	
-	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb , clean_input_connections );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb , clean_input_connections );
 
 	// Capture indefinitely
-	MM_FMT_BREAK_IF( pcap_loop( pb->trd.t.p_pcap_udp_counter->pcp_handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->trd.t.p_pcap_udp_counter->pcp_handle ) );
+	MM_FMT_BREAK_IF( pcap_loop( pb->comm.acts.p_pcap_udp_counter->pcp_handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->comm.acts.p_pcap_udp_counter->pcp_handle ) );
 	MARK_LINE();
 	BREAK_OK( 4 ); // clean every thing
 
 	BEGIN_RET
 	case 4:
 	{
-		pcap_breakloop( pb->trd.t.p_pcap_udp_counter->pcp_handle ); // in case we're inside pcap_loop
-		pcap_close( pb->trd.t.p_pcap_udp_counter->pcp_handle );
-		pb->trd.t.p_pcap_udp_counter->pcp_handle = NULL;
+		pcap_breakloop( pb->comm.acts.p_pcap_udp_counter->pcp_handle ); // in case we're inside pcap_loop
+		pcap_close( pb->comm.acts.p_pcap_udp_counter->pcp_handle );
+		pb->comm.acts.p_pcap_udp_counter->pcp_handle = NULL;
 		break;
 	}
 	case 3:
@@ -119,8 +119,8 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	}
 	case 2:
 	{
-		pcap_close( pb->trd.t.p_pcap_udp_counter->pcp_handle );
-		pb->trd.t.p_pcap_udp_counter->pcp_handle = NULL;
+		pcap_close( pb->comm.acts.p_pcap_udp_counter->pcp_handle );
+		pb->comm.acts.p_pcap_udp_counter->pcp_handle = NULL;
 	}
 	case 1:
 	{

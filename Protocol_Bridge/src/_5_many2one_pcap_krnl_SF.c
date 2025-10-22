@@ -9,17 +9,17 @@
 _CALLBACK_FXN void quit_interrupt_dist_push_many2many_pcap_krnl_SF( pass_p src_pb , long v )
 {
 	AB * pb = ( AB * )src_pb;
-	//if ( pb->trd.t.p_many2one_pcap2krnl_SF_serialize->handle )
+	//if ( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize->handle )
 	//{
-	//	pcap_breakloop( pb->trd.t.p_many2one_pcap2krnl_SF_serialize->handle ); // in case we're inside pcap_loop
-	//	pcap_close( pb->trd.t.p_many2one_pcap2krnl_SF_serialize->handle );
+	//	pcap_breakloop( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize->handle ); // in case we're inside pcap_loop
+	//	pcap_close( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize->handle );
 	//}
 }
 
 //_PRIVATE_FXN _CALLBACK_FXN status buffer_push_many2many_pcap_krnl_SF( pass_p data , buffer buf , int payload_len )
 //{
 //	AB * pb = ( AB * )data;
-//	return cbuf_pked_push( &pb->trd.cmn.fast_wrt_cache , buf , payload_len );
+//	return cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , buf , payload_len );
 //}
 
 _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
@@ -29,7 +29,7 @@ _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
-	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 	MARK_START_THREAD();
 
@@ -38,16 +38,16 @@ _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
 	
 
 	// in addition to make shrt_path complete based on type and dependency is detached
-	shrt_path pth; // 1 . we have simple pth here
-	mk_shrt_path( pb , &pth ); // 2 . and fill it
-	//pth.handle = &pb->trd.t.p_many2one_pcap2krnl_SF_serialize->handle;
-	pth.dc_token_ring = &pb->trd.t.p_many2one_pcap2krnl_SF_serialize->dc_token_ring;
-	pth.fast_wrt_cache = &pb->trd.cmn.fast_wrt_cache;
+	shrt_pth_t shrtcut; // 1 . we have simple pth here
+	mk_shrt_path( pb , &shrtcut ); // 2 . and fill it
+	//shrtcut.handle = &pb->comm.acts.p_many2one_pcap2krnl_SF_serialize->handle;
+	shrtcut.dc_token_ring = &pb->comm.acts.p_many2one_pcap2krnl_SF_serialize->dc_token_ring;
+	shrtcut.raw_xudp_cache = &pb->comm.preq.raw_xudp_cache;
 
 	// register here to get quit cmd
-	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( quit_interrupt_dist_push_many2many_pcap_krnl_SF ) , pb , clean_input_connections );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_push_many2many_pcap_krnl_SF ) , pb , clean_input_connections );
 
-	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &pth ) , 1 );
+	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &shrtcut ) , 1 );
 
 	BEGIN_RET
 	case 1:

@@ -16,13 +16,13 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
-	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 	MARK_START_THREAD();
 
-	//while ( !pb->trd.cmn.bridg_prerequisite_stabled )
+	//while ( !pb->comm.preq.bridg_prerequisite_stabled )
 	//{
-	//	if ( pb->trd.cmn.do_close_thread )
+	//	if ( pb->comm.preq.do_close_thread )
 	//	{
 	//		break;
 	//	}
@@ -36,7 +36,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 	int config_changes = 0;
 	do
 	{
-		if ( pb->trd.cmn.stop_receiving )
+		if ( pb->comm.preq.stop_receiving )
 		{
 			break;
 		}
@@ -88,7 +88,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 			//}
 
 
-			if ( pb->trd.cmn.stop_receiving )
+			if ( pb->comm.preq.stop_receiving )
 			{
 				break;
 			}
@@ -236,9 +236,9 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 							gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
 							pb->stat.round_zero_set.udp.total_udp_get_count++;
-							pb->stat.round_zero_set.udp.total_udp_get_byte += bytes_received;
+							pb->stat.round_zero_set.udp.total_udp_get_byte += (__int64u)bytes_received;
 							pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
-							pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += bytes_received;
+							pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += (__int64u)bytes_received;
 							pb->stat.round_zero_set.udp_get_data_alive_indicator++;
 						}
 					}
@@ -259,7 +259,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
-	pb->trd.cmn.receive_stoped = true;
+	pb->comm.preq.receive_stoped = true;
 
 	return NULL;
 }

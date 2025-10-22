@@ -2,9 +2,7 @@
 
 #pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wunused-variable"
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-
-#pragma GCC diagnostic ignored "-Wcomment"
+//#pragma GCC diagnostic ignored "-Wcomment"
 
 
 #define INPUT_MAX 256
@@ -37,7 +35,7 @@
 
 #define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
 
-#define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
+#define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? (uint)_g->appcfg.g_cfg->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
 
 #define GRACEFULLY_END_THREAD() ( _g->cmd.quit_thread_3 )
 
@@ -60,8 +58,8 @@
 #define STR_ONE_OUT "one_out"
 
 
-#define DIST_BRIDGE_FAILURE() DO_WHILE( distributor_publish_str( &_g->distributors.pb_lvl_failure_dist , __FUNCTION__ , ( pass_p )pb ) ) /*distribute error*/
-#define DIST_APP_FAILURE() DO_WHILE( distributor_publish_str( &_g->distributors.app_lvl_failure_dist , __FUNCTION__ , ( pass_p )_g ) ) /*distribute error in config reading*/
+#define DIST_BRIDGE_FAILURE() DO_WHILE( distributor_publish_str( &_g->distributors.bcast_pb_lvl_failure , __FUNCTION__ , ( pass_p )pb ) ) /*distribute error*/
+#define DIST_APP_FAILURE() DO_WHILE( distributor_publish_str( &_g->distributors.bcast_app_lvl_failure , __FUNCTION__ , ( pass_p )_g ) ) /*distribute error in config reading*/
 
 typedef  char CONFIG_SECTION_ITEM_VALUE  [64];
 typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
@@ -110,3 +108,18 @@ enum stat_init_priority_order /*ascending termination priority*/
 #define MARK_START_THREAD() __arrr_n += sprintf( __arrr + __arrr_n , "%s started %lu\n" , __FUNCTION__ , trd_id );
 
 #define MARK_LINE() __arrr_n += sprintf( __arrr + __arrr_n , "%s %d\n" , __FUNCTION__ , __LINE__ );
+
+
+#define HAS_STATISTICSS
+
+#define ENABLE_COMMUNICATION
+
+#define ENABLE_PERSISTENT_CACHE
+
+#define ENABLE_RELEASE_HALF_SEGMENT
+
+#define ENABLE_GATHER_STATIC
+
+//#define SEND_DIRECTLY_ARRIVE_UDP
+
+#define ENABLE_VERBOSE_FAULT

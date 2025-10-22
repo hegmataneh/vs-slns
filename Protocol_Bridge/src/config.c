@@ -63,30 +63,30 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_config( pass_p src_g , long v )
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
 {
 	G * _g = ( G * )src_g;
-	
-	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( cleanup_config ) , _g , clean_config );
-
-	distributor_subscribe_withOrder( &_g->distributors.quit_interrupt_dist , SUB_LONG , SUB_FXN( stop_sending_by_bridge ) , _g , stop_send_by_bridge );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_config ) , _g , clean_config );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( stop_sending_by_bridge ) , _g , stop_send_by_bridge );
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled( void_p src_g )
 {
 	G * _g = ( G * )src_g;
-	distributor_publish_void( &_g->distributors.post_config_stablished , SUBSCRIBER_PROVIDED );
+	distributor_publish_void( &_g->distributors.bcast_post_cfg , SUBSCRIBER_PROVIDED );
+	#ifdef HAS_STATISTICSS
 	distributor_publish_void( &_g->distributors.init_static_table , SUBSCRIBER_PROVIDED );
+	#endif
 }
 
 PRE_MAIN_INITIALIZATION( 102 )
 _PRIVATE_FXN void pre_main_init_config_component( void )
 {
 	// distribute initialization by the callback and throw components
-	distributor_init( &_g->distributors.pre_configuration , 1 );
-	distributor_subscribe( &_g->distributors.pre_configuration , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g );
+	distributor_init( &_g->distributors.bcast_pre_cfg , 1 );
+	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g );
 
-	distributor_init( &_g->distributors.post_config_stablished , 1 );
+	distributor_init( &_g->distributors.bcast_post_cfg , 1 );
 
-	distributor_init( &_g->distributors.program_stabled , 1 );
-	distributor_subscribe( &_g->distributors.program_stabled , SUB_VOID , SUB_FXN( program_is_stabled ) , _g );
+	distributor_init( &_g->distributors.bcast_program_stabled , 1 );
+	distributor_subscribe( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled ) , _g );
 }
 
 
@@ -96,7 +96,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 	MARK_START_THREAD();
 
@@ -163,7 +163,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 	MARK_START_THREAD();
 	
@@ -267,7 +267,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					M_BREAK_IF( !( pProtocol_Bridges = MALLOC_AR( pProtocol_Bridges , el_Protocol_Bridges.value.as_object->count ) ) , errMemoryLow , 0 );
 					MEMSET_ZERO( pProtocol_Bridges , el_Protocol_Bridges.value.as_object->count );
 					
-					int iactual_section = 0;
+					size_t iactual_section = 0;
 					for ( int icnf_section = 0 ; icnf_section < el_Protocol_Bridges.value.as_object->count ; icnf_section++ ) // each bridge
 					{
 						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->temp_data._pseudo_g = ( void_p )_g; // each config must know global settings
@@ -303,7 +303,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						MM_BREAK_IF( catch_error( &re_inputs , "inputs" , 1 ) , errNotFound , 0 , "inputs" );
 						typed( json_element ) el_inputs = result_unwrap( json_element )( &re_inputs );
 												
-						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count = el_inputs.value.as_object->count;
+						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count = (int)el_inputs.value.as_object->count;
 						
 						M_BREAK_IF( !( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in = MALLOC_AR( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in , ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count ) ) , errMemoryLow , 0 );
 						MEMSET_ZERO( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in , ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count );
@@ -350,7 +350,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						{
 							typed( json_element ) el_outputs = result_unwrap( json_element )( &re_outputs );
 
-							( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count = el_outputs.value.as_object->count;
+							( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count = (int)el_outputs.value.as_object->count;
 
 							M_BREAK_IF( !( ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out = MALLOC_AR( ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count ) ) , errMemoryLow , 0 );
 							MEMSET_ZERO( ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count );
@@ -577,7 +577,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.thread_startup , pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 	MARK_START_THREAD();
 
@@ -587,7 +587,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
-	distributor_publish_void( &_g->distributors.program_stabled , SUBSCRIBER_PROVIDED );
+	distributor_publish_void( &_g->distributors.bcast_program_stabled , SUBSCRIBER_PROVIDED );
 
 	while ( 1 )
 	{
@@ -659,13 +659,14 @@ void stop_protocol_bridge( G * _g , AB * pb )
 
 void apply_protocol_bridge_new_cfg_changes( G * _g , brg_cfg_t * prev_pcfg , brg_cfg_t * new_ccfg )
 {
-	for ( int imsk = 0 ; imsk < _g->bridges.ABhs_masks_count ; imsk++ )
+	for ( size_t iab = 0 ; iab < _g->bridges.ABs.count ; iab++ )
 	{
-		if ( _g->bridges.ABhs_masks[ imsk ] )
+		AB * pb = NULL;
+		if ( mms_array_get_s( &_g->bridges.ABs , iab , (void**)&pb ) == errOK )
 		{
-			if ( Bcfg_id_equlity( &_g->bridges.ABs[ imsk ].single_AB->cpy_cfg , prev_pcfg ) )
+			if ( Bcfg_id_equlity( &pb->cpy_cfg , prev_pcfg ) )
 			{
-				apply_new_protocol_bridge_config( _g , _g->bridges.ABs[ imsk ].single_AB , new_ccfg );
+				apply_new_protocol_bridge_config( _g , pb , new_ccfg );
 			}
 		}
 	}
@@ -673,17 +674,18 @@ void apply_protocol_bridge_new_cfg_changes( G * _g , brg_cfg_t * prev_pcfg , brg
 
 void remove_protocol_bridge( G * _g , brg_cfg_t * pcfg )
 {
-	for ( int imsk = 0 ; imsk < _g->bridges.ABhs_masks_count ; imsk++ )
+	for ( size_t iab = _g->bridges.ABs.count - 1 ; _g->bridges.ABs.count && iab >= 0 ; iab-- )
 	{
-		if ( _g->bridges.ABhs_masks[ imsk ] )
+		AB * pb = NULL;
+		if ( mms_array_get_s( &_g->bridges.ABs , iab , ( void ** )&pb ) == errOK )
 		{
-			if ( Bcfg_id_equlity( &_g->bridges.ABs[ imsk ].single_AB->cpy_cfg , pcfg ) )
+			if ( Bcfg_id_equlity( &pb->cpy_cfg , pcfg ) )
 			{
-				stop_protocol_bridge( _g , _g->bridges.ABs[ imsk ].single_AB );
-				_g->bridges.ABhs_masks[ imsk ] = 0;
-				DAC( _g->bridges.ABs[ imsk ].single_AB );
+				stop_protocol_bridge( _g , pb );
+				mms_array_delete( &_g->bridges.ABs , iab );
 			}
 		}
+		if ( iab < 1 ) break;
 	}
 }
 
@@ -691,43 +693,11 @@ void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg )
 {
 	INIT_BREAKABLE_FXN();
 
-	int new_ccfg_placement_index = -1;
-	while ( new_ccfg_placement_index < 0 ) // try to find one place for new wave
-	{
-		for ( int imsk = 0 ; imsk < _g->bridges.ABhs_masks_count ; imsk++ )
-		{
-			if ( !_g->bridges.ABhs_masks[ imsk ] )
-			{
-				new_ccfg_placement_index = imsk;
-				break;
-			}
-		}
-		if ( new_ccfg_placement_index < 0 )
-		{
-			int old_ABhs_masks_count = _g->bridges.ABhs_masks_count;
-			int new_ABhs_masks_count = old_ABhs_masks_count + PREALLOCAION_SIZE;
-
-			M_BREAK_IF( ( _g->bridges.ABhs_masks = REALLOC( _g->bridges.ABhs_masks , new_ABhs_masks_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 2 );
-			MEMSET_ZERO( _g->bridges.ABhs_masks + old_ABhs_masks_count , PREALLOCAION_SIZE );
-
-			M_BREAK_IF( ( _g->bridges.ABs = REALLOC( _g->bridges.ABs , new_ABhs_masks_count * sizeof( ABh ) ) ) == REALLOC_ERR , errMemoryLow , 1 );
-			MEMSET_ZERO( _g->bridges.ABs + old_ABhs_masks_count , PREALLOCAION_SIZE );
-
-			_g->bridges.ABhs_masks_count = new_ABhs_masks_count;
-		}
-	}
-
-	WARNING( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB == NULL );
-	M_BREAK_IF( ( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB = MALLOC_ONE( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB ) ) == NEW_ERR , errMemoryLow , 0 );
-	MEMSET_ZERO_O( _g->bridges.ABs[ new_ccfg_placement_index ].single_AB );
-	_g->bridges.ABhs_masks[ new_ccfg_placement_index ] = 1;
-	copy_bridge_cfg( &_g->bridges.ABs[ new_ccfg_placement_index ].single_AB->cpy_cfg , new_ccfg );
-
+	AB * pb = NULL;
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->bridges.ABs , (void**)&pb ) , 0 );
+	copy_bridge_cfg( &pb->cpy_cfg , new_ccfg );
 	apply_protocol_bridge_new_cfg_changes( _g , new_ccfg , new_ccfg );
 
-	BEGIN_RET
-		case 3: DAC( _g->bridges.ABs );
-		case 2: DAC( _g->bridges.ABhs_masks );
-		case 1: DIST_APP_FAILURE();
+	BEGIN_SMPL
 	M_V_END_RET
 }

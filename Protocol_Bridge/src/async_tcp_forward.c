@@ -15,7 +15,7 @@
 #include <Protocol_Bridge.dep>
 
 // spec each bridge how to act with udp packet get. and deliver it to global ring cache
-_PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
+_PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 {
 	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
 
@@ -23,7 +23,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 	{
 		dict_s_s_t dc_enum_grp_type;
 		dict_init( &dc_enum_grp_type );
-		for ( int iout = 0 ; iout < *hlpr->out_count ; iout++ )
+		for ( int iout = 0 ; iout < *shrtcut->out_count ; iout++ )
 		{
 			dict_put( &dc_enum_grp_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group_type );
 		}
@@ -37,7 +37,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 		if ( strsistr( pkeys , keys_count , STR_RoundRobin ) >= 0 )
 		{
 			// TODO . i can make helper to reduce this path length 
-			dict_o_init( hlpr->dc_token_ring );
+			dict_o_init( shrtcut->dc_token_ring );
 		}
 		dict_free( &dc_enum_grp_type );
 	}
@@ -57,7 +57,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 	dict_s_i_init( &init_grp );
 
 	// init pop distributor . each output distributor register here so they get arrived data
-	distributor_init( hlpr->defrg_pcap_payload , ( int )dict_s_i_count( &map_grp_idx ) );
+	distributor_init( shrtcut->bcast_xudp_pkt , dict_s_i_count( &map_grp_idx ) );
 
 	//// اینجا در گروه ها می چرخد و هر مورد را به ساب اضافه می کند یعنی دریافت کننده یک دیتا
 	//// در نتیجه وقتی دیتایی برای تی سی پی بود بین همه موارد توزیع می شود
@@ -72,7 +72,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 		{
 			int igrp = -1;
 			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );
-			distributor_subscribe( hlpr->defrg_pcap_payload , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE ,
+			distributor_subscribe( shrtcut->bcast_xudp_pkt , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE ,
 				SUB_FXN( fast_ring_2_huge_ring ) , pb->tcps + itcp );
 		}
 		else if ( iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_RoundRobin ) )
@@ -89,16 +89,16 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 				MEMSET_ZERO_O( tring );
 				token_ring_p_init( tring );
 
-				dict_o_put( hlpr->dc_token_ring , igrp , tring ); // TODO . each values from dic should freed
+				dict_o_put( shrtcut->dc_token_ring , igrp , tring ); // TODO . each values from dic should freed
 				// TODO . release this ring finally
 			}
 
-			void_p pring = dict_o_get( hlpr->dc_token_ring , igrp ); // get grp ring
+			void_p pring = dict_o_get( shrtcut->dc_token_ring , igrp ); // get grp ring
 			WARNING( pring );
 
 			// add callback receiver of each tcp grp
-			distributor_subscribe_with_ring( hlpr->defrg_pcap_payload ,
-				igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( fast_ring_2_huge_ring ) , pb->tcps + itcp , pring );
+			distributor_subscribe_with_ring( shrtcut->bcast_xudp_pkt ,
+				(size_t)igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( fast_ring_2_huge_ring ) , pb->tcps + itcp , pring );
 		}
 		else
 		{
@@ -107,12 +107,10 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_path * hlpr )
 	}
 
 	// TODO . call destroy or destructor of any dictionaries and collections
-
-
 }
 
 // read udp ring buffer and sent them into general buffer as fast as possible
-_REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
+_REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 {
 	INIT_BREAKABLE_FXN();
 
@@ -123,25 +121,25 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 	pass_p pdata = NULL;
 	size_t sz;
 
-	init_many_tcp( pb , hlpr );
+	init_many_tcp( pb , shrtcut );
 
 	// try to find AB of udp getter
-	BREAK_STAT( distributor_get_data( hlpr->defrg_pcap_payload , &pdata ) , 0 );
+	BREAK_STAT( distributor_get_data( shrtcut->bcast_xudp_pkt , &pdata ) , 0 );
 	AB_tcp * tcp = ( AB_tcp * )pdata;
 	
-	rdy_pkt1 * pkt = ( rdy_pkt1 * )buffer; // plain cup for packet
-	pkt->metadata.version = TCP_PACKET_V1;
+	xudp_hdr * pkt = ( xudp_hdr * )buffer; // plain cup for packet
+	pkt->metadata.version = TCP_XPKT_V1;
 	pkt->metadata.sent = false;
 	pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
 	pkt->metadata.retried = false;
 	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
-	pkt->metadata.TCP_name_size = strlen( pkt->TCP_name );
-	pkt->metadata.payload_offset = sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + sizeof( EOS )/*to read hdr name faster*/;
+	pkt->metadata.TCP_name_size = (uint8_t)strlen( pkt->TCP_name );
+	pkt->metadata.payload_offset = (uint8_t)sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + (uint8_t)sizeof( EOS )/*to read hdr name faster*/;
 	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );
 
 	int output_tcp_socket_error_tolerance_count = 0; // restart socket after many error accur
 
-	//while ( !pb->trd.cmn.bridg_prerequisite_stabled )
+	//while ( !pb->comm.preq.bridg_prerequisite_stabled )
 	//{
 	//	if ( GRACEFULLY_END_THREAD() ) break;
 	//	mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
@@ -169,20 +167,20 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 		//	//	MEMSET( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 		//	//}
 
-		if ( pb->trd.cmn.stop_sending )
+		if ( pb->comm.preq.stop_sending )
 		{
 			break;
 		}
 
 		// from ring pcap to stack general
-		//while ( cbuf_pked_pop( hlpr->fast_wrt_cache , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
+		//while ( cbuf_pked_pop( shrtcut->raw_xudp_cache , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
 		while( poped_defraged_packet( pb , buffer + pkt->metadata.payload_offset /*hdr + pkt*/ , &sz , &pkt->metadata.udp_hdr ) == errOK )
 		{
 			pkt->metadata.udp_hdr.log_double_checked = false;
 			pkt->metadata.udp_hdr.logged_2_mem = false;
 			//clock_gettime( CLOCK_MONOTONIC_COARSE , &pkt->flags.rec_t );
 
-			if ( pb->trd.cmn.stop_sending )
+			if ( pb->comm.preq.stop_sending )
 			{
 				break;
 			}
@@ -191,7 +189,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 
 			// TODO . result must be seperated from each other to make right statistic
 
-			if ( distributor_publish_buffer_size( hlpr->defrg_pcap_payload , buffer , sz + pkt->metadata.payload_offset , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
+			if ( distributor_publish_buffer_size( shrtcut->bcast_xudp_pkt , buffer , sz + pkt->metadata.payload_offset , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;
 
 			pb->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
@@ -209,7 +207,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_path * hlpr )
 		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
-	if ( pb->trd.cmn.stop_sending ) pb->trd.cmn.send_stoped = true;
+	if ( pb->comm.preq.stop_sending ) pb->comm.preq.send_stoped = true;
 	MARK_LINE();
 	return NULL;
 }

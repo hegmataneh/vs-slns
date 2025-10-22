@@ -10,17 +10,17 @@
 _PRIVATE_FXN _CALLBACK_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr , const u_char * packet )
 {
 	AB * pb = ( AB * )src_pb;
-	if ( pb->trd.cmn.stop_receiving )
+	if ( pb->comm.preq.stop_receiving )
 	{
-		pb->trd.cmn.receive_stoped = true;
+		pb->comm.preq.receive_stoped = true;
 	}
 	else
 	{
-		if ( distributor_publish_onedirectcall_3voidp( &pb->trd.cmn.fragmented_udp_packet_on_pcap_received_event , ( void_p )src_pb , ( void_p )hdr , ( void_p )packet ) != errOK ) return; // dist udp packet
+		if ( distributor_publish_onedirectcall_3voidp( &pb->comm.preq.bcast_pcap_udp_pkt , ( void_p )src_pb , ( void_p )hdr , ( void_p )packet ) != errOK ) return; // dist udp packet
 	}
 }
 
-_REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
+_REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_pth_t * shrtcut )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
@@ -42,11 +42,11 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf) == -1 , errDevice , 1 , "use correct interface %s\n" , errbuf);
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	MM_FMT_BREAK_IF( !( *pth->pcp_handle = pcap_open_live( interface_filter[ 0 ] , 65535, 1, 1000 , errbuf) ) , errDevice , 1 , "exe by pcap prmit usr %s\n" , interface_filter[0] , errbuf);
+	MM_FMT_BREAK_IF( !( *shrtcut->pcp_handle = pcap_open_live( interface_filter[ 0 ] , 65535, 1, 1000 , errbuf) ) , errDevice , 1 , "exe by pcap prmit usr %s\n" , interface_filter[0] , errbuf);
 
 	// Compile and apply filter
-	MM_FMT_BREAK_IF( pcap_compile( *pth->pcp_handle , &fp , port_filter[ 0 ] , 1 , mask) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr(*pth->pcp_handle));
-	MM_FMT_BREAK_IF( pcap_setfilter( *pth->pcp_handle , &fp ) == -1 , errDevice , 3 , "Couldn't install filter %s\n" , pcap_geterr( *pth->pcp_handle ) );
+	MM_FMT_BREAK_IF( pcap_compile( *shrtcut->pcp_handle , &fp , port_filter[ 0 ] , 1 , mask) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr(*shrtcut->pcp_handle));
+	MM_FMT_BREAK_IF( pcap_setfilter( *shrtcut->pcp_handle , &fp ) == -1 , errDevice , 3 , "Couldn't install filter %s\n" , pcap_geterr( *shrtcut->pcp_handle ) );
 
 	FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
 	FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
@@ -64,23 +64,23 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	for ( int iinp = 0 ; iinp < pb->udps_count ; iinp++ )
 	{
 		pb->udps[ iinp ].udp_connection_established = 1;
-		distributor_publish_long( &_g->distributors.pb_udp_connected_dist , 0 , ( pass_p )pb );
+		distributor_publish_long( &_g->distributors.bcast_pb_udp_connected , 0 , ( pass_p )pb );
 	}
 
 	// Capture indefinitely
-	MM_FMT_BREAK_IF( pcap_loop( *pth->pcp_handle , -1 , handle_pcap_udp_receiver , ( pass_p )pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( *pth->pcp_handle ) );
+	MM_FMT_BREAK_IF( pcap_loop( *shrtcut->pcp_handle , -1 , handle_pcap_udp_receiver , ( pass_p )pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( *shrtcut->pcp_handle ) );
 
-	pcap_close( *pth->pcp_handle );
-	*pth->pcp_handle = NULL; // closed successfully
-	pb->trd.cmn.receive_stoped = true;
+	pcap_close( *shrtcut->pcp_handle );
+	*shrtcut->pcp_handle = NULL; // closed successfully
+	pb->comm.preq.receive_stoped = true;
 	MARK_LINE();
 	BEGIN_RET
 	// TODO . FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
 	// FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
 	case 4:
 	{
-		pcap_breakloop( *pth->pcp_handle ); // in case we're inside pcap_loop
-		pcap_close( *pth->pcp_handle );
+		pcap_breakloop( *shrtcut->pcp_handle ); // in case we're inside pcap_loop
+		pcap_close( *shrtcut->pcp_handle );
 		break;
 	}
 	case 3:
@@ -89,7 +89,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_path * pth )
 	}
 	case 2:
 	{
-		pcap_close( *pth->pcp_handle );
+		pcap_close( *shrtcut->pcp_handle );
 	}
 	case 1:
 	{

@@ -5,7 +5,7 @@
 
 #include "make_udp_packet.inc"
 
-#if !defined(__COMPILE) && defined(__PROJECT_NAME__) && __PROJECT_NAME__ == make_udp_packet // in each project must be at last  order
+#if !defined(__COMPILING) && defined(__PROJECT_NAME__) && __PROJECT_NAME__ == make_udp_packet // in each project must be at last  order
 
 #define __FORCE_INTELLISENSE_ASSIST
 #include <d:/My project/General projects/general/header/IntellisenseAssist.h> // should be at the end of any include to correct Intellisense bug

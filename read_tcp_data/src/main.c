@@ -1,5 +1,14 @@
 ﻿#ifndef section_include
 
+#define Uses_pthread_create
+#define Uses_format_elapsed_time_with_millis
+#define Uses_stricmp
+#define Uses_WARNING
+#define Uses_round_up_to_next_interval
+#define Uses_gettimeofday
+#define Uses_Uses_STR_funcs
+#define Uses_memory_funcs
+#define Uses_ERROR_SECTION
 #define Uses_json
 #define Uses_fd_set
 #define Uses_thrd_sleep
@@ -777,7 +786,7 @@ void apply_new_tcp_listener_config( struct App_Data * _g , struct tcp_listener *
 		int new_thread_count = old_thread_count + diff_count;
 
 		M_BREAK_IF( ( tl->tl_trds_masks = REALLOC( tl->tl_trds_masks , new_thread_count * sizeof( int ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
-		MEMSET_ZERO_T( tl->tl_trds_masks + old_thread_count , int , diff_count );
+		MEMSET_ZERO_T( ( tl->tl_trds_masks + old_thread_count ) , int , diff_count );
 
 		M_BREAK_IF( ( tl->tl_trds = REALLOC( tl->tl_trds , new_thread_count * sizeof( struct tcp_listener_thread_holder ) ) ) == REALLOC_ERR , errMemoryLow , 0 );
 		MEMSET_ZERO_T( tl->tl_trds + old_thread_count , struct tcp_listener_thread_holder , diff_count );
@@ -983,7 +992,7 @@ void add_new_tcp_listener( struct App_Data * _g , struct tcp_listener_cfg * new_
 		}
 	}
 
-	ASSERT( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl == NULL );
+	WARNING( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl == NULL );
 	M_BREAK_IF( ( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl = MALLOC_AR( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl , 1 ) ) == NEW_ERR , errMemoryLow , 0 );
 	MEMSET_ZERO( _g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl , 1 );
 	_g->listeners.tl_holders_masks[ new_tlcfg_placement_index ] = 1;
@@ -1002,7 +1011,7 @@ void add_new_tcp_listener( struct App_Data * _g , struct tcp_listener_cfg * new_
 
 #ifndef section_load_config
 
-#define CONFIG_ROOT_PATH "../../../../tcp_listener/cfg"
+#define CONFIG_ROOT_PATH "../../../cfg/"
 
 // TODO . exit gracefully by auto mechanism
 // TODO . think about race condition

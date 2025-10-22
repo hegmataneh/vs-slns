@@ -1,4 +1,4 @@
-#ifdef Uses_rdy_pkt1
+#ifdef Uses_xudp_hdr
 	#define Uses_packet_mngr
 #endif
 

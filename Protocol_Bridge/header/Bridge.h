@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-typedef struct AB_handler_prerequisite
+typedef struct AB_thread_action_handler
 {
 
 	struct s_pcap_udp_counter // one thread for send and receive
@@ -42,13 +42,12 @@ typedef struct AB_handler_prerequisite
 		dict_o_t dc_token_ring; // config may have multi rings and each one is for one grp
 	} *p_many2one_pcap2krnl_SF_serialize;
 
-} ex_preq;
+} trd_act_hdls;
 
-typedef struct AB_thread // threads use to recv and send data
+typedef struct AB_communication // threads use to recv and send data
 {
-	struct AB_common_prerequisite // TODO . aware for cache line alignment
+	struct /*AB_common_prerequisite*/ // TODO . aware for cache line alignment
 	{
-		
 		union
 		{
 			struct
@@ -56,7 +55,7 @@ typedef struct AB_thread // threads use to recv and send data
 				bool stop_receiving; // command from outside to inside thread
 				bool receive_stoped;
 			};
-			uchar pad1[64];
+			uchar pad1[ CACHE_LINE_SIZE ];
 		};
 		union
 		{
@@ -65,22 +64,24 @@ typedef struct AB_thread // threads use to recv and send data
 				bool stop_sending;
 				bool send_stoped;
 			};
-			uchar pad2[ 64 ];
+			uchar pad2[ CACHE_LINE_SIZE ];
 		};
 		int thread_is_created;
 		//int bridg_prerequisite_stabled; // because udp port may start after thread started . if all the condition is ready to bridge thread start
 
-		cbuf_pked fast_wrt_cache; // ring buffer of input udp . why i use packed buffer . because each pcap has one ring and it consume lot of memory to keep pesimistic block( consider 8k for each pkt )
-		defraged_udps_t defraged_udps;
+		struct
+		{
+			cbuf_pked_t raw_xudp_cache; //fast_wrt_cache; // ring buffer of input udp . why i use packed buffer . because each pcap has one ring and it consume lot of memory to keep pesimistic block( consider 8k for each pkt )
+			defraged_udps_t defraged_udps; // 
+		};
 
-		distributor_t fragmented_udp_packet_on_pcap_received_event; // used when raw socket worked
-		distributor_t kernel_udp_payload_ready_event; // just complete payload pushed( i insist on payload concept not buffer litteraly )
-		distributor_t defraged_pcap_udp_payload_event; // just payload poped( i insist on payload concept not buffer litteraly )
-	} cmn;
+		distributor_t bcast_pcap_udp_pkt; // used when raw socket worked
+		distributor_t bcast_xudp_pkt; // just payload poped( i insist on payload concept not buffer litteraly )
+	} preq; /*cmn,comn*/
 
-	ex_preq t;
+	trd_act_hdls acts; /*t*/
 
-} ABtrd;
+} ABcomm;
 
 //
 
@@ -94,7 +95,7 @@ typedef struct AB_udp_connection
 	udp_cfg_pak_t * __udp_cfg_pak; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct
 
-	//distributor_t change_state_dist; // not needed
+	distributor_t bcast_change_state; // not needed
 
 } AB_udp;
 
@@ -110,7 +111,7 @@ typedef struct AB_tcp_connection
 	tcp_cfg_pak_t * __tcp_cfg_pak; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct
 
-	distributor_t change_state_dist;
+	distributor_t bcast_change_state;
 
 } AB_tcp;
 
@@ -118,7 +119,7 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 {
 	// caution . make copy of allocation values
 	brg_cfg_t cpy_cfg;  // copy of applied cfg . active protocol_bridge config . یک دسته کامل از ترد ها یک کانفیگ را اعمال می کند
-	ABtrd trd;
+	ABcomm comm; /*trd*/
 	ABstat stat;
 
 	AB_udp *udps;
@@ -127,42 +128,34 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 	AB_tcp *tcps;
 	int tcps_count;
 
+	#ifdef HAS_STATISTICSS
 	nnc_table * ab_stat_tbl;
+	#endif
 	
 } AB;
-
-typedef struct AB_holder // every elemnt at the reallocation array must have holder because reallocate change data values but with holder just pointer addr change
-{
-	AB * single_AB; // single allocated
-} ABh;
 
 // TODO . IPv6
 typedef struct AB_holders
 {
-	ABh * ABs; // all the active protocol_bridge or Active bridges
-	int * ABhs_masks; // protocol_bridge masks
-	size_t ABhs_masks_count; // mask count
+	dyn_mms_arr ABs; // all the active protocol_bridge or Active bridges
+
 } ABhs;
 
 
-typedef struct ActiveBridgeShortPathHelper // every virtually inherit struct must have this vars same as this struct without any difference
+typedef struct /*ActiveBridgeShortPathHelper*/ // every virtually inherit struct must have this vars same as this struct without any difference
 {
 	AB * pab;
 	int * in_count;
 	int * out_count;
 	int * thread_is_created;
-	//int * do_close_thread;
 
-	//int * bridg_prerequisite_stabled;
-	distributor_t * buf_psh_distri;
-
-	cbuf_pked * fast_wrt_cache; // buffer
-	distributor_t * defrg_pcap_payload;
+	cbuf_pked_t * raw_xudp_cache; // buffer
 	dict_o_t * dc_token_ring;
 	pcap_t ** pcp_handle; // address to pcap handler
+	distributor_t * bcast_xudp_pkt; // xudp means my hdr + udp header and data
 
-} shrt_path;
+} shrt_pth_t;
 
-void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_path * hlpr );
+void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_pth_t * shrtcut );
 
 _CALLBACK_FXN void stop_sending_by_bridge( pass_p src_g , long v );

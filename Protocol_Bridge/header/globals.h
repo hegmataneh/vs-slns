@@ -10,27 +10,22 @@ typedef struct app_cmd
 
 typedef struct global_distributor
 {
-	distributor_t pre_configuration;
-	distributor_t post_config_stablished;
+	distributor_t bcast_pre_cfg; //pre_configuration;
+	distributor_t bcast_post_cfg; //post_config_stablished;
+	distributor_t bcast_program_stabled; //program_stabled;
+	distributor_t bcast_thread_startup; //thread_startup; // every thread start up declare himself by this
+	distributor_t bcast_app_lvl_failure; //app_lvl_failure_dist;
+	distributor_t bcast_pb_lvl_failure; //pb_lvl_failure_dist;
+	distributor_t bcast_pb_udp_connected; //pb_udp_connected_dist; // dispatch tcp connection state to increase counter
+	distributor_t bcast_pb_udp_disconnected; //pb_udp_disconnected_dist;
+	distributor_t bcast_pb_tcp_connected; //pb_tcp_connected_dist; // dispatch tcp connection state to increase counter
+	distributor_t bcast_pb_tcp_disconnected; //pb_tcp_disconnected_dist;
+	distributor_t bcast_quit; // quit_interrupt_dist; // quit interrupt dispatch to all pcap loop
 
-	distributor_t program_stabled;
-
-	distributor_t thread_startup; // every thread start up declare himself by this
-
-	distributor_t app_lvl_failure_dist;
-	distributor_t pb_lvl_failure_dist;
-
-	distributor_t pb_udp_connected_dist; // dispatch tcp connection state to increase counter
-	distributor_t pb_udp_disconnected_dist;
-
-	distributor_t pb_tcp_connected_dist; // dispatch tcp connection state to increase counter
-	distributor_t pb_tcp_disconnected_dist;
-
-	distributor_t quit_interrupt_dist; // quit interrupt dispatch to all pcap loop
-
+	#ifdef HAS_STATISTICSS
 	distributor_t throttling_refresh_stat; // refresh stat intervally
-
 	distributor_t init_static_table; // table that is static with content . for now without AB
+	#endif
 } g_dst;
 
 typedef enum
@@ -57,11 +52,6 @@ typedef struct global_handles
 
 } g_hdl;
 
-typedef struct global_buffer_handles
-{
-	
-} g_bufs;
-
 typedef struct global_thread_handles
 {
 	pthread_t trd_watchdog;
@@ -86,7 +76,6 @@ typedef struct App_Data
 		Acmd cmd;
 		g_dst distributors;
 		g_hdl hdls; // holders
-		g_bufs bufs;
 		g_trds trds; // threads
 	};
 } G;

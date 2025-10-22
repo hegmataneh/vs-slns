@@ -2,7 +2,7 @@
 
 typedef struct packet_mngr_prerequisite
 {
-	distributor_t throttling_release_halffill_segment; // check if condition is true then set halffill segemtn as fill
+	distributor_t bcast_release_halffill_segment; //throttling_release_halffill_segment; // check if condition is true then set halffill segemtn as fill
 	kv_table_t map_tcp_socket; // keep mapping between tcp & id
 	ci_sgmgr_t huge_fst_cache; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
 	pthread_t trd_tcp_sender; // get filled segment and send them
@@ -32,7 +32,7 @@ typedef struct udp_packet_header
 	bool log_double_checked;
 } rdy_udp_hdr_t;
 
-typedef struct ready_2_send_packet_v1
+typedef struct /*ready_2_send_packet_v1*/
 {
 	// TODO . every thing that need for postpond writing must store here
 
@@ -64,10 +64,10 @@ typedef struct ready_2_send_packet_v1
 		//DATAB pkt[1]; // after TCP_name data come
 	};
 
-} rdy_pkt1;
+} xudp_hdr; //rdy_pkt1;
 
-#define TCP_PACKET_V1 MSB_MARKERS[3] /*version also check memory correctness as much as possible*/
-#define TCP_PACKET_V2 MSB_MARKERS[2]
+#define TCP_XPKT_V1 MSB_MARKERS[3] /*version also check memory correctness as much as possible*/
+#define TCP_XPKT_V2 MSB_MARKERS[2]
 // ...
 
 //// log
