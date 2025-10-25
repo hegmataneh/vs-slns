@@ -246,7 +246,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 
 	while ( 1 )
 	{
-		if ( GRACEFULLY_END_THREAD() ) break; // keep track changes until app is down
+		if ( GRACEFULLY_END_NOLOSS_THREAD() ) break; // keep track changes until app is down
 
 		#ifdef HAS_STATISTICSS
 		// distribute statistic referesh pulse

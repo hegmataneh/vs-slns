@@ -4,7 +4,8 @@ typedef struct app_cmd
 {
 	int64 block_sending_1; // for nicely termination there should be flag that say no more sending
 	volatile bool burst_waiting_2;
-	int64 quit_thread_3;
+	int64 quit_first_level_thread_3;
+	int64 quit_noloss_data_thread_4;
 	int64 quit_app_4;
 } Acmd;
 

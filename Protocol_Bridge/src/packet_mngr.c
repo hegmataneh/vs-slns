@@ -16,17 +16,22 @@
 
 GLOBAL_VAR extern G * _g;
 
-_PRIVATE_FXN _CALLBACK_FXN bool always_say_is_filled_callback( const buffer buf , size_t sz )
-{
-	return true;
-}
-
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_packet_mngr( pass_p src_g , long v )
 {
 	MARK_LINE();
 
 	G * _g = ( G * )src_g;
-	ci_sgm_peek_decide_active( &_g->hdls.pkt_mgr.huge_fst_cache , always_say_is_filled_callback );
+
+	cleanup_pkt_mgr( &_g->hdls.pkt_mgr );
+
+	MARK_LINE();
+}
+
+_PRIVATE_FXN _CALLBACK_FXN void cleanup_inmem_seg( pass_p src_g , long v )
+{
+	MARK_LINE();
+
+	G * _g = ( G * )src_g;
 
 	time_t tbegin = time( NULL );
 	time_t tnow = tbegin;
@@ -40,6 +45,7 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_packet_mngr( pass_p src_g , long v )
 	MARK_LINE();
 }
 
+
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
 {
 	G * _g = ( G * )src_g;
@@ -50,6 +56,9 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
 
 	// register here to get quit cmd
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_packet_mngr ) , _g , clean_packet_mngr );
+
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_inmem_seg ) , _g , clean_inmem_seg );
+	
 
 	cbuf_m_init( &_g->hdls.pkt_mgr.last_60_sec_seg_count , 60 );
 }
@@ -667,9 +676,8 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 	_fail++;
 
 	#ifdef ENABLE_PERSISTENT_CACHE
-	// TODO . do something with faulty item
 	// try to seperate requestor and actually archiver. so i drop it on ground and coursed stinky person grab it
-	distributor_publish_buffer_size( &_g->hdls.prst_csh.bcast_store_data , data , len , src_g );
+	d_error = distributor_publish_buffer_size( &_g->hdls.prst_csh.bcast_store_data , data , len , src_g );
 	#endif
 
 	// write it down on disk
@@ -723,7 +731,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 
 	do
 	{
-		if ( GRACEFULLY_END_THREAD() ) break;
+		if ( GRACEFULLY_END_NOLOSS_THREAD() ) break;
 
 		if
 		(
@@ -740,7 +748,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 				_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
 
 				// try to send from mem under tcp to dst
-				if ( ci_sgm_iter_items( pseg , process_segment_itm , src_g , true , _g->hdls.pkt_mgr.strides_packet_peek , tail_2_head ) != errOK ) // some fault detected
+				if ( !_g->cmd.block_sending_1 || ci_sgm_iter_items(pseg , process_segment_itm , src_g , true , _g->hdls.pkt_mgr.strides_packet_peek , tail_2_head) != errOK ) // some fault detected
 				{
 					// if sending filled segment fail try to archive them
 					ci_sgm_iter_items( pseg , process_faulty_itm , src_g , true , 1 , head_2_tail );

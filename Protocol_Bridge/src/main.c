@@ -26,6 +26,13 @@ _PRIVATE_FXN void pre_main_top_prio_init( void )
 extern mLeak_t __alc_hit[MLK_HASH_WIDTH][EACH_ADDR_COUNT];
 #endif
 
+_CALLBACK_FXN void inmem_seg_cleaned_up( pass_p src_g , long v )
+{
+	G * _g = ( G * )src_g;
+	_g->cmd.quit_noloss_data_thread_4 = 1;
+	MARK_LINE();
+}
+
 _CALLBACK_FXN void * signal_thread( void * arg )
 {
 	sigset_t * set = arg;
@@ -34,7 +41,10 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	printf( "\nSIGINT caught, stopping...\n" );
 	_g->cmd.block_sending_1 = 1; // Signal all threads to stop
 	_g->cmd.burst_waiting_2 = true;
-	_g->cmd.quit_thread_3 = 1;
+	_g->cmd.quit_first_level_thread_3 = 1;
+
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( inmem_seg_cleaned_up ) , _g , inmem_seg_cleaned );
+
 	distributor_publish_long( &_g->distributors.bcast_quit , sig , SUBSCRIBER_PROVIDED );
 	sub_destroy( &_g->distributors.bcast_quit );
 	_g->cmd.quit_app_4 = 1;

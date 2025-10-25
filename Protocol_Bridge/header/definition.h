@@ -37,7 +37,10 @@
 
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? (uint)_g->appcfg.g_cfg->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
 
-#define GRACEFULLY_END_THREAD() ( _g->cmd.quit_thread_3 )
+#define GRACEFULLY_END_THREAD() ( _g->cmd.quit_first_level_thread_3 )
+
+#define GRACEFULLY_END_NOLOSS_THREAD() ( _g->cmd.quit_noloss_data_thread_4 )
+
 
 //#define CLOSE_APP_VAR() ( _g->cmd.quit_app_4 )
 
@@ -86,6 +89,10 @@ enum cleanup_priority_order /*ascending termination priority*/
 	clean_packet_mngr , /*most have higher priority than persistant_cache_mgr*/
 
 	clean_threads , /*wait until all thread go away*/
+
+	inmem_seg_cleaned ,
+
+	clean_inmem_seg ,
 
 	clean_bridge_send_part ,
 
