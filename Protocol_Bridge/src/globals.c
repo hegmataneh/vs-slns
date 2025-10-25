@@ -360,6 +360,8 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 
 	while ( 1 )
 	{
+		_close_socket( &tcp->tcp_sockfd );
+
 		// try to create TCP socket
 		NM_BREAK_IF( ( tcp->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errSocket , 0 , "create sock error" );
 
@@ -423,8 +425,27 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
 		int all_tcp_connected = 0;
 		for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 		{
+			if ( GRACEFULLY_END_THREAD() ) break;
+
 			if ( pb->tcps[ itcp ].tcp_connection_established )
 			{
+				if
+				(
+					!pb->tcps[ itcp ].tcp_is_about_to_connect &&
+					( time( NULL ) - pb->tcps[ itcp ].last_access ) > 60
+				)
+				{
+					pb->tcps[ itcp ].last_access = time( NULL );
+					if ( is_socket_connected_peek( pb->tcps[ itcp ].tcp_sockfd , 0 ) <= 0 )
+					{
+						pb->tcps[ itcp ].tcp_is_about_to_connect = 1;
+						pb->tcps[ itcp ].tcp_connection_established = 0;
+						itcp = 0;
+						all_tcp_connected = 0;
+						continue;
+					}
+				}
+				
 				all_tcp_connected++;
 				continue;
 			}
@@ -458,6 +479,19 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 	while ( !_g->cmd.quit_app_4 )
 	{
 		if ( _g->cmd.quit_app_4 ) break; // most be closed when every thing closed
+
+		#ifdef ENABLE_LOCK_TRACING
+			for ( size_t tt1 = 0 ; tt1 < DD_MAX_FILE ; tt1++ )
+			{
+				for ( size_t tt2 = 0 ; tt2 < DD_LINE_COUNT ; tt2++ )
+				{
+					if ( __lck_hit[ tt1 ][ tt2 ].state != 0 )
+					{
+						int u = 2 + 2;
+					}
+				}
+			}
+		#endif
 
 		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	}

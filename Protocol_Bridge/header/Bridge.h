@@ -115,6 +115,7 @@ typedef struct AB_tcp_connection
 	//int retry_to_connect_tcp; // do retry to connect again
 	int tcp_is_about_to_connect; // when tring to connect no more try should be attempt
 
+	time_t last_access; // last time any pkt sent
 
 	tcp_cfg_pak_t * __tcp_cfg_pak; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct

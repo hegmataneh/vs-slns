@@ -164,6 +164,7 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 
 		for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 		{
+			pb->udps[ iudp ].udp_sockfd = invalid_fd;
 			pb->udps[ iudp ].owner_pb = pb;
 			pb->udps[ iudp ].__udp_cfg_pak = &pb->cpy_cfg.m.m.maintained.in[ iudp ];
 			distributor_init( &pb->udps[ iudp ].bcast_change_state , 1 );
@@ -177,6 +178,7 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 
 		for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 		{
+			pb->tcps[ itcp ].tcp_sockfd = invalid_fd;
 			pb->tcps[ itcp ].owner_pb = pb;
 			pb->tcps[ itcp ].__tcp_cfg_pak = &pb->cpy_cfg.m.m.maintained.out[ itcp ];
 			distributor_init( &pb->tcps[ itcp ].bcast_change_state , 1 );

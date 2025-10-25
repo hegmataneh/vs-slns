@@ -190,7 +190,7 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 
 		//ssize_t sz;
 
-		sockfd sockfd_max = -1; // for select compulsion
+		sockfd sockfd_max = invalid_fd; // for select compulsion
 		for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 		{
 			if ( pb->udps[ iudp ].udp_connection_established )

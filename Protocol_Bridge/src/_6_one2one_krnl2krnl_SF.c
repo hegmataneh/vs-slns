@@ -76,7 +76,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 
 		//ssize_t sz;
 
-		sockfd sockfd_max = -1; // for select compulsion
+		sockfd sockfd_max = invalid_fd; // for select compulsion
 		for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 		{
 			if ( pb->udps[ iudp ].udp_connection_established )
@@ -287,7 +287,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 							#ifdef SEND_DIRECTLY_ARRIVE_UDP
 								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , buffer + pkt->metadata.payload_offset , (int)bytes_received , 0 , 0 );
 							#else
-								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , buffer , bytes_received + pkt->metadata.payload_offset , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
+								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , buffer , (size_t)( bytes_received + pkt->metadata.payload_offset ) , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 									continue;
 							#endif
 
