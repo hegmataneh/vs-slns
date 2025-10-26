@@ -192,6 +192,8 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 			if ( distributor_publish_buffer_size( shrtcut->bcast_xudp_pkt , buffer , sz + pkt->metadata.payload_offset , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;
 
+			//fast_ring_2_huge_ring( tcp , buffer , sz + pkt->metadata.payload_offset );
+
 			pb->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
 
 		}

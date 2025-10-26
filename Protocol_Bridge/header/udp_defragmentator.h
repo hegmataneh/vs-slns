@@ -17,7 +17,7 @@ typedef struct udp_single_part // aligned for boost up
 
 typedef struct defragmented_udp_pcaket
 {
-	udp_part ids[ G_USHORT_MAX ]; // limited buffer for storing header of udps and replace old one from top with new one arrived
+	udp_part ids[ 65536 ]; // limited buffer for storing header of udps and replace old one from top with new one arrived
 	sem_t gateway;
 } defraged_udps_t;
 

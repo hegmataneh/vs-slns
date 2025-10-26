@@ -104,9 +104,9 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		udp_spec.data_length = payload_len;
 		udp_spec.data_progress = payload_len;
 
-		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , NULL );
+		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , NULL , false );
 		if ( d_error != errOK ) return d_error;
-		return cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload , udp_spec.data_progress , udp_spec.data_length , NULL );
+		return cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload , udp_spec.data_progress , udp_spec.data_length , NULL , true );
 	}
 
 	uint16_t udp_pkt_id = ntohs( *( uint16_t * )( packet + 4 ) ); // IP ID field -> upd pkt id
@@ -123,9 +123,9 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		udp_spec.data_progress = seg_payload_len; // use this field at defrag step and it is sign that say udp received completly
 
 		size_t hdr_addr , pyld_addr; // size in memory
-		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , &hdr_addr ); // first write header to buff
+		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , &hdr_addr , false ); // first write header to buff
 		if ( d_error != errOK ) return d_error;
-		d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload , udp_spec.data_progress , udp_spec.data_length , &pyld_addr ); // for first one allocate more space then in read defrag by copyting them in their place
+		d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload , udp_spec.data_progress , udp_spec.data_length , &pyld_addr , true ); // for first one allocate more space then in read defrag by copyting them in their place
 		if ( d_error == errOK )
 		{
 			#ifdef CCH
@@ -146,6 +146,7 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 			// i prefer that first element keep first part of the udp so it has length and etc ( CCH.ring_addr[ 0 ] )
 			CCH.ring_addr[ 0 ][ 0 ] = hdr_addr; // So, the ring handles translation to memory
 			CCH.ring_addr[ 0 ][ 1 ] = pyld_addr;
+
 			// CCH.last_pos++; main always in last_pos-> 0 . main does not matter because copy to output
 			if ( CCH.data_length && CCH.data_progress == CCH.data_length )
 			{
@@ -168,9 +169,9 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		udp_spec.data_progress = seg_payload_len; // be zero it means this is partial data udp
 
 		size_t hdr_addr , pyld_addr;
-		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , &hdr_addr );
+		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , &hdr_addr , false );
 		if ( d_error != errOK ) return d_error;
-		d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload , udp_spec.data_progress , udp_spec.data_progress , &pyld_addr ); // for first one allocate more space then in read defrag by copyting them in their place
+		d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload , udp_spec.data_progress , udp_spec.data_progress , &pyld_addr , true ); // for first one allocate more space then in read defrag by copyting them in their place
 		if ( d_error == errOK )
 		{
 			if ( CCH.dirty && ( CCH.srcIP != udp_spec.hdr.srcIP || CCH.dstIP != udp_spec.hdr.dstIP ) )
@@ -185,6 +186,7 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 			CCH.dirty = 1;
 			CCH.ring_addr[ CCH.last_pos + 1 ][ 0 ] = hdr_addr; // So, the ring handles translation to memory
 			CCH.ring_addr[ CCH.last_pos + 1 ][ 1 ] = pyld_addr;
+
 			CCH.last_pos++; // extra segment from pos 1+
 			if ( CCH.data_length && CCH.data_progress == CCH.data_length )
 			{
@@ -206,7 +208,14 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 	status d_error;
 	dfrg_udp_metadata tmp_hdr;
 	size_t hdr_sz = 0;
-	if ( ( d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , &tmp_hdr , &hdr_sz , 60/*timeout*/ ) ) != errOK ) return d_error;
+	if ( ( d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , &tmp_hdr , sizeof( tmp_hdr ) , &hdr_sz , 60/*timeout*/ , true ) ) != errOK )
+	{
+		if ( d_error != errTimeout )
+		{
+			return d_error;
+		}
+		return d_error;
+	}
 
 	if ( tmp_hdr.mark_memory != MARKER_MEM ) // very error prone but fast
 	{
@@ -226,7 +235,7 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 	if ( tmp_hdr.data_length && tmp_hdr.data_length == tmp_hdr.data_progress ) // it is completed
 	{
 		if ( out_hdr ) MEMCPY( out_hdr , &tmp_hdr.hdr );
-		d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , out_buf , out_len , 60/*timeout*/ ); // most of the packet get here na dis normal
+		d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , out_buf , 0/*no exp*/ , out_len , 60/*timeout*/ , false ); // most of the packet get here na dis normal
 		if( d_error ) return d_error;
 		goto _update_stat;
 	}
@@ -292,13 +301,13 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 
 	CCH.done = 1; // to just later access ignored and do nothing
 
-	cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , NULL , NULL , 1 ); // just ignore first occurance of fregmented part
+	cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , NULL , 0 , NULL , 1 , false ); // just ignore first occurance of fregmented part
 	#undef CCH
 
 	goto _update_stat;
 
 _ignore:
-	cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , NULL , NULL , 1/*timeout*/ ); // ignore one pkt
+	cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , NULL , 0 , NULL , 1/*timeout*/ , false ); // ignore one pkt
 	return errGeneral;
 
 _update_stat:
