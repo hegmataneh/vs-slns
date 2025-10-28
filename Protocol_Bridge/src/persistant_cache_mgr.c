@@ -19,7 +19,9 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr( pass_p src_g , lo
 	sub_destroy( &_g->hdls.prst_csh.bcast_store_data );
 	sub_destroy( &_g->hdls.prst_csh.bcast_pagestacked_pkts );
 
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr_fetch( pass_p src_g , long v )
@@ -36,7 +38,9 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr_fetch( pass_p src_
 		sem_post( &_g->hdls.gateway.pagestack_gateway_open_sem );
 	}
 
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p src_g )
@@ -126,7 +130,9 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_START_THREAD();
+#endif
 
 	status ret;
 	do
@@ -165,7 +171,9 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 	while( 1 );
 	_g->hdls.gateway.pagestack_gateway_open_val = gws_die;
 
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 
 	return NULL;
 }

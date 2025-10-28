@@ -109,6 +109,10 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 	// TODO . call destroy or destructor of any dictionaries and collections
 }
 
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	GLOBAL_VAR int _sem_in_fast_cache = 0;
+#endif
+
 // read udp ring buffer and sent them into general buffer as fast as possible
 _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 {
@@ -176,6 +180,10 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 		//while ( cbuf_pked_pop( shrtcut->raw_xudp_cache , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
 		while( poped_defraged_packet( pb , buffer + pkt->metadata.payload_offset /*hdr + pkt*/ , &sz , &pkt->metadata.udp_hdr ) == errOK )
 		{
+			#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+				_sem_in_fast_cache = cbuf_pked_unreliable_sem_count( &pb->comm.preq.raw_xudp_cache );
+			#endif
+
 			pkt->metadata.udp_hdr.log_double_checked = false;
 			pkt->metadata.udp_hdr.logged_2_mem = false;
 			//clock_gettime( CLOCK_MONOTONIC_COARSE , &pkt->flags.rec_t );
@@ -210,6 +218,8 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 	}
 	M_V_END_RET
 	if ( pb->comm.preq.stop_sending ) pb->comm.preq.send_stoped = true;
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 	return NULL;
 }

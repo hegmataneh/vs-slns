@@ -17,13 +17,15 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 	G * _g = ( G * )src_g;
 
 	#ifdef HAS_STATISTICSS
-	nnc_destroy( &_g->stat.nc_h );
-	mms_array_free( &_g->stat.nc_s_req.field_keeper );
+		nnc_destroy( &_g->stat.nc_h );
+		mms_array_free( &_g->stat.nc_s_req.field_keeper );
 	#endif
 
 	sub_destroy( &_g->hdls.pkt_mgr.bcast_release_halffill_segment );
 	
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
@@ -235,7 +237,9 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_START_THREAD();
+#endif
 	
 	#ifdef HAS_STATISTICSS
 	distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( g_every_ticking_refresh ) , _g );

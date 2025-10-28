@@ -73,7 +73,11 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_pth_t * shrtcut
 	pcap_close( *shrtcut->pcp_handle );
 	*shrtcut->pcp_handle = NULL; // closed successfully
 	pb->comm.preq.receive_stoped = true;
+	
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
+
 	BEGIN_RET
 	// TODO . FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
 	// FREE_DOUBLE_PTR( port_filter , clusterd_cnt );

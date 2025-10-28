@@ -31,7 +31,9 @@ _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_START_THREAD();
+#endif
 
 	//WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 

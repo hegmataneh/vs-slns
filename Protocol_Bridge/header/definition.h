@@ -71,9 +71,10 @@ typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
 		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit ) :\
 		__snprintf( baaf , sizeof(baaf) , "%llu" , val ) )
 
-
-extern char __arrr[ 10000 ];
-extern int __arrr_n;
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	GLOBAL_VAR extern char __arrr[ 10000 ];
+	GLOBAL_VAR extern int __arrr_n;
+#endif
 
 enum cleanup_priority_order /*ascending termination priority*/
 {
@@ -112,10 +113,10 @@ enum stat_init_priority_order /*ascending termination priority*/
 	main_statistics
 };
 
-#define MARK_START_THREAD() __arrr_n += sprintf( __arrr + __arrr_n , "%s started %lu\n" , __FUNCTION__ , trd_id );
-
-#define MARK_LINE() __arrr_n += sprintf( __arrr + __arrr_n , "%s %d\n" , __FUNCTION__ , __LINE__ );
-
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	#define MARK_START_THREAD() __arrr_n += sprintf( __arrr + __arrr_n , "%s started %lu\n" , __FUNCTION__ , trd_id );
+	#define MARK_LINE() __arrr_n += sprintf( __arrr + __arrr_n , "%s %d\n" , __FUNCTION__ , __LINE__ );
+#endif
 
 #ifndef control_app_segment_in_deep
 
@@ -133,6 +134,6 @@ enum stat_init_priority_order /*ascending termination priority*/
 
 #define ENABLE_VERBOSE_FAULT
 
-//#define ENABLE_THROUGHPUT_MEASURE
+#define ENABLE_THROUGHPUT_MEASURE
 
 #endif

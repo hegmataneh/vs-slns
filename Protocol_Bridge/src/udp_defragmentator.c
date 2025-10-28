@@ -343,6 +343,5 @@ _update_stat:
 		pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes = 0;
 	}
 
-
 	return errOK;
 }

@@ -36,7 +36,9 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_START_THREAD();
+#endif
 
 	WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
 
@@ -77,7 +79,9 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_tcp_out( pass_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_START_THREAD();
+#endif
 
 	shrt_pth_t shrtcut;
 	mk_shrt_path( pb , &shrtcut );
@@ -85,7 +89,9 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_tcp_out( pass_p src_pb )
 	shrtcut.bcast_xudp_pkt = &pb->comm.preq.bcast_xudp_pkt;
 
 	many_tcp_out_thread_proc( pb , &shrtcut );
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 	return NULL;
 }
 

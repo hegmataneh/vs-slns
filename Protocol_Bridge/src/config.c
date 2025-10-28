@@ -98,7 +98,9 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_START_THREAD();
+#endif
 
 	char buf[ 50 ] = { 0 };
 	time_t prev_time = { 0 } , cur_time = { 0 };
@@ -152,7 +154,9 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 		case 1: DIST_APP_FAILURE();
 	M_V_END_RET
 
-	MARK_LINE();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+		MARK_LINE();
+#endif
 
 	return VOID_RET;
 }
@@ -165,7 +169,9 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_START_THREAD();
+#endif
 	
 	while ( !_g->appcfg.version_changed ) // load after version loaded
 	{
@@ -566,7 +572,9 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	BEGIN_SMPL
 	M_V_END_RET
 
-	MARK_LINE();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+		MARK_LINE();
+#endif
 
 	return NULL;
 }
@@ -579,7 +587,9 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_START_THREAD();
+#endif
 
 	while ( !_g->appcfg.bdj_psv_cfg_count ) // load after any config loaded
 	{

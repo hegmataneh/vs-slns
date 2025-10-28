@@ -3,10 +3,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
-#define LOCAL_IP   "192.168.1.1"
-#define LOCAL_PORT 10200
-#define BUF_SIZE   2048
+#define LOCAL_IP   "172.17.0.60"
+#define LOCAL_PORT 1234
+#define BUF_SIZE   20480
 
 int main( void )
 {
@@ -23,6 +24,12 @@ int main( void )
 		perror( "socket" );
 		return 1;
 	}
+
+	int optval = 1;
+	setsockopt( sockfd , SOL_SOCKET , SO_REUSEADDR , &optval , sizeof( optval ) );
+
+	//int flags = fcntl( sockfd , F_GETFL );
+	//fcntl( sockfd , F_SETFL , flags | O_NONBLOCK );
 
 	// Prepare local address
 	memset( &local_addr , 0 , sizeof( local_addr ) );
@@ -48,7 +55,8 @@ int main( void )
 		if ( recv_len < 0 )
 		{
 			perror( "recvfrom" );
-			break;
+			//break;
+			continue;
 		}
 
 		buffer[ recv_len ] = '\0';  // Null-terminate for safe printing

@@ -22,15 +22,19 @@ _PRIVATE_FXN void pre_main_top_prio_init( void )
 	_g = &g;
 }
 
-#ifdef Uses_MemLEAK
-extern mLeak_t __alc_hit[MLK_HASH_WIDTH][EACH_ADDR_COUNT];
+#if defined Uses_MemLEAK || !defined __COMPILING
+	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+		GLOBAL_VAR extern mLeak_t __alc_hit[MLK_HASH_WIDTH][EACH_ADDR_COUNT];
+	#endif
 #endif
 
 _CALLBACK_FXN void inmem_seg_cleaned_up( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 	_g->cmd.quit_noloss_data_thread_4 = 1;
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 }
 
 _CALLBACK_FXN void * signal_thread( void * arg )
@@ -51,8 +55,10 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	return NULL;
 }
 
-char __arrr[ 10000 ] = { 0 };
-int __arrr_n = { 0 };
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	GLOBAL_VAR char __arrr[ 10000 ] = { 0 };
+	GLOBAL_VAR int __arrr_n = { 0 };
+#endif
 
 int main()
 {

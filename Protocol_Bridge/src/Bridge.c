@@ -30,7 +30,9 @@ _CALLBACK_FXN void stop_sending_by_bridge( pass_p src_g , long v )
 			}
 		}
 	}
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 }
 
 _CALLBACK_FXN void bridge_stoping_input( pass_p src_pb , long v )
@@ -42,7 +44,9 @@ _CALLBACK_FXN void bridge_stoping_input( pass_p src_pb , long v )
 		{
 		}
 	}
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 }
 
 _CALLBACK_FXN void cleanup_sending_part_bridge( pass_p src_pb , long v )
@@ -59,7 +63,9 @@ _CALLBACK_FXN void cleanup_sending_part_bridge( pass_p src_pb , long v )
 		sub_destroy( &pb->comm.preq.bcast_pcap_udp_pkt );
 		sub_destroy( &pb->comm.preq.bcast_xudp_pkt );
 	}
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 }
 
 _CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
@@ -116,7 +122,9 @@ _CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
 		}
 	}
 	mms_array_free( &_g->bridges.ABs );
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
+#endif
 }
 
 _CALLBACK_FXN void pb_every_ticking_refresh( pass_p src_pb )

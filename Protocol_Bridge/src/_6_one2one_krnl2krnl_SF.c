@@ -22,7 +22,9 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_START_THREAD();
+#endif
 
 	// init pop distributor . each output distributor register here so they get arrived data
 	// it is multicast because of round robin and replication
@@ -113,7 +115,6 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 			//	MEMSET( &_g->stat.round , 0 , sizeof( _g->stat.round ) );
 			//}
 
-
 			if ( pb->comm.preq.stop_receiving )
 			{
 				break;
@@ -167,7 +168,6 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 			}
 			if ( activity == 0 ) // timed out
 			{
-
 				int error = 0;
 				socklen_t errlen = sizeof( error );
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
