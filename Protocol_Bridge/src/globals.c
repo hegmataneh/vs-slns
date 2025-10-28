@@ -1,3 +1,4 @@
+#define Uses_ddlck
 #define Uses_warn
 #define Uses_sleep
 #define Uses_pthread_kill

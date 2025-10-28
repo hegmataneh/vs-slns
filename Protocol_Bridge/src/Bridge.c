@@ -219,6 +219,8 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 	cbuf_m_init( &pb->stat.round_init_set.tcp_stat_40_sec_bytes , 40 );
 	#endif
 
+	nnc_lock_for_changes( &_g->stat.nc_h );
+
 	M_BREAK_STAT( nnc_add_table( &_g->stat.nc_h , pb->cpy_cfg.m.m.id.short_name , &pb->ab_stat_tbl ) , 0 );
 	nnc_table * ptbl = pb->ab_stat_tbl;
 	// col
@@ -432,6 +434,7 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
+	nnc_release_lock( &_g->stat.nc_h );
 }
 
 void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_pth_t * shrtcut )

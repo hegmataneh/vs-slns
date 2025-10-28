@@ -559,6 +559,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 				}
 			}
 	
+			WARNING( _g->appcfg.bdj_psv_cfg_count );
+
 			_g->appcfg.version_changed = 0;
 	
 			//if ( _g->appcfg._psv_cfg_changed && IF_VERBOSE_MODE_CONDITION() )

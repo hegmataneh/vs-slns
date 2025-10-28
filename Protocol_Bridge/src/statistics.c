@@ -120,6 +120,9 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 	//M_BREAK_STAT( dict_fst_create( &_g->stat.nc_s_req.map_flds , 256 ) , 0 );
 
 	#ifdef HAS_STATISTICSS
+
+	nnc_lock_for_changes( &_g->stat.nc_h );
+
 	M_BREAK_STAT( nnc_add_table( &_g->stat.nc_h , "P.B. overview" , &_g->stat.nc_s_req.pgeneral_tbl ) , 0 );
 
 	nnc_table * ptbl = _g->stat.nc_s_req.pgeneral_tbl;
@@ -216,6 +219,8 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 
 	BEGIN_RET
 	M_V_END_RET
+
+	nnc_release_lock( &_g->stat.nc_h );
 }
 
 // call at the end of every refresh must implied and refresh view

@@ -1,3 +1,4 @@
+#define Uses_LOCK_LINE
 #define Uses_pthread_mutex_timedlock_rel
 #define Uses_timeval_compare
 #define Uses_floorf
@@ -63,9 +64,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
 
 	// register here to get quit cmd
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_packet_mngr ) , _g , clean_packet_mngr );
-
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_inmem_seg ) , _g , clean_inmem_seg );
-	
 
 	cbuf_m_init( &_g->hdls.pkt_mgr.last_60_sec_seg_count , 60 );
 }
@@ -259,6 +258,8 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
+
+	nnc_lock_for_changes( &_g->stat.nc_h );
 
 	nnc_table * ptbl = NULL;
 	M_BREAK_STAT( nnc_add_table( &_g->stat.nc_h , "huge_fst_cache" , &ptbl ) , 0 );
@@ -472,12 +473,12 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
 	#endif
 
-
-
 	M_BREAK_STAT( nnc_register_into_page_auto_refresh( ptbl , &_g->distributors.throttling_refresh_stat ) , 0 );
 
 	BEGIN_SMPL
 	M_V_END_RET
+
+	nnc_release_lock( &_g->stat.nc_h );
 }
 
 #endif // HAS_STATISTICSS
@@ -521,12 +522,13 @@ _CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz
 _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len , pass_p src_g )
 {
 	G * _g = ( G * )src_g;
-	status d_error = errCanceled;
+	status err_sent = errCanceled;
 
-	LOCK_LINE( ( d_error = pthread_mutex_timedlock_rel( &_g->hdls.pkt_mgr.pm_lock , 1000 ) ) );
-	if ( d_error == errTimeout )
+	status ret_lock = errCanceled;
+	LOCK_LINE( ( ret_lock = pthread_mutex_timedlock_rel( &_g->hdls.pkt_mgr.pm_lock , 1000 ) ) );
+	if ( ret_lock == errTimeout )
 	{
-		return d_error;
+		return ret_lock;
 	}
 	
 	xudp_hdr * pkt1 = ( xudp_hdr * )data;
@@ -534,8 +536,8 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	WARNING( pkt1->metadata.version == TCP_XPKT_V1 );
 	bool try_resolve_route = false;
 
-	if ( pkt1->metadata.sent ) { d_error = errOK; goto _exit_pt; }
-	if ( _g->cmd.block_sending_1 ) { d_error = errCanceled; goto _exit_pt; }
+	if ( pkt1->metadata.sent ) { err_sent = errOK; goto _exit_pt; }
+	if ( _g->cmd.block_sending_1 ) { err_sent = errCanceled; goto _exit_pt; }
 
 	time_t tnow = 0;
 	tnow = time( NULL );
@@ -548,7 +550,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	{
 		if ( pkt1->metadata.cool_down_attempt && pkt1->metadata.cool_down_attempt == *( uchar * )&tnow ) // in one second we should not attempt . and this check and possiblity is rare in not too many attempt situation
 		{
-			{ d_error = errTooManyAttempt; goto _exit_pt; } // cannot send and too many attempt to send
+			{ err_sent = errTooManyAttempt; goto _exit_pt; } // cannot send and too many attempt to send
 		}
 		pkt1->metadata.cool_down_attempt = *( uchar * )&tnow;
 
@@ -566,8 +568,8 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 		{
 			AB_tcp * ptcp = ( AB_tcp * )ab_tcp_p;
 		}
-		d_error = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 ); // send is too heavy
-		switch ( d_error )
+		err_sent = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 ); // send is too heavy
+		switch ( err_sent )
 		{
 			case errOK:
 			{
@@ -615,8 +617,8 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 					{
 						if ( pb->tcps[ itcp ].tcp_connection_established )
 						{
-							d_error = tcp_send_all( pb->tcps[ itcp ].tcp_sockfd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 ); // send is to heavy
-							switch ( d_error )
+							err_sent = tcp_send_all( pb->tcps[ itcp ].tcp_sockfd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 ); // send is to heavy
+							switch ( err_sent )
 							{
 								case errOK:
 								{
@@ -657,7 +659,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	{
 		pkt1->metadata.retry = false;
 		pkt1->metadata.retried = true;
-		d_error = process_segment_itm( data , len , src_g ); // retry
+		err_sent = process_segment_itm( data , len , src_g ); // retry
 		goto _exit_pt;
 	}
 
@@ -716,7 +718,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	//d_error = errOK;
 _exit_pt:
 	pthread_mutex_unlock( &_g->hdls.pkt_mgr.pm_lock );
-	return d_error;
+	return err_sent;
 }
 
 // 2 . if sending under tcp fail try to archive them( segment )

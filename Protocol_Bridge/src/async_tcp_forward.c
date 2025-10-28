@@ -203,9 +203,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 			//fast_ring_2_huge_ring( tcp , buffer , sz + pkt->metadata.payload_offset );
 
 			pb->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
-
 		}
-
 	}
 
 	BREAK_OK( 0 ); // to just ignore gcc warning
