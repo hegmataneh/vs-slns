@@ -56,7 +56,6 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	_g->cmd.burst_waiting_2 = true;
 	_g->cmd.quit_first_level_thread_3 = 1;
 
-	
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( ignore_cleanup ) , _g , more_cleanup_are_ignorable );
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( inmem_seg_cleaned_up ) , _g , inmem_seg_cleaned );
 

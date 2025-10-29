@@ -157,6 +157,19 @@ _CALLBACK_FXN void pb_every_ticking_refresh( pass_p src_pb )
 	#endif
 }
 
+_CALLBACK_FXN void tcp_state_changed( pass_p src_g , long conn1_dis0 )
+{
+	G * _g = ( G * )src_g;
+	if ( conn1_dis0 )
+	{
+		_g->bridges.connected_tcp_out++;
+	}
+	else if ( _g->bridges.connected_tcp_out > 0 )
+	{
+		_g->bridges.connected_tcp_out--;
+	}
+}
+
 /// <summary>
 /// init active udp tcp structure by the bridge config
 /// </summary>
@@ -190,6 +203,11 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 			pb->tcps[ itcp ].owner_pb = pb;
 			pb->tcps[ itcp ].__tcp_cfg_pak = &pb->cpy_cfg.m.m.maintained.out[ itcp ];
 			distributor_init( &pb->tcps[ itcp ].bcast_change_state , 1 );
+			subscriber_t * psubscriber = NULL;
+			if ( distributor_subscribe_out( &pb->tcps[ itcp ].bcast_change_state , SUB_LONG , SUB_FXN( tcp_state_changed ) , _g , &psubscriber ) == errOK )
+			{
+				psubscriber->data_order = ord_consumer;
+			}
 		}
 	}
 

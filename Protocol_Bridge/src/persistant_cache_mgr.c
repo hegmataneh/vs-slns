@@ -48,14 +48,11 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p sr
 	G * _g = ( G * )src_g;
 
 	distributor_init( &_g->hdls.prst_csh.bcast_store_data , 1 );
-
 	distributor_init( &_g->hdls.prst_csh.bcast_pagestacked_pkts , 1 );
-	
 	distributor_subscribe( &_g->hdls.prst_csh.bcast_store_data , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( persistant_cache_mngr_store_data ) , _g );
 
 	// register here to get quit cmd
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr ) , _g , clean_persistant_cache_mgr ); // when file write goes down
-
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr_fetch ) , _g , clean_try_post_packet ); // when fetch from file not need
 }
 
@@ -112,6 +109,10 @@ _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p 
 		{
 			return pgstk_not_send__continue_sending_with_delay;
 		}
+		case errNoPeer:
+		{
+			return pgstk_not_send__not_any_peer;
+		}
 		default:
 		{
 			switch ( _g->hdls.gateway.pagestack_gateway_open_val )
@@ -123,6 +124,11 @@ _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p 
 		}
 	}
 }
+
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+GLOBAL_VAR extern long long _open_gate_cnt;
+GLOBAL_VAR extern long long _close_gate_cnt;
+#endif
 
 _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 {
@@ -147,7 +153,7 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 			{
 				case errEmpty: // actually this fxn has loop and discharge it self
 				{
-					//distributor_publish_buffer_size( &_g->hdls.prst_csh.bcast_pagestacked_pkts , NULL , 0 , SUBSCRIBER_PROVIDED );
+					_close_gate_cnt++;
 					_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
 					if ( _g->hdls.prst_csh.cool_down_attempt_onEmpty && _g->hdls.prst_csh.cool_down_attempt_onEmpty == *( int * )&tnow ) // in one second we should not attempt . and this check and possiblity is rare in not too many attempt situation
 					{
@@ -157,11 +163,13 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 					{
 						tnow = time( NULL );
 						_g->hdls.prst_csh.cool_down_attempt_onEmpty = *( int * )&tnow;
+						distributor_publish_buffer_size( &_g->hdls.prst_csh.bcast_pagestacked_pkts , NULL , 0 , SUBSCRIBER_PROVIDED );
 					}
 					continue;
 				}
 				case errTooManyAttempt: // let get the cpu some air
 				{
+					distributor_publish_buffer_size( &_g->hdls.prst_csh.bcast_pagestacked_pkts , NULL , 0 , SUBSCRIBER_PROVIDED );
 					mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 					break;
 				}

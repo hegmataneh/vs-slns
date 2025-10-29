@@ -1,3 +1,4 @@
+#define Uses_log10
 #define Uses_LOCK_LINE
 #define Uses_pthread_mutex_timedlock_rel
 #define Uses_timeval_compare
@@ -64,7 +65,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_packet_mngr ) , _g , clean_packet_mngr );
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_inmem_seg ) , _g , clean_inmem_seg );
 
-	cbuf_m_init( &_g->hdls.pkt_mgr.last_60_sec_seg_count , 60 );
+	cbuf_m_init( &_g->hdls.pkt_mgr.last_30_sec_seg_count , 30 );
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
@@ -115,6 +116,8 @@ _PRIVATE_FXN void pre_main_init_packet_mngr_component( void )
 	GLOBAL_VAR long long _sucFromFile = 0;
 	GLOBAL_VAR long long _defraged_udp = 0;
 	GLOBAL_VAR extern int _sem_in_fast_cache;
+	GLOBAL_VAR long long _open_gate_cnt;
+	GLOBAL_VAR long long _close_gate_cnt;
 #endif
 
 #ifdef HAS_STATISTICSS
@@ -194,6 +197,21 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_pkt_in_fst_cch_cell( pass_p src_pcell )
 	sprintf( pcell->storage.tmpbuf , "%d" , _sem_in_fast_cache );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
+_CALLBACK_FXN PASSED_CSTR auto_refresh_open_gate_cnt_cell( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%lld" , _open_gate_cnt );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+_CALLBACK_FXN PASSED_CSTR auto_refresh_close_gate_cnt_cell( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "%lld" , _close_gate_cnt );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
 #endif
 
 _CALLBACK_FXN PASSED_CSTR auto_refresh_grow_segment_cell( pass_p src_pcell )
@@ -471,6 +489,31 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
 	#endif
 
+
+	//------------------------------
+	irow++; icol = 0;
+	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+
+	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	// sent memmap items
+	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "gate opened cnt" ) , 0 );
+	// 
+	pcell = NULL;
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->storage.bt.pass_data = _g;
+	pcell->conversion_fxn = auto_refresh_open_gate_cnt_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
+
+	// sent memmap items
+	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "gate closed cnt" ) , 0 );
+	// 
+	pcell = NULL;
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->storage.bt.pass_data = _g;
+	pcell->conversion_fxn = auto_refresh_close_gate_cnt_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
+	#endif
+
 	M_BREAK_STAT( nnc_register_into_page_auto_refresh( ptbl , &_g->distributors.throttling_refresh_stat ) , 0 );
 
 	BEGIN_SMPL
@@ -602,8 +645,9 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	{
 		try_resolve_route = true;
 	}
+	
 	// TODO . take bounce between checking real connection
-	if ( !pkt1->metadata.sent && !ab_tcp_p ) // slow method
+	if ( !pkt1->metadata.sent && !ab_tcp_p && _g->bridges.connected_tcp_out ) // slow method
 	{
 		for ( size_t iab = 0 ; iab < _g->bridges.ABs.count ; iab++ )
 		{
@@ -661,7 +705,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 		goto _exit_pt;
 	}
 
-	// under here d_error could not be change because its used as succesful sending
+	// under here err_sent could not be change because its used as succesful sending
 
 	if ( pkt1->metadata.sent )
 	{
@@ -688,6 +732,11 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 		//		pkt1->metadata.udp_hdr.logged_2_mem = true;
 		//	}
 		//}
+
+		if ( err_sent == errCanceled && !_g->bridges.connected_tcp_out )
+		{
+			err_sent = errNoPeer;
+		}
 	}
 
 	if ( pb )
@@ -727,7 +776,10 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 	xudp_hdr * pkt1 = ( xudp_hdr * )data;
 	size_t sz_t = len - pkt1->metadata.payload_offset;
 
-	if ( pkt1->metadata.sent || pkt1->metadata.fault_registered ) return errOK;
+	if ( pkt1->metadata.sent || pkt1->metadata.fault_registered )
+	{
+		return errOK;
+	}
 	
 	_g->hdls.pkt_mgr.latest_memmap_time = pkt1->metadata.udp_hdr.tm; // wheter memmap packet is most important so first send them
 
@@ -751,14 +803,14 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 _CALLBACK_FXN status descharge_persistent_storage_data( pass_p src_g , buffer buf , size_t sz )
 {
 	G * _g = ( G * )src_g;
-	//if ( buf == NULL && !sz ) // when no data in memmap then time reset to zero and actual send data if wait then release and do his work
-	//{
-	//	if ( _g->hdls.pkt_mgr.latest_memmap_time.tv_sec )
-	//	{
-	//		MEMSET_ZERO_O( &_g->hdls.pkt_mgr.latest_memmap_time ); // store failed packet reset value
-	//	}
-	//	return errOK;
-	//}
+	if ( buf == NULL && !sz ) // when no data in memmap then time reset to zero and actual send data if wait then release and do his work
+	{
+		if ( _g->hdls.pkt_mgr.latest_memmap_time.tv_sec )
+		{
+			MEMSET_ZERO_O( &_g->hdls.pkt_mgr.latest_memmap_time ); // store failed packet reset value
+		}
+		return errOK;
+	}
 	status d_error = process_segment_itm( buf , sz , src_g );
 	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	if ( d_error == errOK )
@@ -781,6 +833,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 #endif
 
 	ci_sgm_t * pseg = NULL;
+	int tm_cmp;
 	
 	struct
 	{
@@ -799,11 +852,12 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 	{
 		if ( GRACEFULLY_END_NOLOSS_THREAD() ) break;
 
+		tm_cmp = timeval_compare( &_g->hdls.pkt_mgr.latest_huge_memory_time , &_g->hdls.pkt_mgr.latest_memmap_time );
 		if
 		(
 			!_g->hdls.pkt_mgr.latest_huge_memory_time.tv_sec ||
 			!_g->hdls.pkt_mgr.latest_memmap_time.tv_sec ||
-			timeval_compare( &_g->hdls.pkt_mgr.latest_huge_memory_time , &_g->hdls.pkt_mgr.latest_memmap_time ) >= 0
+			tm_cmp >= 0
 		)
 		{
 			pseg = segmgr_pop_filled_segment( &_g->hdls.pkt_mgr.huge_fst_cache , False , seg_trv_LIFO );
@@ -812,9 +866,10 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 				cpu_unburne.idx = ( cpu_unburne.idx + 1 ) % (uchar)sizeof( cpu_unburne.arr );
 				cpu_unburne.arr.bytes[ cpu_unburne.idx ] = 1;
 				_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
+				_close_gate_cnt++;
 
 				// try to send from mem under tcp to dst
-				if ( !_g->cmd.block_sending_1 || ci_sgm_iter_items(pseg , process_segment_itm , src_g , true , _g->hdls.pkt_mgr.strides_packet_peek , tail_2_head) != errOK ) // some fault detected
+				if ( _g->cmd.block_sending_1 || ci_sgm_iter_items( pseg , process_segment_itm , src_g , true , _g->hdls.pkt_mgr.strides_packet_peek , tail_2_head ) != errOK ) // some fault detected
 				{
 					// if sending filled segment fail try to archive them
 					ci_sgm_iter_items( pseg , process_faulty_itm , src_g , true , 1 , head_2_tail );
@@ -830,6 +885,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 				gateway_open_stat tmp_old = _g->hdls.gateway.pagestack_gateway_open_val;
 				if ( !tmp_old )
 				{
+					_open_gate_cnt++;
 					_g->hdls.gateway.pagestack_gateway_open_val = gws_open;
 					sem_post( &_g->hdls.gateway.pagestack_gateway_open_sem );
 				}
@@ -847,6 +903,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 			gateway_open_stat tmp_old = _g->hdls.gateway.pagestack_gateway_open_val;
 			if ( !tmp_old )
 			{
+				_open_gate_cnt++;
 				_g->hdls.gateway.pagestack_gateway_open_val = gws_open;
 				sem_post( &_g->hdls.gateway.pagestack_gateway_open_sem );
 			}
@@ -897,6 +954,7 @@ _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g )
 	return NULL;
 }
 
+#ifndef release_last_unused_segment
 // check first packet of segment then if packet pending too long then close segment
 _PRIVATE_FXN _CALLBACK_FXN bool peek_decide_active_sgm( const buffer buf , size_t sz )
 {
@@ -905,7 +963,8 @@ _PRIVATE_FXN _CALLBACK_FXN bool peek_decide_active_sgm( const buffer buf , size_
 
 	struct timeval tnow;
 	gettimeofday( &tnow , NULL );
-	return timeval_diff_ms( &pkt1->metadata.udp_hdr.tm , &tnow ) > _g->appcfg.g_cfg->c.c.pkt_mgr_maximum_keep_unfinished_segment_sec;
+	double df_sec = timeval_diff_ms( &pkt1->metadata.udp_hdr.tm , &tnow ) / 1000;
+	return df_sec > _g->appcfg.g_cfg->c.c.pkt_mgr_maximum_keep_unfinished_segment_sec;
 }
 
 // check if condition is true then set halffill segemtn as fill
@@ -917,12 +976,16 @@ _CALLBACK_FXN void release_halffill_segment( pass_p src_g )
 		//MEMSET_ZERO_O( &_g->hdls.pkt_mgr.latest_huge_memory_time ); // try to send new packet cause time reset
 	}
 }
+#endif
 
+// every one second
 _CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
-	cbuf_m_advance( &_g->hdls.pkt_mgr.last_60_sec_seg_count , _g->hdls.pkt_mgr.huge_fst_cache.filled_count );
-	_g->hdls.pkt_mgr.strides_packet_peek = ( size_t )MAX( cbuf_m_regression_slope_all( &_g->hdls.pkt_mgr.last_60_sec_seg_count ) , 1 );
+	cbuf_m_advance( &_g->hdls.pkt_mgr.last_30_sec_seg_count , _g->hdls.pkt_mgr.huge_fst_cache.segment_total );
+	_g->hdls.pkt_mgr.strides_packet_peek = ( size_t )MAX( cbuf_m_regression_slope_all( &_g->hdls.pkt_mgr.last_30_sec_seg_count ) *
+		floor( log10( _g->hdls.pkt_mgr.huge_fst_cache.segment_total ) ) , 1 );
+	
 	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 		_regretion = _g->hdls.pkt_mgr.strides_packet_peek;
 	#endif
@@ -934,7 +997,7 @@ void cleanup_pkt_mgr( pkt_mgr_t * pktmgr )
 	MARK_LINE();
 #endif
 	sub_destroy( &pktmgr->bcast_release_halffill_segment );
-	dict_fst_destroy( &pktmgr->map_tcp_socket );
+	//dict_fst_destroy( &pktmgr->map_tcp_socket ); it cause shutdown haulted
 	segmgr_destroy( &pktmgr->huge_fst_cache );
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();

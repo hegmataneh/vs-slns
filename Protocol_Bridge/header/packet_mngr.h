@@ -9,7 +9,7 @@ typedef struct packet_mngr_prerequisite
 
 	pthread_t trd_clean_unused_segment; // to clean long time unused free segment
 
-	cbuf_metr last_60_sec_seg_count; // peek segment count every one second
+	cbuf_metr last_30_sec_seg_count; // peek segment count every one second
 	volatile size_t strides_packet_peek; // take step and prevent segment burst
 
 	//ci_sgmgr_t sent_package_log;
