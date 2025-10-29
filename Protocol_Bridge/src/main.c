@@ -37,6 +37,15 @@ _CALLBACK_FXN void inmem_seg_cleaned_up( pass_p src_g , long v )
 #endif
 }
 
+_PRIVATE_FXN _CALLBACK_FXN void ignore_cleanup( pass_p src_g , long v )
+{
+	G * _g = ( G * )src_g;
+	_g->cmd.quit_app_4 = 1;
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
+}
+
 _CALLBACK_FXN void * signal_thread( void * arg )
 {
 	sigset_t * set = arg;
@@ -47,6 +56,8 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	_g->cmd.burst_waiting_2 = true;
 	_g->cmd.quit_first_level_thread_3 = 1;
 
+	
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( ignore_cleanup ) , _g , more_cleanup_are_ignorable );
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( inmem_seg_cleaned_up ) , _g , inmem_seg_cleaned );
 
 	distributor_publish_long( &_g->distributors.bcast_quit , sig , SUBSCRIBER_PROVIDED );
@@ -56,7 +67,7 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 }
 
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-	GLOBAL_VAR char __arrr[ 10000 ] = { 0 };
+	GLOBAL_VAR char __arrr[ 100000 ] = { 0 };
 	GLOBAL_VAR int __arrr_n = { 0 };
 #endif
 
@@ -89,7 +100,7 @@ int main()
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_loader , NULL , config_loader , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_loader thread" );
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_executer , NULL , config_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_executer thread" );
 
-	M_BREAK_IF( pthread_join( _g->trds.trd_watchdog , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
+	pthread_join( _g->trds.trd_watchdog , NULL );
 
 	//#ifdef Uses_MemLEAK
 	//FILE * fl = fopen( "leak.txt" , "w+" );

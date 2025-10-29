@@ -47,8 +47,6 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_inmem_seg( pass_p src_g , long v )
 		tnow = time( NULL );
 	}
 
-	cleanup_pkt_mgr( &_g->hdls.pkt_mgr );
-
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
 #endif
@@ -59,7 +57,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
 	G * _g = ( G * )src_g;
 
 	distributor_init( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , 1 );
-	dict_fst_create( &_g->hdls.pkt_mgr.map_tcp_socket , 0 );
+	dict_fst_create( &_g->hdls.pkt_mgr.map_tcp_socket , 512 );
 	distributor_subscribe( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , SUB_VOID , SUB_FXN( release_halffill_segment ) , _g );
 
 	// register here to get quit cmd
@@ -932,7 +930,13 @@ _CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g )
 
 void cleanup_pkt_mgr( pkt_mgr_t * pktmgr )
 {
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
 	sub_destroy( &pktmgr->bcast_release_halffill_segment );
 	dict_fst_destroy( &pktmgr->map_tcp_socket );
 	segmgr_destroy( &pktmgr->huge_fst_cache );
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
 }

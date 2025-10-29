@@ -72,19 +72,18 @@ typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
 		__snprintf( baaf , sizeof(baaf) , "%llu" , val ) )
 
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-	GLOBAL_VAR extern char __arrr[ 10000 ];
+	GLOBAL_VAR extern char __arrr[ 100000 ];
 	GLOBAL_VAR extern int __arrr_n;
 #endif
 
 enum cleanup_priority_order /*ascending termination priority*/
 {
 	clean_globals ,
-
 	clean_globals_shared_var ,
-
 	clean_config ,
-
 	clean_stat ,
+
+	more_cleanup_are_ignorable ,
 
 	clean_persistant_cache_mgr ,
 	clean_packet_mngr , /*most have higher priority than persistant_cache_mgr*/

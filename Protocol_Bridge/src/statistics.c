@@ -16,8 +16,13 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
+
 	#ifdef HAS_STATISTICSS
 		nnc_destroy( &_g->stat.nc_h );
+
 		mms_array_free( &_g->stat.nc_s_req.field_keeper );
 	#endif
 
