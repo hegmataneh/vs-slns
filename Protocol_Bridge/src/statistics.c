@@ -132,21 +132,22 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 
 	nnc_table * ptbl = _g->stat.nc_s_req.pgeneral_tbl;
 	// col
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 10 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , ""  , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "A" , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "B" , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "C" , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "D" , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "E" , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "F" , "" , 10 ) , 0 );
 
 	int irow = -1;
-	int icol = 0;
+	int icol = 0; 
 	nnc_cell_content * pcell = NULL;
 
 
 	//--->>>
-	irow++; icol = 0;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	// ver title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "ver" ) , 0 );
@@ -171,8 +172,8 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 
 
 	//--->>>
-	irow++; icol = 0;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	// sys fault coun
 	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "fault" ) , 0 );
@@ -189,8 +190,8 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , _g->stat.nc_s_req.ov_thread_cnt_cell ) , 0 );
 
 	//--->>>
-	irow++; icol = 0;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	// UDP conn title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "UDP conn" ) , 0 );
@@ -208,8 +209,8 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 
 
 	//--->>>
-	irow++; icol = 0;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	// TCP conn title
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "TCP conn" ) , 0 );

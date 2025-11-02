@@ -41,12 +41,10 @@
 
 #define GRACEFULLY_END_NOLOSS_THREAD() ( _g->cmd.quit_noloss_data_thread_4 )
 
-
 //#define CLOSE_APP_VAR() ( _g->cmd.quit_app_4 )
 
 // TODO . maybe in middle of config change bug appear ad app unexpectedly quit but that sit is very rare
 #define RETRY_UNEXPECTED_WAIT_FOR_SOCK() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.retry_unexpected_wait_for_sock : 3 )
-
 
 #define NUMBER_IN_SHORT_FORM() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.number_in_short_form : 1 )
 
@@ -67,9 +65,9 @@
 typedef  char CONFIG_SECTION_ITEM_VALUE  [64];
 typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
 
-#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit ) ( NUMBER_IN_SHORT_FORM() ? /*make cell string in short form or long*/ \
-		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit ) :\
-		__snprintf( baaf , sizeof(baaf) , "%llu" , val ) )
+#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit_s ) ( NUMBER_IN_SHORT_FORM() ? /*make cell string in short form or long*/ \
+		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit_s ) :\
+		__snprintf( baaf , sizeof(baaf) , "%llu%s%s" , val , *unit_s ? " " : "", unit_s ) )
 
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	GLOBAL_VAR extern char __arrr[ 100000 ];
@@ -82,26 +80,16 @@ enum cleanup_priority_order /*ascending termination priority*/
 	clean_globals_shared_var ,
 	clean_config ,
 	clean_stat ,
-
 	more_cleanup_are_ignorable ,
-
 	clean_persistant_cache_mgr ,
 	clean_packet_mngr , /*most have higher priority than persistant_cache_mgr*/
-
 	clean_threads , /*wait until all thread go away*/
-
 	inmem_seg_cleaned ,
-
 	clean_inmem_seg ,
-
 	clean_bridge_send_part ,
-
 	clean_try_post_packet , // before thread goes down
-
 	stop_send_by_bridge ,
-
 	bridge_stop_input ,
-
 	clean_input_connections , // close connection for no more input data
 };
 

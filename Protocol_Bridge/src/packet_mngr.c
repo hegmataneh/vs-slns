@@ -298,12 +298,13 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	M_BREAK_STAT( nnc_add_table( &_g->stat.nc_h , "huge_fst_cache" , &ptbl ) , 0 );
 
 	// col
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 20 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 20 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 20 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , ""  , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "A" , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "B" , "" , 20 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "C" , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "D" , "" , 20 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "E" , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "F" , "" , 20 ) , 0 );
 
 	int irow = -1;
 	int icol = 0;
@@ -312,6 +313,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 	//--->>>
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "fst csh pkts" ) , 0 ); pcell = NULL;
@@ -328,6 +330,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 	//--->>>
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	// segment_total
 	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , (size_t)icol++ , "huge mem segments" ) , 0 ); pcell = NULL;
@@ -350,6 +353,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 	//--->>>
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	// _regretion
@@ -368,6 +372,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 	//--->>>
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	// total_items
 	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , (size_t)icol++ , "huge mem pkt" ) , 0 ); pcell = NULL;
@@ -384,6 +389,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 	//--->>>
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "huge mem cum pkt" ) , 0 ); pcell = NULL;
@@ -409,6 +415,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 	//--->>>
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	// gateway_open
 	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , (size_t)icol++ , "gateway_open" ) , 0 ); pcell = NULL;
@@ -433,6 +440,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 	//--->>>
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	// memory_time
 	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , (size_t)icol++ , "huge mem time" ) , 0 ); pcell = NULL;
@@ -449,6 +457,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 	//--->>>
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	// files
 	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , (size_t)icol++ , "pages" ) , 0 ); pcell = NULL;
@@ -471,6 +480,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 	//--->>>
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//---<<<
 	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	// sent memmap items
