@@ -246,197 +246,184 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 20 ) , 0 );
 	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
 	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 20 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 0 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 20 ) , 0 );
 
 	int irow = -1;
+	int icol = 0;
 
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
 	// elapse time title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "elapse" ) , 0 );
-	// elapse time cell
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "elapse" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_elapse_cell ) , 0 );
-	pb->stat.pb_elapse_cell->storage.bt.pass_data = pb;
-	pb->stat.pb_elapse_cell->conversion_fxn = pb_time_elapse_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_elapse_cell ) , 0 );
+	pb->stat.pb_elapse_cell->storage.bt.pass_data = pb; pb->stat.pb_elapse_cell->conversion_fxn = pb_time_elapse_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_elapse_cell ) , 0 );
 
 	// fault title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "fault" ) , 0 );
-	// elapse time cell
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "fault" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fault_cell ) , 0 );
-	pb->stat.pb_fault_cell->storage.bt.pass_data = pb;
-	pb->stat.pb_fault_cell->conversion_fxn = pb_fault_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_fault_cell ) , 0 );
+	pb->stat.pb_fault_cell->storage.bt.pass_data = pb; pb->stat.pb_fault_cell->conversion_fxn = pb_fault_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_fault_cell ) , 0 );
 
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	// fst cash lost
+	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "fst cash lost" ) , 0 );
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_lost ) , 0 );
+	pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_fst_cash_lost_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
+
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
 	// UDP conn title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "UDP conn" ) , 0 );
-	// UDP conn cell
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "UDP conn" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_UDP_conn_cell ) , 0 );
-	pb->stat.pb_UDP_conn_cell->storage.bt.pass_data = pb;
-	pb->stat.pb_UDP_conn_cell->conversion_fxn = pb_UDP_conn_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_UDP_conn_cell ) , 0 );
-	//// TCP conn title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "TCP conn" ) , 0 );
-	// TCP conn cell
+	pb->stat.pb_UDP_conn_cell->storage.bt.pass_data = pb; pb->stat.pb_UDP_conn_cell->conversion_fxn = pb_UDP_conn_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_UDP_conn_cell ) , 0 );
+	
+	// TCP conn title
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "TCP conn" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_TCP_conn_cell ) , 0 );
-	pb->stat.pb_TCP_conn_cell->storage.bt.pass_data = pb;
-	pb->stat.pb_TCP_conn_cell->conversion_fxn = pb_TCP_conn_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_TCP_conn_cell ) , 0 );
+	pb->stat.pb_TCP_conn_cell->storage.bt.pass_data = pb; pb->stat.pb_TCP_conn_cell->conversion_fxn = pb_TCP_conn_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_TCP_conn_cell ) , 0 );
 
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
-	//// UDP retry conn title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "UDP retry" ) , 0 );
-	// UDP conn cell
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
+	// UDP retry conn title
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "UDP retry" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_UDP_retry_conn_cell ) , 0 );
-	pb->stat.pb_UDP_retry_conn_cell->storage.bt.pass_data = pb;
-	pb->stat.pb_UDP_retry_conn_cell->conversion_fxn = pb_UDP_retry_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_UDP_retry_conn_cell ) , 0 );
-	//// TCP retry conn title
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "TCP retry" ) , 0 );
-	// TCP conn cell
+	pb->stat.pb_UDP_retry_conn_cell->storage.bt.pass_data = pb; pb->stat.pb_UDP_retry_conn_cell->conversion_fxn = pb_UDP_retry_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_UDP_retry_conn_cell ) , 0 );
+	
+	// TCP retry conn title
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "TCP retry" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_TCP_retry_conn_cell ) , 0 );
-	pb->stat.pb_TCP_retry_conn_cell->storage.bt.pass_data = pb;
-	pb->stat.pb_TCP_retry_conn_cell->conversion_fxn = pb_TCP_retry_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_TCP_retry_conn_cell ) , 0 );
+	pb->stat.pb_TCP_retry_conn_cell->storage.bt.pass_data = pb; pb->stat.pb_TCP_retry_conn_cell->conversion_fxn = pb_TCP_retry_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_TCP_retry_conn_cell ) , 0 );
 
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
-	//// udp_get_count
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "UDP get" ) , 0 );
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
 	// udp_get_count
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "UDP get" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_total_udp_get_count_cell ) , 0 );
 	pb->stat.pb_total_udp_get_count_cell->storage.bt.pass_data = pb;
 	pb->stat.pb_total_udp_get_count_cell->conversion_fxn = pb_UDP_get_count_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_total_udp_get_count_cell ) , 0 );
-	//// udp_get_byte
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "UDP get" ) , 0 );
-	// udp_get_byte
-	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_total_udp_get_byte_cell ) , 0 );
-	pb->stat.pb_total_udp_get_byte_cell->storage.bt.pass_data = pb;
-	pb->stat.pb_total_udp_get_byte_cell->conversion_fxn = pb_UDP_get_byte_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_total_udp_get_byte_cell ) , 0 );
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_total_udp_get_count_cell ) , 0 );
 
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
-	//// tcp_put_count
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "TCP sent" ) , 0 );
+	// udp_get_byte
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "UDP get B" ) , 0 );
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_total_udp_get_byte_cell ) , 0 );
+	pb->stat.pb_total_udp_get_byte_cell->storage.bt.pass_data = pb; pb->stat.pb_total_udp_get_byte_cell->conversion_fxn = pb_UDP_get_byte_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_total_udp_get_byte_cell ) , 0 );
+
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
 	// tcp_put_count
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "TCP send" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_total_tcp_put_count_cell ) , 0 );
-	pb->stat.pb_total_tcp_put_count_cell->storage.bt.pass_data = pb;
-	pb->stat.pb_total_tcp_put_count_cell->conversion_fxn = pb_TCP_put_count_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_total_tcp_put_count_cell ) , 0 );
-	//// tcp_put_byte
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "TCP sent" ) , 0 );
+	pb->stat.pb_total_tcp_put_count_cell->storage.bt.pass_data = pb; pb->stat.pb_total_tcp_put_count_cell->conversion_fxn = pb_TCP_put_count_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_total_tcp_put_count_cell ) , 0 );
+
 	// tcp_put_byte
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "TCP send B" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_total_tcp_put_byte_cell ) , 0 );
-	pb->stat.pb_total_tcp_put_byte_cell->storage.bt.pass_data = pb;
-	pb->stat.pb_total_tcp_put_byte_cell->conversion_fxn = pb_TCP_put_byte_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_total_tcp_put_byte_cell ) , 0 );
+	pb->stat.pb_total_tcp_put_byte_cell->storage.bt.pass_data = pb; pb->stat.pb_total_tcp_put_byte_cell->conversion_fxn = pb_TCP_put_byte_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_total_tcp_put_byte_cell ) , 0 );
 
 	#ifdef ENABLE_THROUGHPUT_MEASURE
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
-	//// 5s_udp_pps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "5s_udp_pps" ) , 0 );
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
 	// 5s_udp_pps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "5s_udp_pps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_5s_udp_pps ) , 0 );
-	pb->stat.pb_5s_udp_pps->storage.bt.pass_data = pb;
-	pb->stat.pb_5s_udp_pps->conversion_fxn = pb_5s_udp_pps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_5s_udp_pps ) , 0 );
-	//// 5s_udp_bps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "5s_udp_bps" ) , 0 );
+	pb->stat.pb_5s_udp_pps->storage.bt.pass_data = pb; pb->stat.pb_5s_udp_pps->conversion_fxn = pb_5s_udp_pps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_5s_udp_pps ) , 0 );
+	
 	// 5s_udp_bps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "5s_udp_bps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_5s_udp_bps ) , 0 );
-	pb->stat.pb_5s_udp_bps->storage.bt.pass_data = pb;
-	pb->stat.pb_5s_udp_bps->conversion_fxn = pb_5s_udp_bps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_5s_udp_bps ) , 0 );
+	pb->stat.pb_5s_udp_bps->storage.bt.pass_data = pb; pb->stat.pb_5s_udp_bps->conversion_fxn = pb_5s_udp_bps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_5s_udp_bps ) , 0 );
 
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
-	//// 10s_udp_pps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "10s_udp_pps" ) , 0 );
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
 	// 10s_udp_pps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "10s_udp_pps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_10s_udp_pps ) , 0 );
-	pb->stat.pb_10s_udp_pps->storage.bt.pass_data = pb;
-	pb->stat.pb_10s_udp_pps->conversion_fxn = pb_10s_udp_pps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_10s_udp_pps ) , 0 );
-	//// 10s_udp_bps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "10s_udp_bps" ) , 0 );
+	pb->stat.pb_10s_udp_pps->storage.bt.pass_data = pb; pb->stat.pb_10s_udp_pps->conversion_fxn = pb_10s_udp_pps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_10s_udp_pps ) , 0 );
+
 	// 10s_udp_bps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "10s_udp_bps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_10s_udp_bps ) , 0 );
-	pb->stat.pb_10s_udp_bps->storage.bt.pass_data = pb;
-	pb->stat.pb_10s_udp_bps->conversion_fxn = pb_10s_udp_bps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_10s_udp_bps ) , 0 );
+	pb->stat.pb_10s_udp_bps->storage.bt.pass_data = pb; pb->stat.pb_10s_udp_bps->conversion_fxn = pb_10s_udp_bps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_10s_udp_bps ) , 0 );
 
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
-	//// 40s_udp_pps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "40s_udp_pps" ) , 0 );
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
 	// 40s_udp_pps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "40s_udp_pps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_40s_udp_pps ) , 0 );
-	pb->stat.pb_40s_udp_pps->storage.bt.pass_data = pb;
-	pb->stat.pb_40s_udp_pps->conversion_fxn = pb_40s_udp_pps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_40s_udp_pps ) , 0 );
-	//// 40s_udp_bps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "40s_udp_bps" ) , 0 );
+	pb->stat.pb_40s_udp_pps->storage.bt.pass_data = pb; pb->stat.pb_40s_udp_pps->conversion_fxn = pb_40s_udp_pps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_40s_udp_pps ) , 0 );
+	
 	// 40s_udp_bps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "40s_udp_bps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_40s_udp_bps ) , 0 );
-	pb->stat.pb_40s_udp_bps->storage.bt.pass_data = pb;
-	pb->stat.pb_40s_udp_bps->conversion_fxn = pb_40s_udp_bps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_40s_udp_bps ) , 0 );
+	pb->stat.pb_40s_udp_bps->storage.bt.pass_data = pb; pb->stat.pb_40s_udp_bps->conversion_fxn = pb_40s_udp_bps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_40s_udp_bps ) , 0 );
 
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
 	//// 5s_tcp_pps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "5s_tcp_pps" ) , 0 );
-	// 5s_tcp_pps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "5s_tcp_pps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_5s_tcp_pps ) , 0 );
-	pb->stat.pb_5s_tcp_pps->storage.bt.pass_data = pb;
-	pb->stat.pb_5s_tcp_pps->conversion_fxn = pb_5s_tcp_pps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_5s_tcp_pps ) , 0 );
-	//// 5s_tcp_bps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "5s_tcp_bps" ) , 0 );
+	pb->stat.pb_5s_tcp_pps->storage.bt.pass_data = pb; pb->stat.pb_5s_tcp_pps->conversion_fxn = pb_5s_tcp_pps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_5s_tcp_pps ) , 0 );
+	
 	// 5s_tcp_bps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "5s_tcp_bps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_5s_tcp_bps ) , 0 );
-	pb->stat.pb_5s_tcp_bps->storage.bt.pass_data = pb;
-	pb->stat.pb_5s_tcp_bps->conversion_fxn = pb_5s_tcp_bps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_5s_tcp_bps ) , 0 );
+	pb->stat.pb_5s_tcp_bps->storage.bt.pass_data = pb; pb->stat.pb_5s_tcp_bps->conversion_fxn = pb_5s_tcp_bps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_5s_tcp_bps ) , 0 );
 
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
-	//// 10s_tcp_pps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "10s_tcp_pps" ) , 0 );
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
 	// 10s_tcp_pps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "10s_tcp_pps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_10s_tcp_pps ) , 0 );
-	pb->stat.pb_10s_tcp_pps->storage.bt.pass_data = pb;
-	pb->stat.pb_10s_tcp_pps->conversion_fxn = pb_10s_tcp_pps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_10s_tcp_pps ) , 0 );
-	//// 10s_tcp_bps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "10s_tcp_bps" ) , 0 );
+	pb->stat.pb_10s_tcp_pps->storage.bt.pass_data = pb; pb->stat.pb_10s_tcp_pps->conversion_fxn = pb_10s_tcp_pps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_10s_tcp_pps ) , 0 );
+	
 	// 10s_tcp_bps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "10s_tcp_bps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_10s_tcp_bps ) , 0 );
-	pb->stat.pb_10s_tcp_bps->storage.bt.pass_data = pb;
-	pb->stat.pb_10s_tcp_bps->conversion_fxn = pb_10s_tcp_bps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_10s_tcp_bps ) , 0 );
+	pb->stat.pb_10s_tcp_bps->storage.bt.pass_data = pb; pb->stat.pb_10s_tcp_bps->conversion_fxn = pb_10s_tcp_bps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_10s_tcp_bps ) , 0 );
 
-	irow++;
-	M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//--->>>
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	//---<<<
 	//// 40s_tcp_pps
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 0 , "40s_tcp_pps" ) , 0 );
-	// 40s_tcp_pps
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "40s_tcp_pps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_40s_tcp_pps ) , 0 );
-	pb->stat.pb_40s_tcp_pps->storage.bt.pass_data = pb;
-	pb->stat.pb_40s_tcp_pps->conversion_fxn = pb_40s_tcp_pps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 1 , pb->stat.pb_40s_tcp_pps ) , 0 );
-	//// 40s_tcp_bps 
-	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , 2 , "40s_tcp_bps" ) , 0 );
-	// 40s_tcp_bps
+	pb->stat.pb_40s_tcp_pps->storage.bt.pass_data = pb; pb->stat.pb_40s_tcp_pps->conversion_fxn = pb_40s_tcp_pps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_40s_tcp_pps ) , 0 );
+	
+	// 40s_tcp_bps 
+	M_BREAK_STAT( nnc_set_static_text( ptbl , (size_t)irow , ( size_t )icol++ , "40s_tcp_bps" ) , 0 );
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_40s_tcp_bps ) , 0 );
-	pb->stat.pb_40s_tcp_bps->storage.bt.pass_data = pb;
-	pb->stat.pb_40s_tcp_bps->conversion_fxn = pb_40s_tcp_bps_2_str;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , 3 , pb->stat.pb_40s_tcp_bps ) , 0 );
+	pb->stat.pb_40s_tcp_bps->storage.bt.pass_data = pb; pb->stat.pb_40s_tcp_bps->conversion_fxn = pb_40s_tcp_bps_2_str;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , ( size_t )icol++ , pb->stat.pb_40s_tcp_bps ) , 0 );
 	#endif
 
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( pb_every_ticking_refresh ) , pb ) , 1 ); // refresh cells by central ticking

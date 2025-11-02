@@ -960,6 +960,14 @@ _CALLBACK_FXN PASSED_CSTR pb_fault_2_str( pass_p src_pcell )
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
+_CALLBACK_FXN PASSED_CSTR pb_fst_cash_lost_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( __int64u )pb->comm.preq.raw_xudp_cache.err_full , 2 , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
 _CALLBACK_FXN PASSED_CSTR pb_UDP_conn_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;

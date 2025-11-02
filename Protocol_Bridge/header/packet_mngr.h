@@ -14,8 +14,8 @@ typedef struct packet_mngr_prerequisite
 
 	//ci_sgmgr_t sent_package_log;
 
-	timeval latest_huge_memory_time; // last successfull packet sent
-	timeval latest_memmap_time; // last stored in memmap
+	STAT_FLD timeval latest_huge_memory_time; // last successfull packet sent
+	STAT_FLD timeval latest_memmap_time; // last stored in memmap
 
 	pthread_mutex_t pm_lock;		/* protect against reentrance of threads(pkt_mgr,persist_mgr) */
 
