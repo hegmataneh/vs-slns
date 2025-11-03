@@ -155,8 +155,6 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 	pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
 	pkt->metadata.retried = false;
 
-	// TODO . correct multi tcp policy
-	//strcpy( pkt->TCP_name , pb->tcps[ 0 ].__tcp_cfg_pak->name ); // actually write on buffer
 	pkt->metadata.TCP_name_size = ( uint8_t )sizeof( pb->tcps[ 0 ].__tcp_cfg_pak->name );
 	pkt->metadata.payload_offset = ( uint8_t )sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + ( uint8_t )sizeof( EOS )/*to read hdr name faster*/;
 	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );

@@ -91,8 +91,8 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g );
 void init_bypass_stdout( G * _g );
 void M_showMsg( LPCSTR msg );
 
-//int _connect_tcp( AB * pb );
-//status connect_one_tcp( AB_tcp * tcp );
+////int _connect_tcp( AB * pb );
+////status connect_one_tcp( AB_tcp * tcp );
 _REGULAR_FXN void compile_udps_config_for_pcap_filter( _IN AB * abs , _RET_VAL_P int * clusterd_cnt , _NEW_OUT_P strings * interface_filter , _NEW_OUT_P strings * port_filter );
 
 // because of recursive dependency declration come here

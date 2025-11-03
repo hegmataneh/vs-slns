@@ -70,7 +70,6 @@
 	#define Uses_dict_o_t
 	#define Uses_distributor_t
 	#define Uses_pcap
-	//#define Uses_WINDOW
 	#define Uses_BridgeConfig
 	#define Uses_pthread_t
 	#define __INC_Bridge
@@ -81,6 +80,7 @@
 #endif
 
 #ifdef Uses_BridgeConfig
+	#define Uses_bool
 	#define Uses_CFG_ITM
 	#define __INC_BridgeConfig
 #endif

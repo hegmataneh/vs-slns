@@ -109,18 +109,30 @@ typedef struct AB_udp_connection
 
 typedef struct AB_tcp_connection
 {
-	sockfd tcp_sockfd;
-	int tcp_connection_established; // tcp connection established
+	union
+	{
+		struct AB_tcp_connection * this; /*main connection has pointed to him self but other copy point to main one*/ /*every access to tco should wraped by this ptr because of sharing tcp connection between AB*/
+		struct
+		{
+			void * this_mirror; /*main connection has pointed to him self but other copy point to main one*/
+			union
+			{
+				bool main_instance; // maininstance of tcp conn
+				long pad1;
+			};
+			sockfd tcp_sockfd;
+			int tcp_connection_established; // tcp connection established
 	
-	//int retry_to_connect_tcp; // do retry to connect again
-	int tcp_is_about_to_connect; // when tring to connect no more try should be attempt
+			//int retry_to_connect_tcp; // do retry to connect again
+			int tcp_is_about_to_connect; // when tring to connect no more try should be attempt
 
-	time_t last_access; // last time any pkt sent
+			time_t last_access; // last time any pkt sent
+			distributor_t bcast_change_state;
+		};
+	};
 
 	tcp_cfg_pak_t * __tcp_cfg_pak; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct
-
-	distributor_t bcast_change_state;
 
 } AB_tcp;
 
@@ -132,10 +144,10 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 	ABstat stat;
 
 	AB_udp *udps;
-	int udps_count;
+	size_t udps_count;
 
 	AB_tcp *tcps;
-	int tcps_count;
+	size_t tcps_count;
 
 	#ifdef HAS_STATISTICSS
 	nnc_table * ab_stat_tbl;
@@ -146,17 +158,23 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 // TODO . IPv6
 typedef struct AB_holders
 {
-	dyn_mms_arr ABs; // all the active protocol_bridge or Active bridges
+	dyn_mms_arr ABs; // AB . all the active protocol_bridge or Active bridges
 	size_t connected_tcp_out; /*is there any output tcp exist. if there is so it could be possible to iterate throw memmaps*/
 
+	struct
+	{
+		pthread_t trd_tcp_connection;
+		pthread_mutex_t mtx; /*prevent multi creation*/
+		bool bcreated; // thread is created
+	} tcps_trd;
 } ABhs;
 
 
 typedef struct /*ActiveBridgeShortPathHelper*/ // every virtually inherit struct must have this vars same as this struct without any difference
 {
 	AB * pab;
-	int * in_count;
-	int * out_count;
+	size_t * in_count;
+	size_t * out_count;
 	int * thread_is_created;
 
 	cbuf_pked_t * raw_xudp_cache; // buffer

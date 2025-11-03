@@ -4,10 +4,13 @@ typedef struct udp_conn_cfg_data
 {
 	CFG_ITM group;
 	CFG_ITM group_type;
-	CFG_ITM UDP_origin_ip;
-	CFG_ITM UDP_destination_ip;
-	CFG_ITM UDP_origin_ports; // singular port or ports ranje
-	CFG_ITM UDP_origin_interface;
+	struct
+	{
+		CFG_ITM UDP_origin_ip;
+		CFG_ITM UDP_destination_ip;
+		CFG_ITM UDP_origin_ports; // singular port or ports ranje
+		CFG_ITM UDP_origin_interface;
+	} core;
 	int enable;
 	int reset_connection;
 } udp_cfg_t;
@@ -16,9 +19,12 @@ typedef struct tcp_conn_cfg_data
 {
 	CFG_ITM group;
 	CFG_ITM group_type;
-	CFG_ITM TCP_destination_ip;
-	CFG_ITM TCP_destination_ports; // singular port or ports ranje
-	CFG_ITM TCP_destination_interface;
+	struct
+	{
+		CFG_ITM TCP_destination_ip;
+		CFG_ITM TCP_destination_ports; // singular port or ports ranje
+		CFG_ITM TCP_destination_interface;
+	} core;
 	int enable;
 	int reset_connection;
 } tcp_cfg_t;
@@ -51,10 +57,10 @@ typedef struct bridge_cfg_0
 	struct bridge_maintained_parameter // options that stays in position
 	{
 		udp_cfg_pak_t *in;
-		int in_count;
+		size_t in_count;
 
 		tcp_cfg_pak_t *out;
-		int out_count;
+		size_t out_count;
 
 		int enable;
 		int hide;
@@ -88,5 +94,7 @@ int Bcfg_id_equlity( brg_cfg_t * left , brg_cfg_t * right );
 
 int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right );
 int bridge_cfg_data_equlity( brg_cfg_t * left , brg_cfg_t * right );
+
+bool tcp_core_config_equlity( tcp_cfg_pak_t * cfg1 , tcp_cfg_pak_t * cfg2 );
 
 void cleaup_brg_cfg( brg_cfg_t * brg );

@@ -1,3 +1,5 @@
+#define Uses_iSTR_DIFF
+#define Uses_STR_DIFF
 #define Uses_STR_SAME
 #define Uses_definition
 #define Uses_MEMCPY
@@ -48,10 +50,10 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 	if ( left->maintained.in_count != right->maintained.in_count ) return 0;
 	if ( left->maintained.out_count != right->maintained.out_count ) return 0;
 
-	for ( int ilin = 0 ; ilin < left->maintained.in_count ; ilin++ )
+	for ( size_t ilin = 0 ; ilin < left->maintained.in_count ; ilin++ )
 	{
 		int exist = 0;
-		for ( int irin = 0 ; irin < right->maintained.in_count ; irin++ )
+		for ( size_t irin = 0 ; irin < right->maintained.in_count ; irin++ )
 		{
 			if ( STR_SAME( ( left->maintained.in + ilin )->name , ( right->maintained.in + irin )->name ) )
 			{
@@ -66,10 +68,10 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 		}
 	}
 
-	for ( int irin = 0 ; irin < right->maintained.in_count ; irin++ )
+	for ( size_t irin = 0 ; irin < right->maintained.in_count ; irin++ )
 	{
 		int exist = 0;
-		for ( int ilin = 0 ; ilin < left->maintained.in_count ; ilin++ )
+		for ( size_t ilin = 0 ; ilin < left->maintained.in_count ; ilin++ )
 		{
 			if ( STR_SAME( ( right->maintained.in + ilin )->name , ( left->maintained.in + irin )->name ) )
 			{
@@ -85,10 +87,10 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 	}
 
 	// TOCHECK later 14040528
-	for ( int ilin = 0 ; ilin < left->maintained.out_count ; ilin++ )
+	for ( size_t ilin = 0 ; ilin < left->maintained.out_count ; ilin++ )
 	{
 		int exist = 0;
-		for ( int irin = 0 ; irin < right->maintained.out_count ; irin++ )
+		for ( size_t irin = 0 ; irin < right->maintained.out_count ; irin++ )
 		{
 			if ( STR_SAME( ( left->maintained.out + ilin )->name , ( right->maintained.out + irin )->name ) )
 			{
@@ -103,10 +105,10 @@ int bridge_cfg0_data_equlity( Bcfg0 * left , Bcfg0 * right )
 		}
 	}
 
-	for ( int irin = 0 ; irin < right->maintained.out_count ; irin++ )
+	for ( size_t irin = 0 ; irin < right->maintained.out_count ; irin++ )
 	{
 		int exist = 0;
-		for ( int ilin = 0 ; ilin < left->maintained.out_count ; ilin++ )
+		for ( size_t ilin = 0 ; ilin < left->maintained.out_count ; ilin++ )
 		{
 			if ( STR_SAME( ( right->maintained.out + ilin )->name , ( left->maintained.out + irin )->name ) )
 			{
@@ -134,4 +136,13 @@ void cleaup_brg_cfg( brg_cfg_t * brg )
 	DAC( brg->m.m.maintained.in );
 	DAC( brg->m.m.maintained.out );
 	MEMSET_ZERO_O( brg );
+}
+
+bool tcp_core_config_equlity( tcp_cfg_pak_t * cfg1 , tcp_cfg_pak_t * cfg2 )
+{
+	if ( !cfg1 || !cfg2 ) return false;
+	if ( STR_DIFF( cfg1->data.core.TCP_destination_ip , cfg2->data.core.TCP_destination_ip ) ) return false;
+	if ( STR_DIFF( cfg1->data.core.TCP_destination_ports , cfg2->data.core.TCP_destination_ports ) ) return false;
+	if ( iSTR_DIFF( cfg1->data.core.TCP_destination_interface , cfg2->data.core.TCP_destination_interface ) ) return false;
+	return true;
 }

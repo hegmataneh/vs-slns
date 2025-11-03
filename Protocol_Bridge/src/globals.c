@@ -145,12 +145,14 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 
 	pthread_mutex_init(&_g->hdls.thread_close_mtx, NULL);   // init lock
 
+	pthread_mutex_init(&_g->bridges.tcps_trd.mtx , NULL);
+
 	array_init( &_g->trds.registered_thread , sizeof( pthread_t ) , 1 , GROW_STEP , 0 ); // keep started thread
 
 	////pthread_mutex_init( &_g->sync.mutex , NULL );
 	////pthread_cond_init( &_g->sync.cond , NULL );
 
-	distributor_init( &_g->distributors.bcast_thread_startup , 1 ); // to trace thread activity
+	distributor_init_withLock( &_g->distributors.bcast_thread_startup , 1 ); // to trace thread activity
 	distributor_subscribe( &_g->distributors.bcast_thread_startup , SUB_LONG , SUB_FXN( thread_registration ) , _g );
 
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_threads ) , _g , clean_threads ); // wait for open threads
@@ -169,10 +171,10 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 	distributor_subscribe( &_g->distributors.bcast_app_lvl_failure , SUB_STRING , SUB_FXN( app_err_dist ) , ( pass_p )_g );
 	distributor_subscribe( &_g->distributors.bcast_pb_lvl_failure , SUB_STRING , SUB_FXN( pb_err_dist ) , NULL );
 
-	distributor_init( &_g->distributors.bcast_pb_udp_connected , 1 );
-	distributor_init( &_g->distributors.bcast_pb_udp_disconnected , 1 );
-	distributor_init( &_g->distributors.bcast_pb_tcp_connected , 1 );
-	distributor_init( &_g->distributors.bcast_pb_tcp_disconnected , 1 );
+	distributor_init_withLock( &_g->distributors.bcast_pb_udp_connected , 1 );
+	distributor_init_withLock( &_g->distributors.bcast_pb_udp_disconnected , 1 );
+	distributor_init_withLock( &_g->distributors.bcast_pb_tcp_connected , 1 );
+	distributor_init_withLock( &_g->distributors.bcast_pb_tcp_disconnected , 1 );
 
 	distributor_subscribe( &_g->distributors.bcast_pb_udp_connected , SUB_LONG , SUB_FXN( udp_connected ) , NULL );
 	distributor_subscribe( &_g->distributors.bcast_pb_udp_disconnected , SUB_LONG , SUB_FXN( udp_disconnected ) , NULL );
@@ -262,14 +264,23 @@ _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , long file_desc )
 	tcp->owner_pb->stat.round_zero_set.tcp_connection_count++;
 	tcp->owner_pb->stat.round_zero_set.total_retry_tcp_connection_count++;
 
-	distributor_publish_long( &tcp->bcast_change_state , 1 , src_AB_tcp ); // transfer state per case
+	if ( tcp->main_instance )
+	{
+		distributor_publish_long( &tcp->this->bcast_change_state , 1 , src_AB_tcp ); // transfer state per case
+	}
 
-	TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count++;
-	TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_tcp_connection_count++;
+	if ( tcp->main_instance )
+	{
+		TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count++;
+		TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_tcp_connection_count++;
+	}
 
 	#ifdef HAS_STATISTICSS
-	nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_conn_cell );
-	nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_retry_conn_cell );
+	if ( tcp->main_instance )
+	{
+		nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_conn_cell );
+		nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_retry_conn_cell );
+	}
 	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_TCP_retry_conn_cell );
 	#endif
@@ -281,7 +292,7 @@ _CALLBACK_FXN void tcp_disconnected( pass_p src_AB_tcp , long v )
 
 	pb->stat.round_zero_set.tcp_connection_count--;
 
-	distributor_publish_long( &tcp->bcast_change_state , 0 , src_AB_tcp ); // transfer state per case
+	distributor_publish_long( &tcp->this->bcast_change_state , 0 , src_AB_tcp ); // transfer state per case
 
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count--;
 
@@ -335,16 +346,16 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 		server_addr.sin_family = AF_INET; // IPv4
 
 		int port = 0;
-		N_BREAK_IF( string_to_int( pb->udps[ iudp ].__udp_cfg_pak->data.UDP_origin_ports , &port ) , errGeneral , 0 );
+		N_BREAK_IF( string_to_int( pb->udps[ iudp ].__udp_cfg_pak->data.core.UDP_origin_ports , &port ) , errGeneral , 0 );
 		WARNING( port > 0 );
 		server_addr.sin_port = htons( ( uint16_t )port ); // Convert port to network byte order
-		if ( iSTR_SAME( pb->udps[ iudp ].__udp_cfg_pak->data.UDP_origin_ip , "INADDR_ANY" ) )
+		if ( iSTR_SAME( pb->udps[ iudp ].__udp_cfg_pak->data.core.UDP_origin_ip , "INADDR_ANY" ) )
 		{
 			server_addr.sin_addr.s_addr = INADDR_ANY; // Or use INADDR_ANY to bind to all available interfaces:
 		}
 		else
 		{
-			server_addr.sin_addr.s_addr = inet_addr( pb->udps[ iudp ].__udp_cfg_pak->data.UDP_origin_ip ); // Specify the IP address to bind to
+			server_addr.sin_addr.s_addr = inet_addr( pb->udps[ iudp ].__udp_cfg_pak->data.core.UDP_origin_ip ); // Specify the IP address to bind to
 		}
 		
 		N_BREAK_IF( bind( pb->udps[ iudp ].udp_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR , errSocket , 1 );
@@ -378,11 +389,11 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		tcp_addr.sin_family = AF_INET;
 
 		int port = 0;
-		N_BREAK_IF( string_to_int( tcp->__tcp_cfg_pak->data.TCP_destination_ports , &port ) , errGeneral , 1 );
+		N_BREAK_IF( string_to_int( tcp->__tcp_cfg_pak->data.core.TCP_destination_ports , &port ) , errGeneral , 1 );
 		WARNING( port > 0 );
 
 		tcp_addr.sin_port = htons( ( uint16_t )port );
-		NM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errSocket , 1 , "inet_pton sock error" );
+		NM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errSocket , 1 , "inet_pton sock error" );
 
 		if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
 		{
@@ -433,40 +444,53 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
 	{
 		if ( GRACEFULLY_END_THREAD() ) break;
 
-		int all_tcp_connected = 0;
-		for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
+		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
+		for ( size_t ab_idx = 0 ; ab_idx < _g->bridges.ABs.count ; ab_idx++ )
 		{
-			if ( GRACEFULLY_END_THREAD() ) break;
-
-			if ( pb->tcps[ itcp ].tcp_connection_established )
+			AB * ab = NULL;
+			if ( mms_array_get_s( &_g->bridges.ABs , ab_idx , ( void ** )&ab ) == errOK )
 			{
-				if
-				(
-					!pb->tcps[ itcp ].tcp_is_about_to_connect &&
-					( time( NULL ) - pb->tcps[ itcp ].last_access ) > 60
-				)
+				for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 				{
-					pb->tcps[ itcp ].last_access = time( NULL );
-					if ( is_socket_connected_peek( pb->tcps[ itcp ].tcp_sockfd , 0 ) <= 0 )
+					if ( pb->tcps[ itcp ].main_instance )
 					{
-						pb->tcps[ itcp ].tcp_is_about_to_connect = 1;
-						pb->tcps[ itcp ].tcp_connection_established = 0;
-						itcp = 0;
-						all_tcp_connected = 0;
-						continue;
+						if ( pb->tcps[ itcp ].tcp_connection_established )
+						{
+							if
+							(
+								!pb->tcps[ itcp ].tcp_is_about_to_connect &&
+								( time( NULL ) - pb->tcps[ itcp ].last_access ) > 60
+							)
+							{
+								pb->tcps[ itcp ].last_access = time( NULL );
+								if ( is_socket_connected_peek( pb->tcps[ itcp ].tcp_sockfd , 0 ) <= 0 )
+								{
+									pb->tcps[ itcp ].tcp_is_about_to_connect = 1;
+									pb->tcps[ itcp ].tcp_connection_established = 0;
+									itcp = 0;
+									continue;
+								}
+							}
+							continue;
+						}
+						if ( !pb->tcps[ itcp ].tcp_connection_established )
+						{
+							connect_one_tcp( &pb->tcps[ itcp ] );
+						}
 					}
+					//else // !main_instance
+					//{
+					//	if ( pb->tcps[ itcp ].this->tcp_connection_established )
+					//	{
+					//		distributor_publish_long( &_g->distributors.bcast_pb_tcp_connected , pb->tcps[ itcp ].this->tcp_sockfd , ( pass_p )( &pb->tcps[ itcp ] ) );
+					//	}
+					//}
 				}
-				
-				all_tcp_connected++;
-				continue;
 			}
+		}
+		pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
 
-			connect_one_tcp( &pb->tcps[ itcp ] );
-		}
-		//if ( all_tcp_connected == pb->tcps_count )
-		{
-			mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
-		}
+		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	}
 
 	BREAK_OK( 0 ); // to just ignore gcc warning
@@ -555,7 +579,7 @@ void mng_basic_thread_sleep( G * _g , int priority )
 /// </summary>
 _PRIVATE_FXN _CALLBACK_FXN LPCSTR itr_interfaces( const pass_p arr , size_t i )
 {
-	return ( ( AB_udp * )arr )[ i ].__udp_cfg_pak->data.UDP_origin_interface;
+	return ( ( AB_udp * )arr )[ i ].__udp_cfg_pak->data.core.UDP_origin_interface;
 };
 
 /// <summary>
@@ -608,9 +632,9 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 			init_string_ar( &ports_ar );
 			for ( int iout = 0 ; iout < abs->udps_count ; iout++ )
 			{
-				if ( iSTR_SAME( abs->udps[ iout ].__udp_cfg_pak->data.UDP_origin_interface , *interface_filter[ iint ] ) )
+				if ( iSTR_SAME( abs->udps[ iout ].__udp_cfg_pak->data.core.UDP_origin_interface , *interface_filter[ iint ] ) )
 				{
-					M_BREAK_STAT( addTo_string_ar( &ports_ar , abs->udps[ iout ].__udp_cfg_pak->data.UDP_origin_ports ) , 0 );
+					M_BREAK_STAT( addTo_string_ar( &ports_ar , abs->udps[ iout ].__udp_cfg_pak->data.core.UDP_origin_ports ) , 0 );
 				}
 			}
 			WARNING( ports_ar.size > 0 );
@@ -632,7 +656,7 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 
 		if ( distinct_ports.size == 1 && STR_SAME( distinct_ports.strs[ 0 ] , "-" ) )
 		{
-			n += sprintf( prt_flt + n , "src host %s and dst host %s" , abs->udps[ 0 ].__udp_cfg_pak->data.UDP_origin_ip , abs->udps[ 0 ].__udp_cfg_pak->data.UDP_destination_ip );
+			n += sprintf( prt_flt + n , "src host %s and dst host %s" , abs->udps[ 0 ].__udp_cfg_pak->data.core.UDP_origin_ip , abs->udps[ 0 ].__udp_cfg_pak->data.core.UDP_destination_ip );
 		}
 		else
 		{
@@ -646,18 +670,18 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 				// TODO . later i should check config file that no duplicate port find in it
 				for ( int islk = 0 ; islk < abs->udps_count ; islk++ )
 				{
-					if ( iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_interface , *interface_filter[iint] )
-						&& iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports , distinct_ports.strs[iprt] ) )
+					if ( iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_interface , *interface_filter[iint] )
+						&& iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports , distinct_ports.strs[iprt] ) )
 					{
-						if ( strchr( abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports , '-' ) != NULL )
+						if ( strchr( abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports , '-' ) != NULL )
 						{
 							// it's a range
-							n += sprintf( prt_flt + n , "portrange %s" , abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports );
+							n += sprintf( prt_flt + n , "portrange %s" , abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports );
 						}
 						else
 						{
 							// it's a single port
-							n += sprintf( prt_flt + n , "port %s" , abs->udps[ islk ].__udp_cfg_pak->data.UDP_origin_ports );
+							n += sprintf( prt_flt + n , "port %s" , abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports );
 						}
 						break;
 					}

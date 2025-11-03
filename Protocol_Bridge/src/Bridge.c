@@ -177,10 +177,10 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 {
 	INIT_BREAKABLE_FXN();
 
+	// UDP
 	if ( pb->cpy_cfg.m.m.maintained.in_count > 0 )
 	{
-		M_BREAK_IF( !( pb->udps = MALLOC_AR( pb->udps , pb->cpy_cfg.m.m.maintained.in_count ) ) , errMemoryLow , 1 );
-		MEMSET_ZERO( pb->udps , pb->cpy_cfg.m.m.maintained.in_count );
+		M_BREAK_IF( !( pb->udps = CALLOC_AR( pb->udps , pb->cpy_cfg.m.m.maintained.in_count ) ) , errMemoryLow , 1 );
 		pb->udps_count = pb->cpy_cfg.m.m.maintained.in_count; // caution . count is always set after main ptr initialized
 
 		for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
@@ -191,25 +191,64 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 			distributor_init( &pb->udps[ iudp ].bcast_change_state , 1 );
 		}
 	}
+	// TCP
+	pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
 	if ( pb->cpy_cfg.m.m.maintained.out_count > 0 )
 	{
-		M_BREAK_IF( !( pb->tcps = MALLOC_AR( pb->tcps , pb->cpy_cfg.m.m.maintained.out_count ) ) , errMemoryLow , 1 );
-		MEMSET_ZERO( pb->tcps , pb->cpy_cfg.m.m.maintained.out_count );
-		pb->tcps_count = pb->cpy_cfg.m.m.maintained.out_count;
-
-		for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
+		if ( ( pb->tcps = CALLOC_AR( pb->tcps , pb->cpy_cfg.m.m.maintained.out_count ) ) )
 		{
-			pb->tcps[ itcp ].tcp_sockfd = invalid_fd;
-			pb->tcps[ itcp ].owner_pb = pb;
-			pb->tcps[ itcp ].__tcp_cfg_pak = &pb->cpy_cfg.m.m.maintained.out[ itcp ];
-			distributor_init( &pb->tcps[ itcp ].bcast_change_state , 1 );
-			subscriber_t * psubscriber = NULL;
-			if ( distributor_subscribe_out( &pb->tcps[ itcp ].bcast_change_state , SUB_LONG , SUB_FXN( tcp_state_changed ) , _g , &psubscriber ) == errOK )
+			pb->tcps_count = pb->cpy_cfg.m.m.maintained.out_count;
+
+			for ( int itcp_piv = 0 ; itcp_piv < pb->tcps_count ; itcp_piv++ )
 			{
-				psubscriber->data_order = ord_consumer;
+				for ( size_t ab_idx = 0 ; ab_idx < _g->bridges.ABs.count ; ab_idx++ )
+				{
+					AB * pab = NULL;
+					if ( mms_array_get_s( &_g->bridges.ABs , ab_idx , ( void ** )&pab ) == errOK )
+					{
+						if ( pab != pb )
+						{
+							for ( int itcp_sec = 0 ; itcp_sec < pab->tcps_count ; itcp_sec++ )
+							{
+								if ( pab->tcps[ itcp_sec ].__tcp_cfg_pak )
+								{
+									if ( tcp_core_config_equlity( pab->tcps[ itcp_sec ].__tcp_cfg_pak , &pb->cpy_cfg.m.m.maintained.out[ itcp_piv ] ) )
+									{
+										pb->tcps[ itcp_piv ].this = &pab->tcps[ itcp_sec ];
+										pb->tcps[ itcp_piv ].main_instance = false;
+										break;
+									}
+								}
+							}
+						}
+					}
+					if ( pb->tcps[ itcp_piv ].this )
+					{
+						break;
+					}
+				}
+
+				if ( !pb->tcps[ itcp_piv ].this )
+				{
+					pb->tcps[ itcp_piv ].this = &pb->tcps[ itcp_piv ];
+					pb->tcps[ itcp_piv ].main_instance = true;
+					pb->tcps[ itcp_piv ].tcp_sockfd = invalid_fd;
+					distributor_init( &pb->tcps[ itcp_piv ].bcast_change_state , 1 );
+					subscriber_t * psubscriber = NULL;
+					if ( distributor_subscribe_out( &pb->tcps[ itcp_piv ].bcast_change_state , SUB_LONG , SUB_FXN( tcp_state_changed ) , _g , &psubscriber ) == errOK )
+					{
+						psubscriber->data_order = ord_consumer;
+					}
+				}
+				if ( pb->tcps[ itcp_piv ].this ) // it should be not null here
+				{
+					pb->tcps[ itcp_piv ].owner_pb = pb;
+					pb->tcps[ itcp_piv ].__tcp_cfg_pak = &pb->cpy_cfg.m.m.maintained.out[ itcp_piv ];
+				}
 			}
 		}
 	}
+	pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
 
 	// TODO . if Ab goes away then unregister quit intrupt
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( bridge_stoping_input ) , pb , bridge_stop_input ); // in several level bridge make cleanup
@@ -467,6 +506,20 @@ void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_pth_t * shrtcut )
 	//shrtcut->bridg_prerequisite_stabled = &pb->comm.preq.bridg_prerequisite_stabled;
 }
 
+_PRIVATE_FXN status create_tcp_connectios( AB * pb )
+{
+	status d_error = errOK;
+	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
+	pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
+	if ( !_g->bridges.tcps_trd.bcreated )
+	{
+		d_error = pthread_create( &_g->bridges.tcps_trd.trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK ? errCreation : errOK;
+		_g->bridges.tcps_trd.bcreated = true;
+	}
+	pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
+	return d_error;
+}
+
 _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t * new_ccfg )
 {
 	INIT_BREAKABLE_FXN();
@@ -558,8 +611,8 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 
 			pthread_t trd_udp_connection;
 			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-			pthread_t trd_tcp_connection;
-			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+			
+			MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		}
 	}
 
@@ -584,8 +637,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 				pb->comm.preq.thread_is_created = 1;
 			}
 
-			pthread_t trd_tcp_connection;
-			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+			MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		}
 	}
 
@@ -615,8 +667,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 
 			pthread_t trd_udp_connection;
 			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-			pthread_t trd_tcp_connection;
-			MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+			MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		}
 	}
 
@@ -624,25 +675,22 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 	{
 		if ( !pb->comm.acts.p_one2many_pcap2krnl_SF )
 		{
-			//init_ActiveBridge( _g , pb );
+			init_ActiveBridge( _g , pb );
 
-			//M_BREAK_IF( !( pb->comm.acts.p_one2many_pcap2krnl_SF = MALLOC_ONE( pb->comm.acts.p_one2many_pcap2krnl_SF ) ) , errMemoryLow , 1 );
-			//MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
+			M_BREAK_IF( !( pb->comm.acts.p_one2many_pcap2krnl_SF = MALLOC_ONE( pb->comm.acts.p_one2many_pcap2krnl_SF ) ) , errMemoryLow , 1 );
+			MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
 
-			//M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
 
-			//if ( !pb->comm.preq.thread_is_created )
-			//{
-			//	MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->income_trd_id , NULL ,
-			//		proc_one2many_pcap2krnl_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-			//	MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->outgoing_trd_id , NULL ,
-			//		proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-			//	pb->comm.preq.thread_is_created = 1;
-			//}
-			
-
-			//pthread_t trd_tcp_connection;
-			//MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+			if ( !pb->comm.preq.thread_is_created )
+			{
+				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->income_trd_id , NULL ,
+					proc_one2many_pcap2krnl_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->outgoing_trd_id , NULL ,
+					proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+				pb->comm.preq.thread_is_created = 1;
+			}
+			MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		}
 	}
 
@@ -666,9 +714,36 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//	pb->comm.preq.thread_is_created = 1;
 			//}
 			
-			//pthread_t trd_tcp_connection;
-			//MM_BREAK_IF( pthread_create( &trd_tcp_connection , NULL , thread_tcp_connection_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+			//MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		}
+	}
+
+	#endif
+
+	#ifndef many2many
+
+	else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "many2many_pcap2krnl_SF" ) )
+	{
+		//if ( !pb->comm.acts.p_one2many_pcap2krnl_SF )
+		//{
+		//	init_ActiveBridge( _g , pb );
+
+		//	M_BREAK_IF( !( pb->comm.acts.p_one2many_pcap2krnl_SF = MALLOC_ONE( pb->comm.acts.p_one2many_pcap2krnl_SF ) ) , errMemoryLow , 1 );
+		//	MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
+
+		//	M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+
+		//	if ( !pb->comm.preq.thread_is_created )
+		//	{
+		//		MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->income_trd_id , NULL ,
+		//			proc_one2many_pcap2krnl_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+		//		MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->outgoing_trd_id , NULL ,
+		//			proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+		//		pb->comm.preq.thread_is_created = 1;
+		//	}
+
+		//	MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
+		//}
 	}
 
 	#endif

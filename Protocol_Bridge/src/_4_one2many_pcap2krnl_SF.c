@@ -45,7 +45,9 @@ _THREAD_FXN void_p proc_one2many_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 
 	WARNING( pb->udps_count == 1 );
 
-	
+	M_BREAK_STAT( distributor_init( &pb->comm.preq.bcast_pcap_udp_pkt , 1 ) , 1 );
+	M_BREAK_STAT( distributor_subscribe( &pb->comm.preq.bcast_pcap_udp_pkt , SUB_DIRECT_ONE_CALL_3VOIDP ,
+		SUB_FXN( defragment_pcap_data ) , src_pb ) , 1 );
 
 	// in addition to make shrt_path complete based on type and dependency is detached
 	shrt_pth_t shrtcut; // 1 . we have simple pth here

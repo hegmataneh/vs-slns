@@ -14,6 +14,18 @@
 
 #include <Protocol_Bridge.dep>
 
+_CALLBACK_FXN _PRIVATE_FXN status fast_ring_2_huge_ring_global( pass_p data , buffer buf , size_t sz )
+{
+	AB_tcp * tcp = ( AB_tcp * )data;
+	AB * pb = tcp->owner_pb;
+	G * _g = ( G * )tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g;
+
+	xudp_hdr * pkt = ( xudp_hdr * )buf;
+	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
+
+	return fast_ring_2_huge_ring( data , buf , sz );
+}
+
 // spec each bridge how to act with udp packet get. and deliver it to global ring cache
 _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 {
@@ -73,7 +85,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 			int igrp = -1;
 			dict_s_i_get( &map_grp_idx , pb->tcps[ itcp ].__tcp_cfg_pak->data.group , &igrp );
 			distributor_subscribe_ingrp( shrtcut->bcast_xudp_pkt , (size_t)igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE ,
-				SUB_FXN( fast_ring_2_huge_ring ) , pb->tcps + itcp );
+				SUB_FXN( fast_ring_2_huge_ring_global ) , pb->tcps + itcp );
 		}
 		else if ( iSTR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->data.group_type , STR_RoundRobin ) )
 		{
@@ -98,7 +110,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 
 			// add callback receiver of each tcp grp
 			distributor_subscribe_with_ring( shrtcut->bcast_xudp_pkt ,
-				(size_t)igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( fast_ring_2_huge_ring ) , pb->tcps + itcp , pring );
+				(size_t)igrp , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( fast_ring_2_huge_ring_global ) , pb->tcps + itcp , pring );
 		}
 		else
 		{
@@ -122,26 +134,27 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 	char buffer[ BUFFER_SIZE + 128 /*tcp version + grp name[64]*/ ]; // Define a buffer to store received data
 	MEMSET_ZERO_O( buffer );
-	pass_p pdata = NULL;
 	size_t sz;
 
 	init_many_tcp( pb , shrtcut );
-
-	// try to find AB of udp getter
-	BREAK_STAT( distributor_get_data( shrtcut->bcast_xudp_pkt , &pdata ) , 0 );
-	AB_tcp * tcp = ( AB_tcp * )pdata;
 	
 	xudp_hdr * pkt = ( xudp_hdr * )buffer; // plain cup for packet
 	pkt->metadata.version = TCP_XPKT_V1;
 	pkt->metadata.sent = false;
 	pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
 	pkt->metadata.retried = false;
-	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
-	pkt->metadata.TCP_name_size = (uint8_t)strlen( pkt->TCP_name );
-	pkt->metadata.payload_offset = (uint8_t)sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + (uint8_t)sizeof( EOS )/*to read hdr name faster*/;
+
+	pkt->metadata.TCP_name_size = ( uint8_t )sizeof( pb->tcps[ 0 ].__tcp_cfg_pak->name );
+	pkt->metadata.payload_offset = ( uint8_t )sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + ( uint8_t )sizeof( EOS )/*to read hdr name faster*/;
 	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );
 
 	int output_tcp_socket_error_tolerance_count = 0; // restart socket after many error accur
+
+	char * p = ( char * )pb->cpy_cfg.m.m.id.short_name;
+	if ( STR_SAME( p , ".70:1234" ) )
+	{
+		int i = 1 + 2;
+	}
 
 	//while ( !pb->comm.preq.bridg_prerequisite_stabled )
 	//{
@@ -150,10 +163,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 	//}
 
 	// to be insure we used correct tcp output
-	M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
-
-	//WARNING( pb->tcps_count >= 1 );
-	//AB_tcp * tcp = pb->tcps; // caution . in this type of bridge udp conn must be just one
+	//M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
 
 	while ( 1 )
 	{
