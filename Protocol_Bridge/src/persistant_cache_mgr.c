@@ -73,7 +73,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p s
 	M_V_END_RET
 }
 
-PRE_MAIN_INITIALIZATION( 106 )
+PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_PERSISTANT_CACHE_MNGR )
 _PRIVATE_FXN void pre_main_init_persistant_cache_mngr_component( void )
 {
 	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_persistant_cache_mngr ) , _g );

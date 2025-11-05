@@ -71,7 +71,7 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 	sub_destroy( &_g->distributors.bcast_program_stabled );
 	//sub_destroy( &_g->distributors.bcast_quit );
 
-	array_free( &_g->trds.registered_thread );
+	array_free( &_g->hdls.registered_thread );
 
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
@@ -85,7 +85,7 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 #endif
 
 	G * _g = ( G * )src_g;
-	size_t sz = array_get_count( &_g->trds.registered_thread );
+	size_t sz = array_get_count( &_g->hdls.registered_thread );
 	pthread_t * ppthread_t = NULL;
 	
 	bool bcontinue = true;
@@ -94,7 +94,7 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 		bool one_thread_still = false;
 		for ( size_t idx = 0 ; idx < sz ; idx++ )
 		{
-			if ( array_get_s( &_g->trds.registered_thread , idx , ( void ** )&ppthread_t ) == errOK && *ppthread_t )
+			if ( array_get_s( &_g->hdls.registered_thread , idx , ( void ** )&ppthread_t ) == errOK && *ppthread_t )
 			{
 				one_thread_still = true;
 				//break;
@@ -123,7 +123,7 @@ _CALLBACK_FXN void thread_registration( pass_p src_g , long src_pthread_t )
 {
 	G * _g = ( G * )src_g;
 	pthread_mutex_lock( &_g->hdls.thread_close_mtx );
-	array_add( &_g->trds.registered_thread , ( void * )&src_pthread_t );
+	array_add( &_g->hdls.registered_thread , ( void * )&src_pthread_t );
 	pthread_mutex_unlock( &_g->hdls.thread_close_mtx );
 	
 	#ifdef HAS_STATISTICSS
@@ -139,6 +139,47 @@ _CALLBACK_FXN void bad_interrupt( int sig )
 #endif
 }
 
+_CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
+{
+	INIT_BREAKABLE_FXN();
+
+	G * _g = ( G * )src_g;
+	bool bstart_tcp_thread = false;
+	for ( size_t ab_idx = 0 ; ab_idx < _g->bridges.ABs.count ; ab_idx++ )
+	{
+		AB * pb = NULL;
+		if ( mms_array_get_s( &_g->bridges.ABs , ab_idx , ( void ** )&pb ) == errOK )
+		{
+			if ( pb->tcps_count )
+			{
+				bstart_tcp_thread = true;
+				break;
+			}
+		}
+	}
+	if ( bstart_tcp_thread )
+	{
+		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
+		if ( !_g->bridges.tcps_trd.bcreated )
+		{
+			d_error = pthread_create( &_g->bridges.tcps_trd.trd_tcp_connection , NULL , thread_tcp_connection_proc , _g ) != PTHREAD_CREATE_OK ? errCreation : errOK;
+			if ( d_error == errOK )
+			{
+				_g->bridges.tcps_trd.bcreated = true;
+			}
+		}
+		pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
+	}
+	M_BREAK_STAT( d_error , 1 );
+
+	BEGIN_RET // TODO . complete reverse on error
+	case 1:
+	{
+		DIST_APP_FAILURE();
+	}
+	M_V_END_RET
+}
+
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 {
 	G * _g = ( G * )src_g;
@@ -146,8 +187,9 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 	pthread_mutex_init(&_g->hdls.thread_close_mtx, NULL);   // init lock
 
 	pthread_mutex_init(&_g->bridges.tcps_trd.mtx , NULL);
+	distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_globals ) , _g , tcp_thread_trigger );
 
-	array_init( &_g->trds.registered_thread , sizeof( pthread_t ) , 1 , GROW_STEP , 0 ); // keep started thread
+	array_init( &_g->hdls.registered_thread , sizeof( pthread_t ) , 1 , GROW_STEP , 0 ); // keep started thread
 
 	////pthread_mutex_init( &_g->sync.mutex , NULL );
 	////pthread_cond_init( &_g->sync.cond , NULL );
@@ -184,7 +226,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 	mms_array_init( &_g->bridges.ABs , sizeof( AB ) , 1 , 1 , 0 );
 }
 
-PRE_MAIN_INITIALIZATION( 104 )
+PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_GLOBALS )
 _PRIVATE_FXN void pre_main_init_helper_component( void )
 {
 	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_helper ) , _g );
@@ -385,17 +427,18 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		// try to create TCP socket
 		NM_BREAK_IF( ( tcp->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errSocket , 0 , "create sock error" );
 
-		struct sockaddr_in tcp_addr;
-		tcp_addr.sin_family = AF_INET;
+		//struct sockaddr_in tcp_addr;
+		//tcp_addr.sin_family = AF_INET;
 
 		int port = 0;
 		N_BREAK_IF( string_to_int( tcp->__tcp_cfg_pak->data.core.TCP_destination_ports , &port ) , errGeneral , 1 );
 		WARNING( port > 0 );
 
-		tcp_addr.sin_port = htons( ( uint16_t )port );
-		NM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errSocket , 1 , "inet_pton sock error" );
+		//tcp_addr.sin_port = htons( ( uint16_t )port );
+		//NM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errSocket , 1 , "inet_pton sock error" );
 
-		if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
+		//if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
+		if ( ( tcp->tcp_sockfd = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , 1 ) ) == -1 )
 		{
 			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
 			{
@@ -428,11 +471,10 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 	return errSocket;
 }
 
-_THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
+_THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
-	AB * pb = ( AB * )src_pb;
-	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._pseudo_g;
+	G * _g = ( G * )src_g;
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
@@ -447,8 +489,8 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb )
 		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
 		for ( size_t ab_idx = 0 ; ab_idx < _g->bridges.ABs.count ; ab_idx++ )
 		{
-			AB * ab = NULL;
-			if ( mms_array_get_s( &_g->bridges.ABs , ab_idx , ( void ** )&ab ) == errOK )
+			AB * pb = NULL;
+			if ( mms_array_get_s( &_g->bridges.ABs , ab_idx , ( void ** )&pb ) == errOK )
 			{
 				for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 				{
@@ -676,12 +718,12 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 						if ( strchr( abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports , '-' ) != NULL )
 						{
 							// it's a range
-							n += sprintf( prt_flt + n , "portrange %s" , abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports );
+							n += sprintf( prt_flt + n , "dst portrange %s" , abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports );
 						}
 						else
 						{
 							// it's a single port
-							n += sprintf( prt_flt + n , "port %s" , abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports );
+							n += sprintf( prt_flt + n , "dst port %s" , abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports );
 						}
 						break;
 					}
@@ -701,11 +743,11 @@ _CALLBACK_FXN void thread_goes_out_of_scope( void * ptr )
 {
 	pthread_mutex_lock( &_g->hdls.thread_close_mtx );
 	pthread_t * ptrd = ( pthread_t * )ptr;
-	size_t sz = array_get_count( &_g->trds.registered_thread );
+	size_t sz = array_get_count( &_g->hdls.registered_thread );
 	pthread_t * ppthread_t = NULL;
 	for ( size_t idx = 0 ; idx < sz ; idx++ )
 	{
-		if ( array_get_s( &_g->trds.registered_thread , idx , ( void ** )&ppthread_t ) == errOK && *ppthread_t == *ptrd )
+		if ( array_get_s( &_g->hdls.registered_thread , idx , ( void ** )&ppthread_t ) == errOK && *ppthread_t == *ptrd )
 		{
 			*ppthread_t = 0;
 		}
@@ -964,7 +1006,7 @@ _CALLBACK_FXN PASSED_CSTR ov_thread_cnt_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	G * _g = ( G * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%d" , _g->trds.registered_thread.count );
+	sprintf( pcell->storage.tmpbuf , "%d" , _g->hdls.registered_thread.count );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 

@@ -100,7 +100,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
 	M_V_END_RET
 }
 
-PRE_MAIN_INITIALIZATION( 105 )
+PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_PACKET_MNGR )
 _PRIVATE_FXN void pre_main_init_packet_mngr_component( void )
 {
 	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_packet_mngr ) , _g );
@@ -654,6 +654,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	// TODO . take bounce between checking real connection
 	if ( !pkt1->metadata.sent && !ab_tcp_p && _g->bridges.connected_tcp_out ) // slow method
 	{
+		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
 		for ( size_t iab = 0 ; iab < _g->bridges.ABs.count ; iab++ )
 		{
 			if ( mms_array_get_s( &_g->bridges.ABs , iab , ( void ** )&pb ) == errOK )
@@ -700,6 +701,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 				}
 			}
 		}
+		pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
 	}
 	
 	if ( !pkt1->metadata.sent && pkt1->metadata.retry )

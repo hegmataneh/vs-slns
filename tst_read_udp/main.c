@@ -5,8 +5,8 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 
-#define LOCAL_IP   "172.17.0.60"
-#define LOCAL_PORT 1234
+#define LOCAL_IP   "10.202.18.88"
+#define LOCAL_PORT 10202
 #define BUF_SIZE   20480
 
 int main( void )

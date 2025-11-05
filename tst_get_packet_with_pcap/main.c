@@ -19,11 +19,11 @@ typedef unsigned short u_short;
 #include <pcap.h>
 
 /* Default network interface */
-#define INTERFACE "enp0s3"
+#define INTERFACE "ens194"
 
 /* Destination filter */
 #define DEST_IP "172.17.0.60"
-#define DEST_PORT 1234
+#define DEST_PORT 10202
 
 
 
@@ -62,7 +62,7 @@ int main()
 	//	"udp and dst host %s and dst port %d" , DEST_IP , DEST_PORT );
 
 	snprintf( filter_exp , sizeof( filter_exp ) ,
-		"udp and dst host %s and dst port %d" , DEST_IP , DEST_PORT );
+		"udp and dst port %d" , DEST_PORT );
 
 	/* Compile the filter */
 	struct bpf_program fp;

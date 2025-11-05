@@ -15,7 +15,7 @@ GLOBAL_VAR G * _g = NULL; // just one global var
 /// <summary>
 /// اینجوری می خواستم هر قسمت را یک کامپوننت بدانم و در نتیجه هر کسی مسئول ایجاد زیر ساختهای لازم برای خودش است
 /// </summary>
-PRE_MAIN_INITIALIZATION( 101 )
+PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_MAIN )
 _PRIVATE_FXN void pre_main_top_prio_init( void )
 {
 	static G g = {0};

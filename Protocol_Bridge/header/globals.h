@@ -13,7 +13,7 @@ typedef struct global_distributor
 {
 	distributor_t bcast_pre_cfg; //pre_configuration;
 	distributor_t bcast_post_cfg; //post_config_stablished;
-	distributor_t bcast_program_stabled; //program_stabled;
+	distributor_t bcast_program_stabled; // stabled after config loaded and first bridges determind
 	distributor_t bcast_thread_startup; //thread_startup; // every thread start up declare himself by this
 	distributor_t bcast_app_lvl_failure; //app_lvl_failure_dist;
 	distributor_t bcast_pb_lvl_failure; //pb_lvl_failure_dist;
@@ -49,7 +49,11 @@ typedef struct global_handles
 		} gateway;
 	};
 
-	pthread_mutex_t thread_close_mtx;
+	struct
+	{
+		pthread_mutex_t thread_close_mtx; // work with registered_thread
+		dyn_arr registered_thread;
+	};
 
 } g_hdl;
 
@@ -60,9 +64,6 @@ typedef struct global_thread_handles
 	pthread_t trd_version_checker;
 	pthread_t trd_config_loader;
 	pthread_t trd_config_executer;
-
-	dyn_arr registered_thread;
-
 } g_trds;
 
 

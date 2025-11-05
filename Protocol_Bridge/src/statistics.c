@@ -81,7 +81,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat( void_p src_g )
 	M_V_END_RET
 }
 
-PRE_MAIN_INITIALIZATION( 103 )
+PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_STATISTICS )
 _PRIVATE_FXN void pre_main_init_stat_component( void )
 {
 	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_stat ) , _g );

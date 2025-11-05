@@ -150,11 +150,11 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 	int output_tcp_socket_error_tolerance_count = 0; // restart socket after many error accur
 
-	char * p = ( char * )pb->cpy_cfg.m.m.id.short_name;
-	if ( STR_SAME( p , ".70:1234" ) )
-	{
-		int i = 1 + 2;
-	}
+	//char * p = ( char * )pb->cpy_cfg.m.m.id.short_name;
+	//if ( STR_SAME( p , ".70:1234" ) )
+	//{
+	//	int i = 1 + 2;
+	//}
 
 	//while ( !pb->comm.preq.bridg_prerequisite_stabled )
 	//{

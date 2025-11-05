@@ -187,3 +187,5 @@ typedef struct /*ActiveBridgeShortPathHelper*/ // every virtually inherit struct
 void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_pth_t * shrtcut );
 
 _CALLBACK_FXN void stop_sending_by_bridge( pass_p src_g , long v );
+
+_CALLBACK_FXN void init_bridges_statistics( pass_p src_g );

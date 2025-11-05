@@ -68,7 +68,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( stop_sending_by_bridge ) , _g , stop_send_by_bridge );
 }
 
-_CALLBACK_FXN _PRIVATE_FXN void program_is_stabled( void_p src_g )
+_CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_cfg( void_p src_g )
 {
 	G * _g = ( G * )src_g;
 	distributor_publish_void( &_g->distributors.bcast_post_cfg , SUBSCRIBER_PROVIDED );
@@ -77,7 +77,7 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled( void_p src_g )
 	#endif
 }
 
-PRE_MAIN_INITIALIZATION( 102 )
+PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_CONFIG )
 _PRIVATE_FXN void pre_main_init_config_component( void )
 {
 	// distribute initialization by the callback and throw components
@@ -86,8 +86,8 @@ _PRIVATE_FXN void pre_main_init_config_component( void )
 
 	distributor_init( &_g->distributors.bcast_post_cfg , 1 );
 
-	distributor_init( &_g->distributors.bcast_program_stabled , 1 );
-	distributor_subscribe( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled ) , _g );
+	distributor_init_withOrder( &_g->distributors.bcast_program_stabled , 1 );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_cfg ) , _g , config_stablity );
 }
 
 
@@ -612,8 +612,6 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
-	distributor_publish_void( &_g->distributors.bcast_program_stabled , SUBSCRIBER_PROVIDED );
-
 	while ( 1 )
 	{
 		if ( GRACEFULLY_END_THREAD() )
@@ -669,6 +667,12 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 				}
 			}
 			_g->appcfg.psv_cfg_changed = 0; // changes applied
+
+			if ( _g->distributors.bcast_program_stabled.grps.count )
+			{
+				distributor_publish_void( &_g->distributors.bcast_program_stabled , SUBSCRIBER_PROVIDED );
+				sub_destroy( &_g->distributors.bcast_program_stabled ); // just one time anounce stablity
+			}
 		}
 		mng_basic_thread_sleep( _g , LOW_PRIORITY_THREAD );
 	}

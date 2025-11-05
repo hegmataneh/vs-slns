@@ -74,7 +74,32 @@ typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
 	GLOBAL_VAR extern int __arrr_n;
 #endif
 
-enum cleanup_priority_order /*ascending termination priority*/
+enum pre_main_priority_order /*top down startup priority*/
+{
+	pre_main_init_main = 101,
+	pre_main_init_config = 102,
+	pre_main_init_statistics = 103,
+	pre_main_init_globals = 104,
+	pre_main_init_bridges = 105,
+	pre_main_init_packet_mngr = 106,
+	pre_main_init_persistant_cache_mngr = 107,
+};
+
+#define PRE_MAIN_INIT_MAIN pre_main_init_main
+#define PRE_MAIN_INIT_CONFIG pre_main_init_config
+#define PRE_MAIN_INIT_STATISTICS pre_main_init_statistics
+#define PRE_MAIN_INIT_GLOBALS pre_main_init_globals
+#define PRE_MAIN_INIT_BRIDGES pre_main_init_bridges
+#define PRE_MAIN_INIT_PACKET_MNGR pre_main_init_packet_mngr
+#define PRE_MAIN_INIT_PERSISTANT_CACHE_MNGR pre_main_init_persistant_cache_mngr
+
+enum program_stablity_bcast_order /*bottom up termination priority*/
+{
+	tcp_thread_trigger , // tcp thread start after config completely loaded
+	config_stablity ,
+};
+
+enum cleanup_priority_order /*bottom up termination priority*/
 {
 	clean_globals ,
 	clean_globals_shared_var ,
@@ -93,9 +118,10 @@ enum cleanup_priority_order /*ascending termination priority*/
 	clean_input_connections , // close connection for no more input data
 };
 
-enum stat_init_priority_order /*ascending termination priority*/
+enum stat_init_priority_order /*bottom up termination priority*/
 {
 	statistics_is_stabled , // at last call like event
+	bridge_statistics ,
 	packetmgr_statistics ,
 	main_statistics
 };
