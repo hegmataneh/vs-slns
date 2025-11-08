@@ -1,3 +1,4 @@
+#define Uses_MARK_START_THREAD
 #define Uses_sleep
 #define Uses_WARNING
 #define Uses_defragment_pcap_data
@@ -56,7 +57,7 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	shrtcut.pcp_handle = &pb->comm.acts.p_one2one_pcap2krnl_SF->pcp_handle;
 
 	// register here to get quit cmd
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_one2one_pcap2krnl_SF ) , pb , clean_input_connections );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_one2one_pcap2krnl_SF ) , pb , stop_input_udp );
 
 	// call general 
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &shrtcut ) , 1 );

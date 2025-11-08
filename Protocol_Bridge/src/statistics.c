@@ -1,4 +1,5 @@
-﻿#define Uses_INIT_BREAKABLE_FXN
+﻿#define Uses_MARK_LINE
+#define Uses_INIT_BREAKABLE_FXN
 #define Uses_STRLEN
 #define Uses_sleep
 #define Uses_setlocale
@@ -10,7 +11,7 @@
 #define Uses_globals
 #include <Protocol_Bridge.dep>
 
-GLOBAL_VAR extern G * _g;
+_GLOBAL_VAR _EXTERN G * _g;
 
 _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 {
@@ -276,7 +277,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 		if ( !( tmp_debounce_release_segment++ % 5 ) )
 		{
 			// distribute segment management pulse
-			distributor_publish_void( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ ); // check if condition is true then set halffill segemtn as fill
+			distributor_publish_long( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , NP , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ ); // check if condition is true then set halffill segemtn as fill
 		}
 
 		//pthread_mutex_lock( &_g->stat.lock_data.lock );

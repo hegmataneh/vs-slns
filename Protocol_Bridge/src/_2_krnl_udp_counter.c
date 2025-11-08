@@ -1,3 +1,4 @@
+#define Uses_MARK_START_THREAD
 #define Uses__VERBOSE_ECHO
 #define Uses_errno
 #define Uses_globals
@@ -105,7 +106,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 			//timeout.tv_usec = 0;
 
 			// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , NULL/* & timeout*/ );
+			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , NULL/* & timeout*/ ); TODO 
 
 			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 			{

@@ -1,5 +1,6 @@
 ﻿#ifndef section_include
 
+#define Uses_fcntl
 #define Uses_pthread_create
 #define Uses_format_elapsed_time_with_millis
 #define Uses_stricmp
@@ -186,7 +187,7 @@ struct tcp_listener
 {
 	struct tcp_listener_cfg tlcfg;  // copy of applied cfg . active tcp_listener config . یک دسته کامل از ترد ها یک کانفیگ را اعمال می کند
 
-	int tcp_server_listener_sockfd;
+	//int tcp_server_listener_sockfd;
 	int tcp_client_connection_sockfd;
 	int tcp_connection_established; // tcp connection established
 
@@ -361,61 +362,13 @@ int _connect_tcp( struct tcp_listener * src_tl )
 		{
 			break;
 		}
-
-		MM_BREAK_IF( ( src_tl->tcp_server_listener_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errGeneral , 1 , "create sock error" );
-
-		int opt = 1;
-		if (setsockopt(src_tl->tcp_server_listener_sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-			_VERBOSE_ECHO( "setsockopt error" );
-			_close_socket( &src_tl->tcp_server_listener_sockfd );
-			sleep(1);
-			continue;
-		}
-		//int opt = 1;
-		if (setsockopt(src_tl->tcp_server_listener_sockfd, SOL_SOCKET, 15, &opt, sizeof(opt)) < 0) {
-			_VERBOSE_ECHO( "setsockopt error" );
-			_close_socket( &src_tl->tcp_server_listener_sockfd );
+		
+		if ( ( src_tl->tcp_client_connection_sockfd = create_server_socket_with_timeout( src_tl->tlcfg.m.m.id.TCP_listen_ip , src_tl->tlcfg.m.m.id.TCP_listen_port , BAD_NETWORK_HANDSHAKE_TIMEOUT ) ) < 0 )
+		{
 			sleep(1);
 			continue;
 		}
 
-		struct sockaddr_in server_addr;
-		socklen_t addrlen = sizeof( server_addr );
-		memset( &server_addr , 0 , sizeof( server_addr ) );
-		server_addr.sin_family = AF_INET;
-		if ( strcmp( src_tl->tlcfg.m.m.id.TCP_listen_ip , "INADDR_ANY" ) == 0 )
-		{
-			server_addr.sin_addr.s_addr = INADDR_ANY;
-		}
-		else
-		{
-			server_addr.sin_addr.s_addr = inet_addr( src_tl->tlcfg.m.m.id.TCP_listen_ip ); // Specify the IP address to bind to
-		}
-		server_addr.sin_port = htons( src_tl->tlcfg.m.m.id.TCP_listen_port );
-
-		if ( bind( src_tl->tcp_server_listener_sockfd , ( const struct sockaddr * )&server_addr , sizeof( server_addr ) ) == FXN_BIND_ERR )
-		{
-			_VERBOSE_ECHO( "bind error" );
-			_close_socket( &src_tl->tcp_server_listener_sockfd );
-			sleep(1);
-			continue;
-		}
-
-		if ( listen( src_tl->tcp_server_listener_sockfd , 1 ) < 0 )
-		{
-			_VERBOSE_ECHO( "listen error" );
-			_close_socket( &src_tl->tcp_server_listener_sockfd );
-			sleep(1);
-			continue;
-		}
-
-		if ( ( src_tl->tcp_client_connection_sockfd = accept( src_tl->tcp_server_listener_sockfd , ( struct sockaddr * )&server_addr , ( socklen_t * )&addrlen ) ) < 0 )
-		{
-			_VERBOSE_ECHO( "accept error" );
-			_close_socket( &src_tl->tcp_server_listener_sockfd );
-			sleep(1);
-			continue;
-		}
 		src_tl->tcp_connection_established = 1;
 
 		_g->stat.tcp_connection_count++;
@@ -449,7 +402,7 @@ void * thread_tcp_connection_proc( void * src_tl )
 	{
 		SYS_ALIVE_CHECK();
 		_close_socket( &tl->tcp_client_connection_sockfd );
-		_close_socket( &tl->tcp_server_listener_sockfd );
+		//_close_socket( &tl->tcp_server_listener_sockfd );
 		tl->tcp_connection_established = 0;
 		_g->stat.tcp_connection_count--;
 	}
@@ -617,7 +570,7 @@ void * tcp_listener_runner( void * src_tl )
 					_VERBOSE_ECHO( "Socket error: %d\n" , error );
 				}
 
-				if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+				if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK()  )
 				{
 					socket_error_tolerance_count = 0;
 					for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
@@ -662,7 +615,7 @@ void * tcp_listener_runner( void * src_tl )
 							{
 								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
 								{
-									if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_client_connection_sockfd ) )
+									if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_client_connection_sockfd )  )
 									{
 										_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
 									}
@@ -714,6 +667,7 @@ void * tcp_listener_runner( void * src_tl )
 						continue;
 					}
 				}
+				_g->stat.last_command[ 0 ] = 0;
 				_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
 				if ( bytes_received > 0 )
 				{

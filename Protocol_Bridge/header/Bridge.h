@@ -69,8 +69,8 @@ typedef struct AB_communication // threads use to recv and send data
 		{
 			struct
 			{
-				bool stop_sending;
-				bool send_stoped;
+				bool stop_sending; /*try to stop fetching udp and sending*/
+				bool send_stoped; /*fetching udp and send stoped*/
 			};
 			uchar pad2[ CACHE_LINE_SIZE ];
 		};
@@ -186,6 +186,6 @@ typedef struct /*ActiveBridgeShortPathHelper*/ // every virtually inherit struct
 
 void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_pth_t * shrtcut );
 
-_CALLBACK_FXN void stop_sending_by_bridge( pass_p src_g , long v );
+_CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v );
 
 _CALLBACK_FXN void init_bridges_statistics( pass_p src_g );

@@ -69,10 +69,6 @@ typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
 		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit_s ) :\
 		__snprintf( baaf , sizeof(baaf) , "%llu%s%s" , val , *unit_s ? " " : "", unit_s ) )
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-	GLOBAL_VAR extern char __arrr[ 100000 ];
-	GLOBAL_VAR extern int __arrr_n;
-#endif
 
 enum pre_main_priority_order /*top down startup priority*/
 {
@@ -99,24 +95,41 @@ enum program_stablity_bcast_order /*bottom up termination priority*/
 	config_stablity ,
 };
 
-enum cleanup_priority_order /*bottom up termination priority*/
+typedef enum cleanup_priority_order /*bottom up termination priority*/
 {
 	clean_globals ,
 	clean_globals_shared_var ,
 	clean_config ,
 	clean_stat ,
+	
 	more_cleanup_are_ignorable ,
+	
 	clean_persistant_cache_mgr ,
 	clean_packet_mngr , /*most have higher priority than persistant_cache_mgr*/
 	clean_threads , /*wait until all thread go away*/
 	inmem_seg_cleaned ,
-	clean_inmem_seg ,
-	clean_bridge_send_part ,
-	clean_try_post_packet , // before thread goes down
-	stop_send_by_bridge ,
-	bridge_stop_input ,
-	clean_input_connections , // close connection for no more input data
-};
+	cleaned_segments_state = inmem_seg_cleaned, /*do not use this*/
+	
+	wait_until_no_more_unsaved_packet ,
+
+	// all segments closed
+
+	getting_new_udp_stoped , // i put after stop_sending_from_cach_mgr . so no more oacket put into huge cache or Mem2
+	stop_sending_from_cach_mgr , // before thread goes down
+
+	// each pb send_stoped = 1
+	// each pb stop_sending = 1
+
+	stop_sending_from_bridge ,
+	
+	// receive_stoped = true
+	// stop_receiving = true
+	
+	bridge_insure_input_bus_stoped ,
+	stop_input_udp , // close connection for no more input data
+
+	_begin_cleanup_item ,
+} cleanup_priority_order;
 
 enum stat_init_priority_order /*bottom up termination priority*/
 {
@@ -125,11 +138,6 @@ enum stat_init_priority_order /*bottom up termination priority*/
 	packetmgr_statistics ,
 	main_statistics
 };
-
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-	#define MARK_START_THREAD() __arrr_n += sprintf( __arrr + __arrr_n , "%s started %lu\n" , __FUNCTION__ , trd_id );
-	#define MARK_LINE() __arrr_n += sprintf( __arrr + __arrr_n , "%s %d\n" , __FUNCTION__ , __LINE__ );
-#endif
 
 #ifndef control_app_segment_in_deep
 

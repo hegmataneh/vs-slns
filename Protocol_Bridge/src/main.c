@@ -1,6 +1,6 @@
-﻿#define Uses_sleep
+﻿#define Uses_MARK_LINE
+#define Uses_sleep
 #define Uses_strings_ar
-
 #define Uses_MEMSET_ZERO_O
 #define Uses_ci_sgmgr_t
 #define Uses_pthread_t
@@ -10,7 +10,7 @@
 #define Uses_globals
 #include <Protocol_Bridge.dep>
 
-GLOBAL_VAR G * _g = NULL; // just one global var
+_GLOBAL_VAR G * _g = NULL; // just one global var
 
 /// <summary>
 /// اینجوری می خواستم هر قسمت را یک کامپوننت بدانم و در نتیجه هر کسی مسئول ایجاد زیر ساختهای لازم برای خودش است
@@ -24,7 +24,7 @@ _PRIVATE_FXN void pre_main_top_prio_init( void )
 
 #if defined Uses_MemLEAK || !defined __COMPILING
 	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-		GLOBAL_VAR extern mLeak_t __alc_hit[MLK_HASH_WIDTH][EACH_ADDR_COUNT];
+		_GLOBAL_VAR _EXTERN mLeak_t __alc_hit[MLK_HASH_WIDTH][EACH_ADDR_COUNT];
 	#endif
 #endif
 
@@ -32,18 +32,13 @@ _CALLBACK_FXN void inmem_seg_cleaned_up( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 	_g->cmd.quit_noloss_data_thread_4 = 1;
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-	MARK_LINE();
-#endif
+	_g->cmd.cleanup_state = cleaned_segments_state;
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void ignore_cleanup( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 	_g->cmd.quit_app_4 = 1;
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-	MARK_LINE();
-#endif
 }
 
 _CALLBACK_FXN void * signal_thread( void * arg )
@@ -52,22 +47,23 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	int sig;
 	sigwait( set , &sig ); // Wait for Ctrl+C (SIGINT)
 	printf( "\nSIGINT caught, stopping...\n" );
-	_g->cmd.block_sending_1 = 1; // Signal all threads to stop
+	_g->cmd.cleanup_state = _begin_cleanup_item;
+	_g->cmd.block_sending_1 = true;
 	_g->cmd.burst_waiting_2 = true;
-	_g->cmd.quit_first_level_thread_3 = 1;
+	_g->cmd.quit_first_level_thread_3 = true;
 
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( ignore_cleanup ) , _g , more_cleanup_are_ignorable );
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( inmem_seg_cleaned_up ) , _g , inmem_seg_cleaned );
 
-	distributor_publish_long( &_g->distributors.bcast_quit , sig , SUBSCRIBER_PROVIDED );
+	distributor_publish_long( &_g->distributors.bcast_quit , NP , SUBSCRIBER_PROVIDED );
 	sub_destroy( &_g->distributors.bcast_quit );
 	_g->cmd.quit_app_4 = 1;
 	return NULL;
 }
 
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-	GLOBAL_VAR char __arrr[ 100000 ] = { 0 };
-	GLOBAL_VAR int __arrr_n = { 0 };
+	_GLOBAL_VAR _EXTERN char __arrr[ 100000 ];
+	_GLOBAL_VAR _EXTERN int TMP_DUMP_BUFF_N;
 #endif
 
 int main()

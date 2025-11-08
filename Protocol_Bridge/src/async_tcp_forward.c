@@ -1,4 +1,5 @@
-﻿#define Uses_WARNING
+﻿#define Uses_MARK_LINE
+#define Uses_WARNING
 #define Uses_iSTR_SAME
 #define Uses_packet_mngr
 #define Uses_dict_s_i_t
@@ -122,7 +123,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 }
 
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-	GLOBAL_VAR int _sem_in_fast_cache = 0;
+	_GLOBAL_VAR int _sem_in_fast_cache = 0;
 #endif
 
 // read udp ring buffer and sent them into general buffer as fast as possible

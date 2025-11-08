@@ -83,9 +83,9 @@ _CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz
 
 _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g );
 
-_CALLBACK_FXN void release_halffill_segment( pass_p src_g );
+_CALLBACK_FXN void release_halffill_segment( pass_p src_g , long v );
 
-_CALLBACK_FXN status descharge_persistent_storage_data( pass_p data , buffer buf , size_t sz );
+_CALLBACK_FXN status discharge_persistent_storage_data( pass_p data , buffer buf , size_t sz );
 
 void cleanup_pkt_mgr( pkt_mgr_t * pktmgr );
 

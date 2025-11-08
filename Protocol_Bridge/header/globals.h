@@ -2,9 +2,22 @@
 
 typedef struct app_cmd
 {
-	int64 block_sending_1; // for nicely termination there should be flag that say no more sending
-	volatile bool burst_waiting_2;
-	int64 quit_first_level_thread_3;
+	union
+	{
+		bool block_sending_1; // for nicely termination there should be flag that say no more sending
+		char pad1[CACHE_LINE_SIZE];
+	};
+	union
+	{
+		volatile bool burst_waiting_2;
+		char pad2[ CACHE_LINE_SIZE ];
+	};
+	union
+	{
+		bool quit_first_level_thread_3;
+		char pad3[ CACHE_LINE_SIZE ];
+	};
+	cleanup_priority_order cleanup_state;
 	int64 quit_noloss_data_thread_4;
 	int64 quit_app_4;
 } Acmd;
@@ -32,7 +45,8 @@ typedef struct global_distributor
 typedef enum
 {
 	gws_die = -1 ,
-	gws_close = 0,
+	gws_close = 0 ,
+	gws_still_active = gws_close ,
 	gws_open = 1
 } gateway_open_stat;
 
@@ -45,7 +59,11 @@ typedef struct global_handles
 		struct
 		{
 			sem_t pagestack_gateway_open_sem; // prevent cpu burne
-			gateway_open_stat pagestack_gateway_open_val; // assist gateway status . also -1 means close persistent mngr
+			union
+			{
+				gateway_open_stat pagestack_gateway_open_val; // assist gateway status . also -1 means close persistent mngr
+				char pad1[CACHE_LINE_SIZE];
+			};
 		} gateway;
 	};
 

@@ -1,3 +1,4 @@
+#define Uses_MARK_START_THREAD
 #define Uses_strcasecmp
 #define Uses_WARNING
 #define Uses_STR_DIFF
@@ -10,7 +11,7 @@
 #define Uses_globals
 #include <Protocol_Bridge.dep>
 
-GLOBAL_VAR extern G * _g;
+_GLOBAL_VAR _EXTERN G * _g;
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_config( pass_p src_g , long v )
 {
@@ -65,7 +66,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
 {
 	G * _g = ( G * )src_g;
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_config ) , _g , clean_config );
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( stop_sending_by_bridge ) , _g , stop_send_by_bridge );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( try_stoping_sending_from_bridge ) , _g , stop_sending_from_bridge );
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_cfg( void_p src_g )

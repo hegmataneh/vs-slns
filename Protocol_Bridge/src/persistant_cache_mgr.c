@@ -1,3 +1,4 @@
+#define Uses_MARK_LINE
 #define Uses_sleep
 #define Uses_xudp_hdr
 #define Uses_persistant_cache_mgr
@@ -8,7 +9,7 @@
 #define Uses_INIT_BREAKABLE_FXN
 #include <Protocol_Bridge.dep>
 
-GLOBAL_VAR extern G * _g;
+_GLOBAL_VAR _EXTERN G * _g;
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr( pass_p src_g , long v )
 {
@@ -24,15 +25,15 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr( pass_p src_g , lo
 #endif
 }
 
-_PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr_fetch( pass_p src_g , long v )
+_PRIVATE_FXN _CALLBACK_FXN void try_stop_sending_from_cach_mgr( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 
 	for
 	(
-		_g->hdls.gateway.pagestack_gateway_open_val = ( _g->hdls.gateway.pagestack_gateway_open_val >= 0 ? gws_close : _g->hdls.gateway.pagestack_gateway_open_val ) ;
-		_g->hdls.gateway.pagestack_gateway_open_val >= 0 ;
-		sleep( 1 )
+		_g->hdls.gateway.pagestack_gateway_open_val = ( _g->hdls.gateway.pagestack_gateway_open_val >= gws_still_active ? gws_close : _g->hdls.gateway.pagestack_gateway_open_val ) ;
+		_g->hdls.gateway.pagestack_gateway_open_val >= gws_still_active ;
+		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD )
 	)
 	{
 		sem_post( &_g->hdls.gateway.pagestack_gateway_open_sem );
@@ -53,7 +54,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p sr
 
 	// register here to get quit cmd
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr ) , _g , clean_persistant_cache_mgr ); // when file write goes down
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr_fetch ) , _g , clean_try_post_packet ); // when fetch from file not need
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( try_stop_sending_from_cach_mgr ) , _g , stop_sending_from_cach_mgr ); // when fetch from file not need
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p src_g )
@@ -61,7 +62,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p s
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
-	_g->hdls.gateway.pagestack_gateway_open_val = 0;
+	_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
 	sem_init( &_g->hdls.gateway.pagestack_gateway_open_sem , 0 , 0 );
 
 	M_BREAK_STAT( pg_stk_init( &_g->hdls.prst_csh.page_stack , "./" , _g ) , 0 );
@@ -126,8 +127,8 @@ _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p 
 }
 
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-GLOBAL_VAR extern long long _open_gate_cnt;
-GLOBAL_VAR extern long long _close_gate_cnt;
+_GLOBAL_VAR _EXTERN long long _open_gate_cnt;
+_GLOBAL_VAR _EXTERN long long _close_gate_cnt;
 #endif
 
 _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )

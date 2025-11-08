@@ -1,3 +1,4 @@
+#define Uses_MARK_LINE
 #define Uses_proc_many2many_krnl_udp_store
 #define Uses_sleep
 #define Uses_iSTR_SAME
@@ -17,7 +18,7 @@
 #define Uses_globals
 #include <Protocol_Bridge.dep>
 
-GLOBAL_VAR extern G * _g;
+_GLOBAL_VAR _EXTERN G * _g;
 
 _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat( void_p src_g )
 {
@@ -39,7 +40,7 @@ _PRIVATE_FXN void pre_main_init_bridges_component( void )
 	distributor_subscribe( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat ) , _g );
 }
 
-_CALLBACK_FXN void stop_sending_by_bridge( pass_p src_g , long v )
+_CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 	for ( size_t idx = 0 ; idx < _g->bridges.ABs.count ; idx++ )
@@ -47,7 +48,7 @@ _CALLBACK_FXN void stop_sending_by_bridge( pass_p src_g , long v )
 		AB * pb = NULL;
 		if ( mms_array_get_s( &_g->bridges.ABs , idx , ( void ** )&pb ) == errOK )
 		{
-			for ( pb->comm.preq.stop_sending = 1 ; !pb->comm.preq.send_stoped ; sleep( 1 ) ) // order to stop. then after stop continue to clean up
+			for ( pb->comm.preq.stop_sending = 1 ; !pb->comm.preq.send_stoped ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) ) // order to stop. then after stop continue to clean up
 			{
 			}
 		}
@@ -57,28 +58,23 @@ _CALLBACK_FXN void stop_sending_by_bridge( pass_p src_g , long v )
 #endif
 }
 
-_CALLBACK_FXN void bridge_stoping_input( pass_p src_pb , long v )
+_PRIVATE_FXN _CALLBACK_FXN void bridge_insure_input_bus_stoping( pass_p src_pb , long v )
 {
 	AB * pb = ( AB * )src_pb;
 	if ( pb )
 	{
-		for ( pb->comm.preq.stop_receiving = true ; !pb->comm.preq.receive_stoped ; sleep( 1 ) ) // order to stop. then after stop continue to clean up
-		{
-		}
+		for ( pb->comm.preq.stop_receiving = true ; !pb->comm.preq.receive_stoped ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) ); // order to stop. then after stop continue to clean up
 	}
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
 #endif
 }
 
-_CALLBACK_FXN void cleanup_sending_part_bridge( pass_p src_pb , long v )
+_PRIVATE_FXN _CALLBACK_FXN void cleanup_after_nomore_udp( pass_p src_pb , long v )
 {
 	AB * pb = ( AB * )src_pb;
 	if ( pb )
 	{
-		for ( pb->comm.preq.stop_receiving = true ; !pb->comm.preq.receive_stoped ; sleep(1) ) // order to stop. then after stop continue to clean up
-		{ }
-
 		cbuf_pked_destroy( &pb->comm.preq.raw_xudp_cache );
 		finalize_udps_defragmentator( &pb->comm.preq.defraged_udps );
 
@@ -500,8 +496,8 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 	pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
 
 	// TODO . if Ab goes away then unregister quit intrupt
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( bridge_stoping_input ) , pb , bridge_stop_input ); // in several level bridge make cleanup
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_sending_part_bridge ) , pb , clean_bridge_send_part ); // in several level bridge make cleanup
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( bridge_insure_input_bus_stoping ) , pb , bridge_insure_input_bus_stoped ); // in several level bridge make cleanup
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_after_nomore_udp ) , pb , getting_new_udp_stoped ); // in several level bridge make cleanup
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_bridges ) , _g , clean_globals_shared_var ); // in several level bridge make cleanup
 	
 	#ifdef HAS_STATISTICSS
@@ -640,7 +636,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			M_BREAK_IF( !( pb->comm.acts.p_one2one_krnl2krnl_SF = CALLOC_ONE( pb->comm.acts.p_one2one_krnl2krnl_SF ) ) , errMemoryLow , 1 );
 
 			//// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 TODO  , &_g->cmd.burst_waiting_2 ) , 1 );
 
 			if ( !pb->comm.preq.thread_is_created )
 			{
@@ -668,7 +664,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			MEMSET_ZERO_O( pb->comm.acts.p_one2one_pcap2krnl_SF );
 
 			//// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824  TODO , &_g->cmd.burst_waiting_2 ) , 1 );
 
 			if ( !pb->comm.preq.thread_is_created )
 			{

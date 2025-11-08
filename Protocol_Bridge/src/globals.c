@@ -1,3 +1,4 @@
+#define Uses_MARK_LINE
 #define Uses_ddlck
 #define Uses_warn
 #define Uses_sleep
@@ -26,18 +27,18 @@
 #define Uses_statistics
 #include <Protocol_Bridge.dep>
 
-GLOBAL_VAR extern G * _g;
+_GLOBAL_VAR _EXTERN G * _g;
 
 #ifndef DEBUG_section
 
-GLOBAL_VAR _STRONG_ATTR void M_showMsg( LPCSTR msg )
+_GLOBAL_VAR _STRONG_ATTR void M_showMsg( LPCSTR msg )
 {
 	#ifdef HAS_STATISTICSS
 	if ( _g ) strcpy( _g->stat.nc_h.message_text , msg );
 	#endif
 }
 
-GLOBAL_VAR void _Breaked()
+_GLOBAL_VAR void _Breaked()
 {
 	int i = 1;
 	i++;
@@ -183,9 +184,6 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 {
 	G * _g = ( G * )src_g;
-
-	pthread_mutex_init(&_g->hdls.thread_close_mtx, NULL);   // init lock
-
 	pthread_mutex_init(&_g->bridges.tcps_trd.mtx , NULL);
 	distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_globals ) , _g , tcp_thread_trigger );
 
@@ -438,7 +436,7 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		//NM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errSocket , 1 , "inet_pton sock error" );
 
 		//if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
-		if ( ( tcp->tcp_sockfd = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , 1 ) ) == -1 )
+		if ( ( tcp->tcp_sockfd = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT TODO ) ) == -1 )
 		{
 			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
 			{
@@ -501,7 +499,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 							if
 							(
 								!pb->tcps[ itcp ].tcp_is_about_to_connect &&
-								( time( NULL ) - pb->tcps[ itcp ].last_access ) > 60
+								( time( NULL ) - pb->tcps[ itcp ].last_access ) > 60 TODO
 							)
 							{
 								pb->tcps[ itcp ].last_access = time( NULL );
@@ -583,7 +581,7 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 /// <summary>
 /// single point for thread wait
 /// </summary>
-void mng_basic_thread_sleep( G * _g , int priority )
+void mng_basic_thread_sleep( G * _g , int priority ) TODO 
 {
 	struct timespec ts;
 	MEMSET_ZERO( &ts , 1 );

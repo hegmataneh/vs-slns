@@ -1,4 +1,5 @@
-﻿#define Uses_sleep
+﻿#define Uses_MARK_START_THREAD
+#define Uses_sleep
 #define Uses_WARNING
 #define Uses_many_tcp_out_thread_proc
 #define Uses_stablish_pcap_udp_connection
@@ -9,12 +10,13 @@
 #define Uses_INIT_BREAKABLE_FXN
 #include <Protocol_Bridge.dep>
 
+_GLOBAL_VAR _EXTERN G * _g;
 
 _CALLBACK_FXN void quit_interrupt_dist_one2many_pcap2krnl_SF( pass_p src_pb , long v )
 {
 	AB * pb = ( AB * )src_pb;
 	
-	for ( ; pb->comm.acts.p_one2many_pcap2krnl_SF->pcp_handle ; sleep( 1 ) )
+	for ( ; pb->comm.acts.p_one2many_pcap2krnl_SF->pcp_handle ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) )
 	{
 		pcap_breakloop( pb->comm.acts.p_one2many_pcap2krnl_SF->pcp_handle ); // in case we're inside pcap_loop
 		// close really happened after loop closed
@@ -57,7 +59,7 @@ _THREAD_FXN void_p proc_one2many_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	shrtcut.raw_xudp_cache = &pb->comm.preq.raw_xudp_cache;
 
 	// register here to get quit cmd
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_one2many_pcap2krnl_SF ) , pb , clean_input_connections );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_one2many_pcap2krnl_SF ) , pb , stop_input_udp );
 
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &shrtcut ) , 1 );
 

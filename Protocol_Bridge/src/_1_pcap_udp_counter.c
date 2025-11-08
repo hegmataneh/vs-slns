@@ -1,3 +1,4 @@
+#define Uses_MARK_START_THREAD
 #define Uses_WARNING
 #define Uses_FREE_DOUBLE_PTR
 #define Uses_errno
@@ -100,7 +101,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 
 	distributor_publish_long( &_g->distributors.bcast_pb_udp_connected , 0 , ( pass_p )pb );
 	
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb , clean_input_connections );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb , stop_input_udp );
 
 	// Capture indefinitely
 	MM_FMT_BREAK_IF( pcap_loop( pb->comm.acts.p_pcap_udp_counter->pcp_handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->comm.acts.p_pcap_udp_counter->pcp_handle ) );

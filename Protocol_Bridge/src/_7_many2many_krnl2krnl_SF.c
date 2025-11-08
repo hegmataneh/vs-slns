@@ -1,4 +1,5 @@
-﻿#define Uses_token_ring_p_t
+﻿#define Uses_MARK_LINE
+#define Uses_token_ring_p_t
 #define Uses_WARNING
 #define Uses_iSTR_SAME
 #define Uses_dict_s_i_t
@@ -223,7 +224,7 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 			//timeout.tv_usec = 0;
 
 			// Wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
-			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , NULL/* & timeout*/ );
+			int activity = select( sockfd_max + 1 , &readfds , NULL , NULL , NULL/* & timeout*/ ); TODO 
 
 			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
 			{

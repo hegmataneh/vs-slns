@@ -1,4 +1,5 @@
-﻿#define Uses_stablish_pcap_udp_connection
+﻿#define Uses_MARK_START_THREAD
+#define Uses_stablish_pcap_udp_connection
 #define Uses_distributor_init
 #define Uses_errno
 #define Uses_globals
@@ -47,7 +48,7 @@ _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
 	shrtcut.raw_xudp_cache = &pb->comm.preq.raw_xudp_cache;
 
 	// register here to get quit cmd
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_push_many2many_pcap_krnl_SF ) , pb , clean_input_connections );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_push_many2many_pcap_krnl_SF ) , pb , stop_input_udp );
 
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &shrtcut ) , 1 );
 
