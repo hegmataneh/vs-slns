@@ -131,7 +131,7 @@
       <CompileAs>CompileAsC</CompileAs>
     </ClCompile>
     <Link>
-      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core</LibraryDependencies>
+      <LibraryDependencies>ncurses;pthread;tinfo</LibraryDependencies>
       <AdditionalOptions>-pthread %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>

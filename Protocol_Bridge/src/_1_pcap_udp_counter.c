@@ -32,7 +32,6 @@ _CALLBACK_FXN void handle_pcap_udp_counter( u_char * src_pb , const struct pcap_
 	}
 	else
 	{
-
 		gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 		pb->stat.round_zero_set.udp.total_udp_get_count++;
 		pb->stat.round_zero_set.udp.total_udp_get_byte += 1; // TODO . actual byte
@@ -136,6 +135,6 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
-
+	pb->comm.preq.receive_stoped = true;
 	return NULL;
 }

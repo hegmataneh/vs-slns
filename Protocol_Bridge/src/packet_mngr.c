@@ -44,7 +44,7 @@ _PRIVATE_FXN _CALLBACK_FXN void waiting_until_no_more_unsaved_packet( pass_p src
 	_g->cmd.cleanup_state = cur_order;
 
 	time_t tbegin = time( NULL );
-	time_t tnow = tbegin;
+	CIRCUIT_BREAKER long break_cuit = 0;time_t tnow = tbegin;
 	while ( !ci_sgm_is_empty( &_g->hdls.pkt_mgr.huge_fst_cache ) && ( ( tnow - tbegin ) < 60 ) ) TODO 
 	{
 		tnow = time( NULL );
@@ -171,7 +171,6 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_m2_tt_bytes_cell( pass_p src_pcell )
 	sprintf( pcell->storage.tmpbuf , "%zu" , huge_fst_cache->tt_bytes );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
-
 
 #ifdef ENABLE_USE_DBG_TAG
 _CALLBACK_FXN PASSED_CSTR auto_refresh_suc_cell( pass_p src_pcell )

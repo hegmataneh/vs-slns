@@ -52,9 +52,8 @@ _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
 		AB * pb = NULL;
 		if ( mms_array_get_s( &_g->bridges.ABs , idx , ( void ** )&pb ) == errOK )
 		{
-			for ( pb->comm.preq.stop_sending = 1 ; !pb->comm.preq.send_stoped ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) ) // order to stop. then after stop continue to clean up
-			{
-			}
+			CIRCUIT_BREAKER long break_cuit = 0;
+			for ( pb->comm.preq.stop_sending = true ; !pb->comm.preq.send_stoped && break_cuit < 1000 ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ ); // order to stop. then after stop continue to clean up
 		}
 	}
 #ifdef ENABLE_USE_DBG_TAG
@@ -67,7 +66,8 @@ _PRIVATE_FXN _CALLBACK_FXN void bridge_insure_input_bus_stoping( pass_p src_pb ,
 	AB * pb = ( AB * )src_pb;
 	if ( pb )
 	{
-		for ( pb->comm.preq.stop_receiving = true ; !pb->comm.preq.receive_stoped ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) ); // order to stop. then after stop continue to clean up
+		CIRCUIT_BREAKER long break_cuit = 0;
+		for ( pb->comm.preq.stop_receiving = true ; !pb->comm.preq.receive_stoped && break_cuit < 1000  ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ ); // order to stop. then after stop continue to clean up
 	}
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
@@ -123,7 +123,6 @@ _CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
 				DAC( pb->comm.acts.p_one2many_krnl2krnl_SF );
 			}
 			
-
 			#ifdef ENABLE_THROUGHPUT_MEASURE
 			cbuf_m_free( &pb->stat.round_init_set.udp_stat_5_sec_count );
 			cbuf_m_free( &pb->stat.round_init_set.udp_stat_5_sec_bytes );

@@ -249,7 +249,8 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
-	if ( pb->comm.preq.stop_sending ) pb->comm.preq.send_stoped = true;
+	pb->comm.preq.stop_sending = pb->comm.preq.send_stoped = true;
+
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif

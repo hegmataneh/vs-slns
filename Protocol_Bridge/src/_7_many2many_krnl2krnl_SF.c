@@ -427,9 +427,6 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 		//DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
-
-	pb->comm.preq.receive_stoped = true;
-
-
+	pb->comm.preq.receive_stoped = true; // this is important that do not be anyway that stoped does not set
 	return NULL;
 }

@@ -349,6 +349,8 @@ struct App_Data
 
 #define PARALLELISM_COUNT 1
 
+ulong _ERR_COUNTER[_internal_err_count] = {0};
+
 int _connect_tcp( struct tcp_listener * src_tl )
 {
 	INIT_BREAKABLE_FXN();
@@ -363,11 +365,18 @@ int _connect_tcp( struct tcp_listener * src_tl )
 			break;
 		}
 		
-		if ( ( src_tl->tcp_client_connection_sockfd = create_server_socket_with_timeout( src_tl->tlcfg.m.m.id.TCP_listen_ip , src_tl->tlcfg.m.m.id.TCP_listen_port , BAD_NETWORK_HANDSHAKE_TIMEOUT ) ) < 0 )
+		d_error = create_server_socket_with_timeout( src_tl->tlcfg.m.m.id.TCP_listen_ip , src_tl->tlcfg.m.m.id.TCP_listen_port , BAD_NETWORK_HANDSHAKE_TIMEOUT , &src_tl->tcp_client_connection_sockfd );
+		if ( d_error <= 0 )
+		{
+			_ERR_COUNTER[ -d_error ]++;
+		}
+		if ( d_error != errOK )
 		{
 			sleep(1);
 			continue;
 		}
+
+		enable_keepalive_chaotic( src_tl->tcp_client_connection_sockfd );
 
 		src_tl->tcp_connection_established = 1;
 
@@ -554,7 +563,7 @@ void * tcp_listener_runner( void * src_tl )
 			}
 
 			struct timeval timeout; //// Set timeout (e.g., 5 seconds)
-			timeout.tv_sec = ( socket_error_tolerance_count + 1 ) * 2;
+			timeout.tv_sec = 5;
 			timeout.tv_usec = 0;
 			SYS_ALIVE_CHECK();
 			int activity = select( tl->tcp_client_connection_sockfd + 1 , &readfds , NULL , NULL , &timeout );
@@ -1695,20 +1704,21 @@ void draw_table( struct App_Data * _g )
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	// 1 sec
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s tcp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_1_sec.tcp_get_count_throughput , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s tcp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_1_sec.tcp_get_byte_throughput , 4 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	#ifndef throughput
+	//// 1 sec
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s tcp pps" );
+	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_1_sec.tcp_get_count_throughput , 4 , "" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s tcp bps" );
+	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_1_sec.tcp_get_byte_throughput , 4 , "B" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	// 10 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
@@ -1725,20 +1735,38 @@ void draw_table( struct App_Data * _g )
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
-	// 40 sec
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_40_sec.tcp_get_count_throughput / 40 , 4 , "" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_40_sec.tcp_get_byte_throughput / 40 , 4 , "B" ) );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	//// 40 sec
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp pps" );
+	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_40_sec.tcp_get_count_throughput / 40 , 4 , "" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp bps" );
+	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_40_sec.tcp_get_byte_throughput / 40 , 4 , "B" ) );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	#endif
+
+	#ifndef err_count
+
+	for ( int i = 0 ; i < COUNTOF( _ERR_COUNTER ) ; i++ )
+	{
+		if ( _ERR_COUNTER[ i ] > 0 )
+		{
+			mvwprintw( MAIN_WIN , y , start_x , "|" );
+			print_cell( MAIN_WIN , y , start_x + 1 , cell_w , internalErrorStr( -i ) );
+			snprintf( buf , sizeof( buf ) , "%lu" , _ERR_COUNTER[ i ] );
+			mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+			print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+			mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+		}
+	}
+
+	#endif
 
 	wattroff( MAIN_WIN , COLOR_PAIR( 2 ) );
 
@@ -1894,6 +1922,12 @@ void init( struct App_Data * _g )
 	//pthread_cond_init( &_g->sync.cond , NULL );
 }
 
+_CALLBACK_FXN void bad_interrupt( int sig )
+{
+	( void )sig;
+	printf( "sig %d" , sig );
+}
+
 int main()
 {
 	INIT_BREAKABLE_FXN();
@@ -1902,6 +1936,17 @@ int main()
 	__g = _g;
 
 	init( _g );
+
+	signal( SIGPIPE , bad_interrupt );
+	signal( SIGBUS , bad_interrupt );
+	signal( SIGSEGV , bad_interrupt );
+	signal( SIGFPE , bad_interrupt );
+	signal( SIGILL , bad_interrupt );
+	signal( SIGABRT , bad_interrupt );
+	signal( SIGSYS , bad_interrupt );
+	signal( SIGXCPU , bad_interrupt );
+	signal( SIGXFSZ , bad_interrupt );
+	signal( SIGURG , bad_interrupt );
 
 	pthread_t tid_stats , tid_input;
 	pthread_create( &tid_stats , NULL , stats_thread , ( void * )_g );
