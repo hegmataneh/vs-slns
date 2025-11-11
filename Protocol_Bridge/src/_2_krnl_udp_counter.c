@@ -19,7 +19,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 

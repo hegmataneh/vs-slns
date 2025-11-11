@@ -17,7 +17,7 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
@@ -29,7 +29,7 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 #ifdef ENABLE_HALFFILL_SEGMENT
 	sub_destroy( &_g->hdls.pkt_mgr.bcast_release_halffill_segment );
 #endif
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 }
@@ -256,7 +256,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 	
@@ -267,7 +267,9 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 
 	int tmp_debounce_release_segment = 0;
 
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
+#endif
 
 	while ( 1 )
 	{

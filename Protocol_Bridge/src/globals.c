@@ -81,14 +81,14 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 
 	array_free( &_g->hdls.registered_thread );
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 {
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
@@ -122,7 +122,7 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 		}
 	}
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 }
@@ -375,7 +375,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 
@@ -496,7 +496,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 
@@ -787,7 +787,7 @@ _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 

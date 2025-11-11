@@ -136,7 +136,7 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , ( long )pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 
@@ -146,11 +146,15 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 	//shrtcut.raw_xudp_cache = &pb->comm.preq.raw_xudp_cache;
 	shrtcut.bcast_xudp_pkt = &pb->comm.preq.bcast_xudp_pkt;
 
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
+#endif
 
 	init_many_tcp( pb , &shrtcut ); // here make broadcaster then when i send to brodcast itself manage round robin and replicate
 
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
+#endif
 
 	char buffer[ BUFFER_SIZE ] = { 0 }; // Define a buffer to store received data
 
@@ -238,9 +242,9 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 				getsockopt( sockfd_max , SOL_SOCKET , SO_ERROR , &error , &errlen );
 				if ( error != 0 )
 				{
-					#ifdef ENABLE_VERBOSE_FAULT
+				#ifdef ENABLE_VERBOSE_FAULT
 					_VERBOSE_ECHO( "Socket error: %d\n" , error );
-					#endif
+				#endif
 				}
 
 				//if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
@@ -293,9 +297,9 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 					//}
 					continue;
 				}
-				#ifdef ENABLE_VERBOSE_FAULT
+			#ifdef ENABLE_VERBOSE_FAULT
 				_VERBOSE_ECHO( "Socket error: %d\n" , error );
-				#endif
+			#endif
 
 				continue;
 			}
@@ -370,10 +374,10 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 
 							if ( bytes_received <= 0 )
 							{
-								#ifdef ENABLE_GATHER_STATIC
+							#ifdef ENABLE_GATHER_STATIC
 								pb->stat.round_zero_set.continuously_unsuccessful_receive_error++;
 								pb->stat.round_zero_set.total_unsuccessful_receive_error++;
-								#endif
+							#endif
 								continue;
 							}
 							#ifdef ENABLE_GATHER_STATIC

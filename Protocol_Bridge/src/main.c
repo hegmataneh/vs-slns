@@ -31,7 +31,7 @@ _PRIVATE_FXN void pre_main_top_prio_init( void )
 }
 
 #if defined Uses_MemLEAK || !defined __COMPILING
-	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	#ifdef ENABLE_USE_DBG_TAG
 		_GLOBAL_VAR _EXTERN mLeak_t __alc_hit[MLK_HASH_WIDTH][EACH_ADDR_COUNT];
 	#endif
 #endif
@@ -55,7 +55,9 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	int sig;
 	sigwait( set , &sig ); // Wait for Ctrl+C (SIGINT)
 	
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
+#endif
 	
 	printf( "\nSIGINT caught, stopping...\n" );
 	_g->cmd.cleanup_state = _begin_cleanup_item;
@@ -72,7 +74,7 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	return NULL;
 }
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	_GLOBAL_VAR _EXTERN char __arrr[ 100000 ];
 	_GLOBAL_VAR _EXTERN int TMP_DUMP_BUFF_N;
 #endif
@@ -105,25 +107,27 @@ int main()
 	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_version_checker , NULL , version_checker , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create version_checker thread" );
 	
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_loader , NULL , config_loader , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_loader thread" );
 	
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_executer , NULL , config_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_executer thread" );
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
 	pthread_join( _g->trds.trd_watchdog , NULL );
 
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
+#endif
 
 	//#ifdef Uses_MemLEAK
 	//FILE * fl = fopen( "leak.txt" , "w+" );
@@ -141,7 +145,7 @@ int main()
 	//#endif
 
 	#ifdef ENABLE_LOGGING
-	log_close();
+		log_close();
 	#endif
 
 	//sleep(1); // for sanitizer to dump

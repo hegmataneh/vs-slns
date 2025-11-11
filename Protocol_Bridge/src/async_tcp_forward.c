@@ -32,7 +32,9 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 {
 	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
 
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
+#endif
 
 	// enumorate group type
 	{
@@ -121,12 +123,14 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 		}
 	}
 
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
+#endif
 
 	// TODO . call destroy or destructor of any dictionaries and collections
 }
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	_GLOBAL_VAR int _sem_in_fast_cache = 0;
 #endif
 
@@ -143,7 +147,9 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 	init_many_tcp( pb , shrtcut );
 	
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
+#endif
 
 	xudp_hdr * pkt = ( xudp_hdr * )buffer; // plain cup for packet
 	pkt->metadata.version = TCP_XPKT_V1;
@@ -199,7 +205,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 		//while ( cbuf_pked_pop( shrtcut->raw_xudp_cache , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
 		while( poped_defraged_packet( pb , buffer + pkt->metadata.payload_offset /*hdr + pkt*/ , &sz , &pkt->metadata.udp_hdr ) == errOK )
 		{
-			#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+			#ifdef ENABLE_USE_DBG_TAG
 				_sem_in_fast_cache = cbuf_pked_unreliable_sem_count( &pb->comm.preq.raw_xudp_cache );
 			#endif
 
@@ -230,7 +236,9 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 	}
 
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
+#endif
 
 	BREAK_OK( 0 ); // to just ignore gcc warning
 
@@ -242,7 +250,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 	}
 	M_V_END_RET
 	if ( pb->comm.preq.stop_sending ) pb->comm.preq.send_stoped = true;
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 	return NULL;

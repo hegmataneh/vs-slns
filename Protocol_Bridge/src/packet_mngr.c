@@ -21,7 +21,7 @@ _GLOBAL_VAR _EXTERN G * _g;
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_packet_mngr( pass_p src_g , long v )
 {
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
@@ -29,14 +29,14 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_packet_mngr( pass_p src_g , long v )
 
 	cleanup_pkt_mgr( &_g->hdls.pkt_mgr );
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void waiting_until_no_more_unsaved_packet( pass_p src_g , long cur_order )
 {
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
@@ -50,7 +50,7 @@ _PRIVATE_FXN _CALLBACK_FXN void waiting_until_no_more_unsaved_packet( pass_p src
 		tnow = time( NULL );
 	}
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 }
@@ -59,21 +59,21 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
 {
 	G * _g = ( G * )src_g;
 
-	#ifdef ENABLE_HALFFILL_SEGMENT
+#ifdef ENABLE_HALFFILL_SEGMENT
 	distributor_init( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , 1 );
-	#endif
+#endif
 	dict_fst_create( &_g->hdls.pkt_mgr.map_tcp_socket , 512 );
-	#ifdef ENABLE_HALFFILL_SEGMENT
+#ifdef ENABLE_HALFFILL_SEGMENT
 	distributor_subscribe( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , SUB_LONG , SUB_FXN( release_halffill_segment ) , _g ); // each clock try to close open segemtn
-	#endif
+#endif
 
 	// register here to get quit cmd
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_packet_mngr ) , _g , clean_packet_mngr );
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( waiting_until_no_more_unsaved_packet ) , _g , wait_until_no_more_unsaved_packet );
 	
-	#ifdef ENABLE_HALFFILL_SEGMENT
+#ifdef ENABLE_HALFFILL_SEGMENT
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( release_halffill_segment ) , _g , getting_new_udp_stoped ); // there is no more udp so close segment
-	#endif
+#endif
 
 	cbuf_m_init( &_g->hdls.pkt_mgr.last_30_sec_seg_count , 30 );
 }
@@ -85,26 +85,26 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
 
 	segmgr_init( &_g->hdls.pkt_mgr.huge_fst_cache , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_segment_capacity , ( size_t )_g->appcfg.g_cfg->c.c.pkt_mgr_offsets_capacity , True );
 	
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( init_packetmgr_statistics ) , _g , packetmgr_statistics );
-	#endif
+#endif
 	
 	pthread_mutex_init( &_g->hdls.pkt_mgr.pm_lock , NULL );
 
-	#ifdef ENABLE_FILLED_TCP_SEGMENT_PROC
+#ifdef ENABLE_FILLED_TCP_SEGMENT_PROC
 	MM_BREAK_IF( pthread_create( &_g->hdls.pkt_mgr.trd_tcp_sender , NULL , process_filled_tcp_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
-	#endif
+#endif
 
 	//segmgr_init( &_g->hdls.pkt_mgr.sent_package_log , 3200000 , 100000 , True );
 	M_BREAK_STAT( distributor_subscribe( &_g->hdls.prst_csh.bcast_pagestacked_pkts , SUB_DIRECT_ONE_CALL_BUFFER_SIZE , SUB_FXN( discharge_persistent_storage_data ) , _g ) , 0 );
 	
-	#ifdef ENABLE_CLEAN_UNUSED_SEGMENT
+#ifdef ENABLE_CLEAN_UNUSED_SEGMENT
 	MM_BREAK_IF( pthread_create( &_g->hdls.pkt_mgr.trd_clean_unused_segment , NULL , cleanup_unused_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
-	#endif
+#endif
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( sampling_filled_segment_count ) , _g ) , 0 );
-	#endif
+#endif
 
 	BEGIN_SMPL
 	M_V_END_RET
@@ -119,7 +119,7 @@ _PRIVATE_FXN void pre_main_init_packet_mngr_component( void )
 
 #ifndef statistics
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	_GLOBAL_VAR long long _mem_to_tcp = 0;
 	_GLOBAL_VAR long long _mem_to_tcp_failure = 0;
 	_GLOBAL_VAR int _regretion = 0;
@@ -173,7 +173,7 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_m2_tt_bytes_cell( pass_p src_pcell )
 }
 
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 _CALLBACK_FXN PASSED_CSTR auto_refresh_suc_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
@@ -322,34 +322,34 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.huge_fst_cache; pcell->conversion_fxn = auto_refresh_segment_total_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
 	
-	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_FAST "    pkts" ) , 0 ); pcell = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
 	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.huge_fst_cache; pcell->conversion_fxn = auto_refresh_pkt_in_fst_cch_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
-	#endif
+#endif
 
 
 	//--------------------
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 	M_BREAK_STAT( nnc_set_static_int( ptbl , (size_t)irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//--------------------
-	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	// _regretion
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "slope" ) , 0 ); pcell = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
 	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.huge_fst_cache; pcell->conversion_fxn = auto_refresh_regres_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
-	#endif
+#endif
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_HUGE " defraged" ) , 0 ); pcell = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
 	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.huge_fst_cache; pcell->conversion_fxn = auto_refresh_defraged_udp_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
 #endif
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_HUGE " defraged B" ) , 0 ); pcell = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
 	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.huge_fst_cache; pcell->conversion_fxn = auto_refresh_defraged_udp_sz_cell;
@@ -383,12 +383,12 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 	M_BREAK_STAT( nnc_set_static_int( ptbl , ( size_t )irow , ( size_t )icol++ , irow + 1 ) , 0 );
 	//--------------------
-	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_HUGE " direct_tcp" ) , 0 ); pcell = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
 	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.huge_fst_cache; pcell->conversion_fxn = auto_refresh_suc_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
-	#endif
+#endif
 	
 	// tt_m2_items
 	icol = 3;
@@ -436,13 +436,13 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	pcell->storage.bt.pass_data = _g; pcell->conversion_fxn = auto_refresh_memmap_time_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , (size_t)icol++ , pcell ) , 0 );
 
-	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	// sent memmap items
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_FILE " pkt_snt" ) , 0 ); pcell = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
 	pcell->storage.bt.pass_data = _g; pcell->conversion_fxn = auto_refresh_memmap_items_sent_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
-	#endif
+#endif
 
 
 	//--------------------
@@ -490,7 +490,7 @@ _CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz
 		MEMSET_ZERO_O( &_g->hdls.pkt_mgr.latest_huge_memory_time ); // try to send new packet cause time reset
 	}
 
-	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	#ifdef ENABLE_USE_DBG_TAG
 	if ( ret == errOK )
 	{
 		_defraged_udp++;
@@ -657,7 +657,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 
 	if ( pkt1->metadata.sent )
 	{
-		#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+		#ifdef ENABLE_USE_DBG_TAG
 			_mem_to_tcp++;
 		#endif
 
@@ -733,7 +733,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 
 	pkt1->metadata.fault_registered = 1;
 
-	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	#ifdef ENABLE_USE_DBG_TAG
 	_mem_to_tcp_failure++;
 	#endif
 
@@ -760,7 +760,7 @@ _CALLBACK_FXN status discharge_persistent_storage_data( pass_p src_g , buffer bu
 		return errOK;
 	}
 	status d_error = process_segment_itm( buf , sz , src_g );
-	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	#ifdef ENABLE_USE_DBG_TAG
 	if ( d_error == errOK )
 	{
 		_sucFromFile++;
@@ -776,7 +776,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 	G * _g = ( G * )src_g;
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 
@@ -883,7 +883,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 		_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
 	}
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
@@ -895,7 +895,7 @@ _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g )
 	G * _g = ( G * )src_g;
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 
@@ -913,7 +913,7 @@ _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g )
 		}
 	} while ( 1 );
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
@@ -955,25 +955,25 @@ _CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g )
 	_g->hdls.pkt_mgr.strides_packet_peek = ( size_t )MAX( cbuf_m_regression_slope_all( &_g->hdls.pkt_mgr.last_30_sec_seg_count ) *
 		floor( log10( _g->hdls.pkt_mgr.huge_fst_cache.segment_total ) ) , 1 );
 	
-	#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	#ifdef ENABLE_USE_DBG_TAG
 		_regretion = _g->hdls.pkt_mgr.strides_packet_peek;
 	#endif
 }
 
 void cleanup_pkt_mgr( pkt_mgr_t * pktmgr )
 {
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	DBG_PT();
 #endif
 #ifdef ENABLE_HALFFILL_SEGMENT
 	sub_destroy( &pktmgr->bcast_release_halffill_segment );
 #endif
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	DBG_PT();
 #endif
 	//dict_fst_destroy( &pktmgr->map_tcp_socket ); it cause shutdown haulted
 	segmgr_destroy( &pktmgr->huge_fst_cache );
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	DBG_PT();
 #endif
 }

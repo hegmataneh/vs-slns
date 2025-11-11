@@ -102,7 +102,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 
@@ -158,7 +158,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 		case 1: DIST_APP_FAILURE();
 	M_V_END_RET
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 		MARK_LINE();
 #endif
 
@@ -173,7 +173,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 	
@@ -601,8 +601,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 		pthread_mutex_unlock( &_g->appcfg.cfg_mtx );
 	}
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
-		MARK_LINE();
+#ifdef ENABLE_USE_DBG_TAG
+	MARK_LINE();
 #endif
 
 	return NULL;
@@ -616,7 +616,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 	
 	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
 
@@ -626,7 +626,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
@@ -750,7 +750,7 @@ void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg )
 {
 	INIT_BREAKABLE_FXN();
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
@@ -759,7 +759,7 @@ void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg )
 	copy_bridge_cfg( &pb->cpy_cfg , new_ccfg );
 	apply_protocol_bridge_new_cfg_changes( _g , new_ccfg , new_ccfg );
 
-#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+#ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
