@@ -27,17 +27,17 @@ typedef struct global_distributor
 	distributor_t bcast_pre_cfg; //pre_configuration;
 	distributor_t bcast_post_cfg; //post_config_stablished;
 	distributor_t bcast_program_stabled; // stabled after config loaded and first bridges determind
-	distributor_t bcast_thread_startup; //thread_startup; // every thread start up declare himself by this
+	SHARED_MEM distributor_t bcast_thread_startup; //thread_startup; // every thread start up declare himself by this
 	distributor_t bcast_app_lvl_failure; //app_lvl_failure_dist;
 	distributor_t bcast_pb_lvl_failure; //pb_lvl_failure_dist;
 	distributor_t bcast_pb_udp_connected; //pb_udp_connected_dist; // dispatch tcp connection state to increase counter
 	distributor_t bcast_pb_udp_disconnected; //pb_udp_disconnected_dist;
 	distributor_t bcast_pb_tcp_connected; //pb_tcp_connected_dist; // dispatch tcp connection state to increase counter
 	distributor_t bcast_pb_tcp_disconnected; //pb_tcp_disconnected_dist;
-	distributor_t bcast_quit; // quit_interrupt_dist; // quit interrupt dispatch to all pcap loop
+	SHARED_MEM distributor_t bcast_quit; // quit_interrupt_dist; // quit interrupt dispatch to all pcap loop
 
 	#ifdef HAS_STATISTICSS
-	distributor_t throttling_refresh_stat; // refresh stat intervally
+	SHARED_MEM distributor_t throttling_refresh_stat; // refresh stat intervally
 	distributor_t init_static_table; // table that is static with content . for now without AB
 	#endif
 } g_dst;
@@ -108,7 +108,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb );
 _THREAD_FXN void_p watchdog_executer( pass_p src_g );
 
 void init_bypass_stdout( G * _g );
-void M_showMsg( LPCSTR msg );
+//void M_showMsg( LPCSTR msg );
 
 ////int _connect_tcp( AB * pb );
 ////status connect_one_tcp( AB_tcp * tcp );

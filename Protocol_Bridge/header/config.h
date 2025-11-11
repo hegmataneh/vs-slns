@@ -76,6 +76,8 @@ typedef struct App_Config // global config
 	size_t bdj_psv_cfg_count;
 
 	int psv_cfg_changed; // somewhere in cfg something was changed
+	pthread_mutex_t cfg_mtx;
+	bool cfg_mtx_protector;
 
 } Acfg;
 

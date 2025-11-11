@@ -144,7 +144,7 @@ typedef struct notcurses_stat_req
 #ifdef HAS_STATISTICSS
 	nnc_table * pgeneral_tbl; // general overview page. add gere for additional field addition
 
-	dyn_mms_arr field_keeper; // one block keep array of field that dynamically changed. prevent memory fragment
+	SHARED_MEM dyn_mms_arr field_keeper; // one block keep array of field that dynamically changed. prevent memory fragment
 	//kv_table_t map_flds; // make access to field faster
 
 	// fastest way to access important cell
@@ -168,7 +168,7 @@ typedef struct statistics
 	//WINDOW * input_win;
 	
 	#ifdef HAS_STATISTICSS
-	nnc_req nc_h; // notcurses handle
+	SHARED_MEM nnc_req nc_h; // notcurses handle
 	n_s_req nc_s_req; // data viewed in not curses
 	#endif
 

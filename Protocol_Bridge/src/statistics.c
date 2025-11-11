@@ -26,9 +26,9 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 
 		mms_array_free( &_g->stat.nc_s_req.field_keeper );
 	#endif
-
+#ifdef ENABLE_HALFFILL_SEGMENT
 	sub_destroy( &_g->hdls.pkt_mgr.bcast_release_halffill_segment );
-	
+#endif
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	MARK_LINE();
 #endif
@@ -50,11 +50,13 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
 	#endif
 
 	//init_tui( _g );
-	 
+	
+	#ifdef ENABLE_BYPASS_STDOUT
 	init_bypass_stdout( _g );
+	#endif
 
 	#ifdef HAS_STATISTICSS
-	distributor_init( &_g->distributors.throttling_refresh_stat , 1 );
+	distributor_init_withLock( &_g->distributors.throttling_refresh_stat , 1 );
 	#endif
 
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_stat ) , _g , clean_stat );
@@ -265,6 +267,8 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 
 	int tmp_debounce_release_segment = 0;
 
+	MARK_LINE();
+
 	while ( 1 )
 	{
 		if ( GRACEFULLY_END_NOLOSS_THREAD() ) break; // keep track changes until app is down
@@ -274,11 +278,13 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 		distributor_publish_void( &_g->distributors.throttling_refresh_stat , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ );
 		#endif
 
+		#ifdef ENABLE_HALFFILL_SEGMENT
 		if ( !( tmp_debounce_release_segment++ % 5 ) )
 		{
 			// distribute segment management pulse
 			distributor_publish_long( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , NP , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ ); // check if condition is true then set halffill segemtn as fill
 		}
+		#endif
 
 		//pthread_mutex_lock( &_g->stat.lock_data.lock );
 		//werase( _g->stat.main_win );

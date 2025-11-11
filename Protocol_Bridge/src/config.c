@@ -76,6 +76,9 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_cfg( void_p src_g )
 	#ifdef HAS_STATISTICSS
 	distributor_publish_void( &_g->distributors.init_static_table , SUBSCRIBER_PROVIDED );
 	#endif
+
+	pthread_mutex_init( &_g->appcfg.cfg_mtx , NULL );
+	_g->appcfg.cfg_mtx_protector = false;
 }
 
 PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_CONFIG )
@@ -90,7 +93,6 @@ _PRIVATE_FXN void pre_main_init_config_component( void )
 	distributor_init_withOrder( &_g->distributors.bcast_program_stabled , 1 );
 	distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_cfg ) , _g , config_stablity );
 }
-
 
 // TODO . think about race condition
 _THREAD_FXN void_p version_checker( pass_p src_g )
@@ -188,6 +190,9 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 		if ( GRACEFULLY_END_THREAD() ) break;
 		if ( _g->appcfg.g_cfg == NULL || _g->appcfg.version_changed )
 		{
+			pthread_mutex_lock( &_g->appcfg.cfg_mtx );
+			_g->appcfg.cfg_mtx_protector = true;
+
 			Gcfg temp_config = { 0 };
 			Gcfg0 * pGeneralConfiguration = ( Gcfg0 * )&temp_config;
 			brg_cfg_t * pProtocol_Bridges = NULL;
@@ -577,6 +582,9 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 
 			_g->appcfg.version_changed = 0;
 	
+			_g->appcfg.cfg_mtx_protector = false;
+			pthread_mutex_unlock( &_g->appcfg.cfg_mtx );
+
 			//if ( _g->appcfg._psv_cfg_changed && IF_VERBOSE_MODE_CONDITION() )
 			//{
 			//	_ECHO( "protocol_bridge config changed" );
@@ -587,6 +595,11 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 	BEGIN_SMPL
 	M_V_END_RET
+
+	if ( _g->appcfg.cfg_mtx_protector )
+	{
+		pthread_mutex_unlock( &_g->appcfg.cfg_mtx );
+	}
 
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 		MARK_LINE();
@@ -613,6 +626,10 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
 
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
+
 	while ( 1 )
 	{
 		if ( GRACEFULLY_END_THREAD() )
@@ -631,6 +648,8 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 
 		if ( _g->appcfg.psv_cfg_changed )
 		{
+			pthread_mutex_lock( &_g->appcfg.cfg_mtx );
+
 			for ( int ioldcfg = 0 ; ioldcfg < _g->appcfg.old_bdj_psv_cfg_count ; ioldcfg++ )
 			{
 				int exist = 0;
@@ -665,15 +684,23 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 				{
 					// start new cfg
 					add_new_protocol_bridge( _g , &_g->appcfg.bdj_psv_cfg[ icfg ] );
+
+					//static int iii = 0;
+					//if ( ++iii > 0 )
+					//break; // TEMP
 				}
 			}
 			_g->appcfg.psv_cfg_changed = 0; // changes applied
+
+			pthread_mutex_unlock( &_g->appcfg.cfg_mtx );
 
 			if ( _g->distributors.bcast_program_stabled.grps.count )
 			{
 				distributor_publish_void( &_g->distributors.bcast_program_stabled , SUBSCRIBER_PROVIDED );
 				sub_destroy( &_g->distributors.bcast_program_stabled ); // just one time anounce stablity
 			}
+
+			//break; // TEMP
 		}
 		mng_basic_thread_sleep( _g , LOW_PRIORITY_THREAD );
 	}
@@ -723,10 +750,18 @@ void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg )
 {
 	INIT_BREAKABLE_FXN();
 
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
+
 	AB * pb = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->bridges.ABs , (void**)&pb ) , 0 );
 	copy_bridge_cfg( &pb->cpy_cfg , new_ccfg );
 	apply_protocol_bridge_new_cfg_changes( _g , new_ccfg , new_ccfg );
+
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
 
 	BEGIN_SMPL
 	M_V_END_RET

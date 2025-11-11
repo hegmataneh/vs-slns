@@ -1,3 +1,4 @@
+#define Uses_log_write
 #define Uses_MARK_LINE
 #define Uses_ddlck
 #define Uses_warn
@@ -33,13 +34,19 @@ _GLOBAL_VAR _EXTERN G * _g;
 
 _GLOBAL_VAR _STRONG_ATTR void M_showMsg( LPCSTR msg )
 {
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	if ( _g ) strcpy( _g->stat.nc_h.message_text , msg );
-	#endif
+#endif
 }
 
 _GLOBAL_VAR void _Breaked()
 {
+#ifdef Uses_MemLEAK
+	bcktrc_t trc = {0};
+	stktrace_generate( &trc );
+
+	perror( trc.temp_buf );
+#endif
 	int i = 1;
 	i++;
 }
@@ -136,7 +143,11 @@ _CALLBACK_FXN void bad_interrupt( int sig )
 {
 	( void )sig;
 #ifdef ENABLE_VERBOSE_FAULT
-	warn( "warn: %d" , sig );
+	#ifdef ENABLE_LOGGING
+		log_write( LOG_ERROR , "warn: %d" , sig );
+	#else
+		warn( "warn: %d" , sig );
+	#endif
 #endif
 }
 
@@ -160,6 +171,7 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
 	}
 	if ( bstart_tcp_thread )
 	{
+		#ifdef ENABLE_TCP_OUT_PROC
 		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
 		if ( !_g->bridges.tcps_trd.bcreated )
 		{
@@ -170,6 +182,7 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
 			}
 		}
 		pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
+		#endif
 	}
 	M_BREAK_STAT( d_error , 1 );
 
@@ -204,6 +217,12 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
 	signal( SIGBUS , bad_interrupt );
 	signal( SIGSEGV , bad_interrupt );
 	signal( SIGFPE , bad_interrupt );
+	signal( SIGILL , bad_interrupt );
+	signal( SIGABRT , bad_interrupt );
+	signal( SIGSYS , bad_interrupt );
+	signal( SIGXCPU , bad_interrupt );
+	signal( SIGXFSZ , bad_interrupt );
+	signal( SIGURG , bad_interrupt );
 	#endif
 
 	distributor_init( &_g->distributors.bcast_app_lvl_failure , 1 ); // error counter anywhere occured in app
@@ -229,7 +248,7 @@ _PRIVATE_FXN void pre_main_init_helper_component( void )
 {
 	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_helper ) , _g );
 	
-	distributor_init_withOrder( &_g->distributors.bcast_quit , 1 );
+	distributor_init_withOrder_lock( &_g->distributors.bcast_quit , 1 );
 }
 
 #endif
@@ -436,7 +455,8 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		//NM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errSocket , 1 , "inet_pton sock error" );
 
 		//if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
-		if ( ( tcp->tcp_sockfd = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT TODO ) ) == -1 )
+		d_error = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT TODO , &tcp->tcp_sockfd );
+		if ( d_error != errOK )
 		{
 			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
 			{
@@ -484,6 +504,8 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 	{
 		if ( GRACEFULLY_END_THREAD() ) break;
 
+		#ifdef ENABLE_COMMUNICATION
+
 		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
 		for ( size_t ab_idx = 0 ; ab_idx < _g->bridges.ABs.count ; ab_idx++ )
 		{
@@ -529,6 +551,8 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 			}
 		}
 		pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
+
+		#endif // ENABLE_COMMUNICATION
 
 		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	}

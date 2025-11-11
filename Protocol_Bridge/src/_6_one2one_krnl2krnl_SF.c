@@ -308,7 +308,9 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 				}
 			}
 		
-			#endif
+			#else // ENABLE_COMMUNICATION
+			sleep(1);
+			#endif // ENABLE_COMMUNICATION
 
 		}
 

@@ -25,6 +25,10 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat( void_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
+
 #ifdef HAS_STATISTICSS
 	distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( init_bridges_statistics ) , _g , bridge_statistics );
 #endif
@@ -422,6 +426,8 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 {
 	INIT_BREAKABLE_FXN();
 
+	MARK_LINE();
+
 	// UDP
 	if ( pb->cpy_cfg.m.m.maintained.in_count > 0 )
 	{
@@ -436,6 +442,9 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 			distributor_init( &pb->udps[ iudp ].bcast_change_state , 1 );
 		}
 	}
+
+	MARK_LINE();
+
 	// TCP
 	pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
 	if ( pb->cpy_cfg.m.m.maintained.out_count > 0 )
@@ -495,11 +504,15 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 	}
 	pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
 
+	MARK_LINE();
+
 	// TODO . if Ab goes away then unregister quit intrupt
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( bridge_insure_input_bus_stoping ) , pb , bridge_insure_input_bus_stoped ); // in several level bridge make cleanup
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_after_nomore_udp ) , pb , getting_new_udp_stoped ); // in several level bridge make cleanup
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_bridges ) , _g , clean_globals_shared_var ); // in several level bridge make cleanup
 	
+	MARK_LINE();
+
 	#ifdef HAS_STATISTICSS
 	#ifdef ENABLE_THROUGHPUT_MEASURE
 	cbuf_m_init( &pb->stat.round_init_set.udp_stat_5_sec_count , 5 );
@@ -520,7 +533,11 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 	#endif
 	#endif
 
+	MARK_LINE();
+
 	init_udps_defragmentator( &pb->comm.preq.defraged_udps ); // defragmentor
+
+	MARK_LINE();
 
 	BEGIN_RET // TODO . complete reverse on error
 	case 1:
@@ -592,12 +609,14 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 		//	M_BREAK_IF( !( pb->comm.acts.p_pcap_udp_counter = MALLOC_ONE( pb->comm.acts.p_pcap_udp_counter ) ) , errMemoryLow , 1 );
 		//	MEMSET_ZERO_O( pb->comm.acts.p_pcap_udp_counter );
 
+		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 		//	if ( !pb->comm.preq.thread_is_created )
 		//	{
 		//		MM_BREAK_IF( pthread_create( &pb->comm.acts.p_pcap_udp_counter->trd_id , NULL ,
 		//			proc_pcap_udp_counter , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 		//		pb->comm.preq.thread_is_created = 1;
 		//	}
+		#endif
 		
 		//}
 	}
@@ -611,12 +630,14 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//M_BREAK_IF( !( pb->comm.acts.p_krnl_udp_counter = MALLOC_ONE( pb->comm.acts.p_krnl_udp_counter ) ) , errMemoryLow , 1 );
 			//MEMSET_ZERO_O( pb->comm.acts.p_krnl_udp_counter );
 
+			#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			//if ( !pb->comm.preq.thread_is_created )
 			//{
 			//	MM_BREAK_IF( pthread_create( &pb->comm.acts.p_krnl_udp_counter->trd_id , NULL ,
 			//		proc_krnl_udp_counter , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 			//	pb->comm.preq.thread_is_created = 1;
 			//}
+			#endif
 
 			//pthread_t trd_udp_connection;
 			//MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
@@ -638,6 +659,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
 			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 TODO  , &_g->cmd.burst_waiting_2 ) , 1 );
 
+			#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2one_krnl2krnl_SF->income_trd_id , NULL ,
@@ -646,6 +668,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 				//	proc_one2one_krnl_tcp_forward , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->comm.preq.thread_is_created = 1;
 			}
+			#endif
 
 			pthread_t trd_udp_connection;
 			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
@@ -666,6 +689,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
 			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824  TODO , &_g->cmd.burst_waiting_2 ) , 1 );
 
+			#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2one_pcap2krnl_SF->income_trd_id , NULL ,
@@ -674,6 +698,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 					proc_one2one_pcap2krnl_SF_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->comm.preq.thread_is_created = 1;
 			}
+			#endif
 
 			//MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		}
@@ -694,6 +719,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
 			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
 
+			#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_krnl2krnl_SF->income_trd_id , NULL ,
@@ -702,6 +728,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//		proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->comm.preq.thread_is_created = 1;
 			}
+			#endif
 
 			pthread_t trd_udp_connection;
 			MM_BREAK_IF( pthread_create( &trd_udp_connection , NULL , connect_udps_proc , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
@@ -718,8 +745,13 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			M_BREAK_IF( !( pb->comm.acts.p_one2many_pcap2krnl_SF = MALLOC_ONE( pb->comm.acts.p_one2many_pcap2krnl_SF ) ) , errMemoryLow , 1 );
 			MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
 
+			MARK_LINE();
+
 			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
 
+			MARK_LINE();
+
+			#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->income_trd_id , NULL ,
@@ -728,6 +760,10 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 					proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->comm.preq.thread_is_created = 1;
 			}
+			#endif
+
+			MARK_LINE();
+
 			//MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		}
 	}
@@ -743,6 +779,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			////// TODO . buff size came from config
 			//M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
 			
+			#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			//if ( !pb->comm.preq.thread_is_created )
 			//{
 			//	MM_BREAK_IF( pthread_create( &pb->comm.acts.p_many2one_pcap2krnl_SF_serialize->income_trd_id , NULL ,
@@ -751,6 +788,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//	////	 , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 			//	pb->comm.preq.thread_is_created = 1;
 			//}
+			#endif
 			
 			//MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		}
@@ -771,6 +809,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 
 		//	M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
 
+		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 		//	if ( !pb->comm.preq.thread_is_created )
 		//	{
 		//		MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->income_trd_id , NULL ,
@@ -779,6 +818,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 		//			proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 		//		pb->comm.preq.thread_is_created = 1;
 		//	}
+		#endif
 
 		//	MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		//}

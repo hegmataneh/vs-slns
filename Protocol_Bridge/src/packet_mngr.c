@@ -59,14 +59,21 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_packet_mngr( void_p src_g )
 {
 	G * _g = ( G * )src_g;
 
+	#ifdef ENABLE_HALFFILL_SEGMENT
 	distributor_init( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , 1 );
+	#endif
 	dict_fst_create( &_g->hdls.pkt_mgr.map_tcp_socket , 512 );
+	#ifdef ENABLE_HALFFILL_SEGMENT
 	distributor_subscribe( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , SUB_LONG , SUB_FXN( release_halffill_segment ) , _g ); // each clock try to close open segemtn
+	#endif
 
 	// register here to get quit cmd
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_packet_mngr ) , _g , clean_packet_mngr );
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( waiting_until_no_more_unsaved_packet ) , _g , wait_until_no_more_unsaved_packet );
+	
+	#ifdef ENABLE_HALFFILL_SEGMENT
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( release_halffill_segment ) , _g , getting_new_udp_stoped ); // there is no more udp so close segment
+	#endif
 
 	cbuf_m_init( &_g->hdls.pkt_mgr.last_30_sec_seg_count , 30 );
 }
@@ -84,14 +91,14 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
 	
 	pthread_mutex_init( &_g->hdls.pkt_mgr.pm_lock , NULL );
 
-	#ifdef ENABLE_RELEASE_HALF_SEGMENT
+	#ifdef ENABLE_FILLED_TCP_SEGMENT_PROC
 	MM_BREAK_IF( pthread_create( &_g->hdls.pkt_mgr.trd_tcp_sender , NULL , process_filled_tcp_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
 	#endif
 
 	//segmgr_init( &_g->hdls.pkt_mgr.sent_package_log , 3200000 , 100000 , True );
 	M_BREAK_STAT( distributor_subscribe( &_g->hdls.prst_csh.bcast_pagestacked_pkts , SUB_DIRECT_ONE_CALL_BUFFER_SIZE , SUB_FXN( discharge_persistent_storage_data ) , _g ) , 0 );
 	
-	#ifdef ENABLE_RELEASE_HALF_SEGMENT
+	#ifdef ENABLE_CLEAN_UNUSED_SEGMENT
 	MM_BREAK_IF( pthread_create( &_g->hdls.pkt_mgr.trd_clean_unused_segment , NULL , cleanup_unused_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
 	#endif
 
@@ -914,6 +921,7 @@ _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g )
 }
 
 #ifndef release_last_unused_segment
+#ifdef ENABLE_HALFFILL_SEGMENT
 // check first packet of segment then if packet pending too long then close segment
 _PRIVATE_FXN _CALLBACK_FXN bool peek_decide_active_sgm( const buffer buf , size_t sz )
 {
@@ -937,6 +945,7 @@ _CALLBACK_FXN void release_halffill_segment( pass_p src_g , long v )
 	}
 }
 #endif
+#endif
 
 // every one second
 _CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g )
@@ -956,7 +965,9 @@ void cleanup_pkt_mgr( pkt_mgr_t * pktmgr )
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	DBG_PT();
 #endif
+#ifdef ENABLE_HALFFILL_SEGMENT
 	sub_destroy( &pktmgr->bcast_release_halffill_segment );
+#endif
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC
 	DBG_PT();
 #endif

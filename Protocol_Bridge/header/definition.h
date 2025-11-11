@@ -147,14 +147,28 @@ enum stat_init_priority_order /*bottom up termination priority*/
 
 #define ENABLE_PERSISTENT_CACHE
 
-#define ENABLE_RELEASE_HALF_SEGMENT
+#define ENABLE_FILLED_TCP_SEGMENT_PROC
+
+#define ENABLE_CLEAN_UNUSED_SEGMENT
 
 #define ENABLE_GATHER_STATIC
 
-//#define SEND_DIRECTLY_ARRIVE_UDP
+// /*comment by default*/ #define SEND_DIRECTLY_ARRIVE_UDP /*comment by default*/
 
 #define ENABLE_VERBOSE_FAULT
 
 #define ENABLE_THROUGHPUT_MEASURE
+
+#define ENABLE_HALFFILL_SEGMENT
+
+#define ENABLE_LOCK_ON_CONFIG // TODO
+
+#define ENABLE_BRIDGE_THREAD_CREATION
+
+#define ENABLE_TCP_OUT_PROC
+
+#define ENABLE_PCAP_LOOP_PREQ /*pcap and prerequisit that needed*/
+
+#define ENABLE_BYPASS_STDOUT
 
 #endif

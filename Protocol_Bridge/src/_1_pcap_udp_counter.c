@@ -103,6 +103,8 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb , stop_input_udp );
 
+	MARK_LINE();
+
 	// Capture indefinitely
 	MM_FMT_BREAK_IF( pcap_loop( pb->comm.acts.p_pcap_udp_counter->pcp_handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->comm.acts.p_pcap_udp_counter->pcp_handle ) );
 #ifdef ENABLE_USE_INTERNAL_C_STATISTIC

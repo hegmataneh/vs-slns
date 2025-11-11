@@ -2,7 +2,9 @@
 
 typedef struct packet_mngr_prerequisite
 {
+#ifdef ENABLE_HALFFILL_SEGMENT
 	distributor_t bcast_release_halffill_segment; //throttling_release_halffill_segment; // check if condition is true then set halffill segemtn as fill
+#endif
 	kv_table_t map_tcp_socket; // keep mapping between tcp & id
 	ci_sgmgr_t huge_fst_cache; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
 	pthread_t trd_tcp_sender; // get filled segment and send them
@@ -83,7 +85,9 @@ _CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz
 
 _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g );
 
+#ifdef ENABLE_HALFFILL_SEGMENT
 _CALLBACK_FXN void release_halffill_segment( pass_p src_g , long v );
+#endif
 
 _CALLBACK_FXN status discharge_persistent_storage_data( pass_p data , buffer buf , size_t sz );
 

@@ -32,6 +32,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_pth_t * shrtcut
 
 	// TODO . handle multiple interface
 
+	#ifdef ENABLE_PCAP_LOOP_PREQ
 	int clusterd_cnt;
 	strings interface_filter = NULL;
 	strings port_filter = NULL;
@@ -68,10 +69,13 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_pth_t * shrtcut
 		distributor_publish_long( &_g->distributors.bcast_pb_udp_connected , 0 , ( pass_p )pb );
 	}
 
+	MARK_LINE();
+
 	// Capture indefinitely
 	MM_FMT_BREAK_IF( pcap_loop( *shrtcut->pcp_handle , -1 , handle_pcap_udp_receiver , ( pass_p )pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( *shrtcut->pcp_handle ) );
 
 	pcap_close( *shrtcut->pcp_handle );
+	#endif
 	*shrtcut->pcp_handle = NULL; // closed successfully
 	pb->comm.preq.receive_stoped = true;
 	

@@ -146,7 +146,11 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 	//shrtcut.raw_xudp_cache = &pb->comm.preq.raw_xudp_cache;
 	shrtcut.bcast_xudp_pkt = &pb->comm.preq.bcast_xudp_pkt;
 
+	MARK_LINE();
+
 	init_many_tcp( pb , &shrtcut ); // here make broadcaster then when i send to brodcast itself manage round robin and replicate
+
+	MARK_LINE();
 
 	char buffer[ BUFFER_SIZE ] = { 0 }; // Define a buffer to store received data
 
@@ -401,7 +405,9 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 					}
 				}
 			}
-			#endif
+			#else // ENABLE_COMMUNICATION
+			sleep(1);
+			#endif // ENABLE_COMMUNICATION
 		}
 
 	} while ( config_changes );

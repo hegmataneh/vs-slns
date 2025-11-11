@@ -1,4 +1,5 @@
-﻿#define Uses_MARK_LINE
+﻿#define Uses_log_init
+#define Uses_MARK_LINE
 #define Uses_sleep
 #define Uses_strings_ar
 #define Uses_MEMSET_ZERO_O
@@ -20,6 +21,13 @@ _PRIVATE_FXN void pre_main_top_prio_init( void )
 {
 	static G g = {0};
 	_g = &g;
+
+	#ifdef ENABLE_LOGGING
+	char meta_path[ MAX_PATH ] = {0};
+	time_t tnow = time( NULL );
+	snprintf( meta_path , sizeof( meta_path ) , "./log%ld.txt" , tnow );
+	log_init( meta_path , true );
+	#endif
 }
 
 #if defined Uses_MemLEAK || !defined __COMPILING
@@ -46,6 +54,9 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	sigset_t * set = arg;
 	int sig;
 	sigwait( set , &sig ); // Wait for Ctrl+C (SIGINT)
+	
+	MARK_LINE();
+	
 	printf( "\nSIGINT caught, stopping...\n" );
 	_g->cmd.cleanup_state = _begin_cleanup_item;
 	_g->cmd.block_sending_1 = true;
@@ -91,11 +102,28 @@ int main()
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_watchdog , NULL , watchdog_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create watchdog thread" );
 
 	//pthread_create( &_g->trds.tid_input , NULL , input_thread , ( pass_p )_g );
+	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_version_checker , NULL , version_checker , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create version_checker thread" );
+	
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
+	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_loader , NULL , config_loader , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_loader thread" );
+	
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
+	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_executer , NULL , config_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_executer thread" );
 
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
+
 	pthread_join( _g->trds.trd_watchdog , NULL );
+
+	MARK_LINE();
 
 	//#ifdef Uses_MemLEAK
 	//FILE * fl = fopen( "leak.txt" , "w+" );
@@ -112,6 +140,9 @@ int main()
 	//fclose( fl );
 	//#endif
 
+	#ifdef ENABLE_LOGGING
+	log_close();
+	#endif
 
 	//sleep(1); // for sanitizer to dump
 	_exit( 0 );

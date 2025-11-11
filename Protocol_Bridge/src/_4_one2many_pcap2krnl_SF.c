@@ -61,6 +61,8 @@ _THREAD_FXN void_p proc_one2many_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	// register here to get quit cmd
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_one2many_pcap2krnl_SF ) , pb , stop_input_udp );
 
+	MARK_LINE();
+
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &shrtcut ) , 1 );
 
 	BEGIN_RET
@@ -90,6 +92,8 @@ _THREAD_FXN void_p proc_one2many_tcp_out( pass_p src_pb )
 	shrtcut.dc_token_ring = &pb->comm.acts.p_one2many_pcap2krnl_SF->dc_token_ring;
 	shrtcut.raw_xudp_cache = &pb->comm.preq.raw_xudp_cache;
 	shrtcut.bcast_xudp_pkt = &pb->comm.preq.bcast_xudp_pkt;
+
+	MARK_LINE();
 
 	many_tcp_out_thread_proc( pb , &shrtcut );
 

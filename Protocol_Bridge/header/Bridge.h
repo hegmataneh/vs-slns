@@ -158,7 +158,7 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 // TODO . IPv6
 typedef struct AB_holders
 {
-	dyn_mms_arr ABs; // AB . all the active protocol_bridge or Active bridges
+	SHARED_MEM dyn_mms_arr ABs; // AB . all the active protocol_bridge or Active bridges
 	size_t connected_tcp_out; /*is there any output tcp exist. if there is so it could be possible to iterate throw memmaps*/
 
 	struct

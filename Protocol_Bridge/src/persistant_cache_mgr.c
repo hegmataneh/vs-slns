@@ -65,10 +65,14 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p s
 	_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
 	sem_init( &_g->hdls.gateway.pagestack_gateway_open_sem , 0 , 0 );
 
+#ifdef ENABLE_USE_INTERNAL_C_STATISTIC
+	MARK_LINE();
+#endif
+
+#ifdef ENABLE_PERSISTENT_CACHE
 	M_BREAK_STAT( pg_stk_init( &_g->hdls.prst_csh.page_stack , "./" , _g ) , 0 );
-	#ifdef ENABLE_PERSISTENT_CACHE
 	MM_BREAK_IF( pthread_create( &_g->hdls.prst_csh.trd_pagestack_discharger , NULL , discharge_persistant_cache_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
-	#endif
+#endif
 
 	BEGIN_SMPL
 	M_V_END_RET
@@ -83,10 +87,14 @@ _PRIVATE_FXN void pre_main_init_persistant_cache_mngr_component( void )
 
 _CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src_xudp_hdr , size_t sz )
 {
+#ifdef ENABLE_PERSISTENT_CACHE
 	G * _g = ( G * )src_g;
 	xudp_hdr * pkt1 = ( xudp_hdr * )src_xudp_hdr;
 
 	return pg_stk_store( &_g->hdls.prst_csh.page_stack , src_xudp_hdr , sz );
+#else
+	return errOK;
+#endif
 }
 
 _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p src_g , void_p data , size_t len )
