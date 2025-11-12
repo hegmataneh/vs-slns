@@ -47,7 +47,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _Ignorable_thread );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();

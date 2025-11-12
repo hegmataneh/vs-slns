@@ -70,7 +70,8 @@ typedef struct global_handles
 	struct
 	{
 		pthread_mutex_t thread_close_mtx; // work with registered_thread
-		dyn_arr registered_thread;
+		dyn_arr registered_thread; // pthread_t
+		dyn_arr sticky_thread; // pthread_t . thread that does not quit easilly and not important
 	};
 
 } g_hdl;
@@ -181,3 +182,5 @@ _CALLBACK_FXN PASSED_CSTR pb_40s_tcp_bps_2_str( pass_p src_pcell );
 
 #endif
 #endif
+
+_GLOBAL_VAR _EXTERN void * _Ignorable_thread;

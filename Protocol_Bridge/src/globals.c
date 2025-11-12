@@ -30,6 +30,9 @@
 
 _GLOBAL_VAR _EXTERN G * _g;
 
+_GLOBAL_VAR void * _Ignorable_thread_main = NULL;
+_GLOBAL_VAR void * _Ignorable_thread = &_Ignorable_thread_main;
+
 #ifndef DEBUG_section
 
 _GLOBAL_VAR _STRONG_ATTR void M_showMsg( LPCSTR msg )
@@ -80,6 +83,7 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 	//sub_destroy( &_g->distributors.bcast_quit );
 
 	array_free( &_g->hdls.registered_thread );
+	array_free( &_g->hdls.sticky_thread );
 
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
@@ -104,7 +108,20 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 		{
 			if ( array_get_s( &_g->hdls.registered_thread , idx , ( void ** )&ppthread_t ) == errOK && *ppthread_t )
 			{
-				one_thread_still = true;
+				bool bignorable = false;
+				for ( size_t stk_idx = 0 ; stk_idx < _g->hdls.sticky_thread.count ; stk_idx++ )
+				{
+					pthread_t * ppthread_t_tmp = NULL;
+					if ( array_get_s( &_g->hdls.sticky_thread , stk_idx , ( void ** )&ppthread_t_tmp ) == errOK && *ppthread_t_tmp == *ppthread_t )
+					{
+						bignorable = true;
+					}
+				}
+				if ( !bignorable )
+				{
+					one_thread_still = true;
+				}
+				
 				//break;
 				//time_t tbegin = time( NULL );
 				//time_t tnow = tbegin;
@@ -127,11 +144,15 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 #endif
 }
 
-_CALLBACK_FXN void thread_registration( pass_p src_g , long src_pthread_t )
+_CALLBACK_FXN void thread_registration( pass_p src_p , long src_pthread_t )
 {
-	G * _g = ( G * )src_g;
+	//G * _g = ( G * )src_p;
 	pthread_mutex_lock( &_g->hdls.thread_close_mtx );
 	array_add( &_g->hdls.registered_thread , ( void * )&src_pthread_t );
+	if ( src_p == _Ignorable_thread )
+	{
+		array_add( &_g->hdls.sticky_thread , ( void * )&src_pthread_t );
+	}
 	pthread_mutex_unlock( &_g->hdls.thread_close_mtx );
 	
 	#ifdef HAS_STATISTICSS
@@ -201,6 +222,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g ) /*call by
 	distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_globals ) , _g , tcp_thread_trigger );
 
 	array_init( &_g->hdls.registered_thread , sizeof( pthread_t ) , 1 , GROW_STEP , 0 ); // keep started thread
+	array_init( &_g->hdls.sticky_thread , sizeof( pthread_t ) , 1 , GROW_STEP , 0 ); // keep started thread
 
 	////pthread_mutex_init( &_g->sync.mutex , NULL );
 	////pthread_cond_init( &_g->sync.cond , NULL );

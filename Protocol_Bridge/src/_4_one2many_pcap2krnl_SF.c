@@ -22,6 +22,12 @@ _CALLBACK_FXN void quit_interrupt_dist_one2many_pcap2krnl_SF( pass_p src_pb , lo
 		pcap_breakloop( pb->comm.acts.p_one2many_pcap2krnl_SF->pcp_handle ); // in case we're inside pcap_loop
 		// close really happened after loop closed
 	}
+	if ( pb->comm.acts.p_one2many_pcap2krnl_SF->pcp_handle )
+	{
+		char errbuf[ PCAP_ERRBUF_SIZE ] = { 0 };
+		pcap_setnonblock( pb->comm.acts.p_one2many_pcap2krnl_SF->pcp_handle , 1 , errbuf );
+		pcap_breakloop( pb->comm.acts.p_one2many_pcap2krnl_SF->pcp_handle ); // in case we're inside pcap_loop
+	}
 }
 
 //_PRIVATE_FXN _CALLBACK_FXN status buffer_push_one2many_pcap2krnl_SF( pass_p data , buffer buf , int payload_len )
@@ -36,7 +42,7 @@ _THREAD_FXN void_p proc_one2many_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _Ignorable_thread );
 	__attribute__((cleanup(thread_goes_out_of_scope))) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
@@ -84,7 +90,7 @@ _THREAD_FXN void_p proc_one2many_tcp_out( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _Ignorable_thread );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();

@@ -44,7 +44,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_pth_t * shrtcut
 	MM_FMT_BREAK_IF( pcap_lookupnet( interface_filter[ 0 ] , &net , &mask , errbuf) == -1 , errDevice , 1 , "use correct interface %s\n" , errbuf);
 
 	// Open in promiscuous mode, snapshot length 65535, no timeout (0 means immediate)
-	MM_FMT_BREAK_IF( !( *shrtcut->pcp_handle = pcap_open_live( interface_filter[ 0 ] , 65535, 1, 1000 , errbuf) ) , errDevice , 1 , "exe by pcap prmit usr %s\n" , interface_filter[0] , errbuf);
+	MM_FMT_BREAK_IF( !( *shrtcut->pcp_handle = pcap_open_live( interface_filter[ 0 ] , 65535, 1, 1000 , errbuf ) ) , errDevice , 1 , "exe by pcap prmit usr %s\n" , interface_filter[0] , errbuf);
 
 	// Compile and apply filter
 	MM_FMT_BREAK_IF( pcap_compile( *shrtcut->pcp_handle , &fp , port_filter[ 0 ] , 1 , mask) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr(*shrtcut->pcp_handle));
