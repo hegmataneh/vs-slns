@@ -1,5 +1,6 @@
 ﻿#ifndef section_include
 
+#define Uses_signal
 #define Uses_fcntl
 #define Uses_pthread_create
 #define Uses_format_elapsed_time_with_millis

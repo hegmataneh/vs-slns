@@ -46,7 +46,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
 	//pthread_mutex_init( &_g->stat.lock_data.lock , NULL );
 
 	#ifdef HAS_STATISTICSS
-	distributor_init_withOrder( &_g->distributors.init_static_table , 1 );
+	distributor_init_withOrder_lock( &_g->distributors.init_static_table , 1 );
 	#endif
 
 	//init_tui( _g );
@@ -75,10 +75,10 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat( void_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( init_main_statistics ) , _g , main_statistics );
 	distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( statistics_is_stabled_event ) , _g , statistics_is_stabled );
-	#endif
+#endif
 
 	BEGIN_SMPL
 	M_V_END_RET
@@ -120,10 +120,10 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	M_BREAK_STAT( nnc_begin_init_mode( &_g->stat.nc_h ) , 0 );
 	M_BREAK_STAT( mms_array_init( &_g->stat.nc_s_req.field_keeper , sizeof( nnc_cell_content ) , 1 , GROW_STEP , 0 ) , 0 ); // some place to store field in one place and prevent realease mutiple field sorage
-	#endif
+#endif
 
 	//M_BREAK_STAT( dict_fst_create( &_g->stat.nc_s_req.map_flds , 256 ) , 0 );
 
@@ -242,12 +242,12 @@ _CALLBACK_FXN void g_every_ticking_refresh( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_time_cell );
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_elapse_cell );
 
 	continue_loop_callback( &_g->stat.nc_h );
-	#endif
+#endif
 }
 
 _THREAD_FXN void_p stats_thread( pass_p src_g )
@@ -299,6 +299,18 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 		//sleep( 3 /*STAT_REFERESH_INTERVAL_SEC()*/ ); // OK 14040526
 	}
 	return NULL;
+}
+
+// afer main config stablished then its time to broadcast it to every where meanwhile notcureses init him self and other stuff that suppose to happened
+void init_UI( G * _g ) /*call by main thread*/
+{
+	CIRCUIT_BREAKER long break_cuit = 0;
+	for ( ; !_g->appcfg.already_main_cfg_stablished && break_cuit < 1000 ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ );
+	if ( _g->appcfg.already_main_cfg_stablished && _g->distributors.bcast_program_stabled.grps.count )
+	{
+		distributor_publish_void( &_g->distributors.bcast_program_stabled , SUBSCRIBER_PROVIDED );
+		sub_destroy( &_g->distributors.bcast_program_stabled ); // just one time anounce stablity
+	}
 }
 
 //void init_ncursor()

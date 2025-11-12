@@ -20,7 +20,7 @@
 
 _GLOBAL_VAR _EXTERN G * _g;
 
-_CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat( void_p src_g )
+_CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat_bridges( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
@@ -41,7 +41,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat( void_p src_g )
 PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_BRIDGES )
 _PRIVATE_FXN void pre_main_init_bridges_component( void )
 {
-	distributor_subscribe( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat ) , _g );
+	distributor_subscribe( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat_bridges ) , _g );
 }
 
 _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )

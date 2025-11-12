@@ -79,6 +79,8 @@ typedef struct App_Config // global config
 	pthread_mutex_t cfg_mtx;
 	bool cfg_mtx_protector;
 
+	bool already_main_cfg_stablished;
+
 } Acfg;
 
 _THREAD_FXN void_p version_checker( pass_p src_g );

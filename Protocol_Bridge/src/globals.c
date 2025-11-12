@@ -194,7 +194,7 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
 	M_V_END_RET
 }
 
-_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g )
+_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g ) /*call by main thread*/
 {
 	G * _g = ( G * )src_g;
 	pthread_mutex_init(&_g->bridges.tcps_trd.mtx , NULL);

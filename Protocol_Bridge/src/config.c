@@ -685,20 +685,13 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 					// start new cfg
 					add_new_protocol_bridge( _g , &_g->appcfg.bdj_psv_cfg[ icfg ] );
 
-					//static int iii = 0;
-					//if ( ++iii > 0 )
-					//break; // TEMP
 				}
 			}
 			_g->appcfg.psv_cfg_changed = 0; // changes applied
 
 			pthread_mutex_unlock( &_g->appcfg.cfg_mtx );
 
-			if ( _g->distributors.bcast_program_stabled.grps.count )
-			{
-				distributor_publish_void( &_g->distributors.bcast_program_stabled , SUBSCRIBER_PROVIDED );
-				sub_destroy( &_g->distributors.bcast_program_stabled ); // just one time anounce stablity
-			}
+			_g->appcfg.already_main_cfg_stablished = true;
 
 			//break; // TEMP
 		}

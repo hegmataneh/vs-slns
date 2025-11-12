@@ -123,6 +123,9 @@ int main()
 	MARK_LINE();
 #endif
 
+	init_UI( _g );
+
+
 	pthread_join( _g->trds.trd_watchdog , NULL );
 
 #ifdef ENABLE_USE_DBG_TAG

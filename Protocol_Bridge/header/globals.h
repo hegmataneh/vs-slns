@@ -38,7 +38,7 @@ typedef struct global_distributor
 
 	#ifdef HAS_STATISTICSS
 	SHARED_MEM distributor_t throttling_refresh_stat; // refresh stat intervally
-	distributor_t init_static_table; // table that is static with content . for now without AB
+	SHARED_MEM distributor_t init_static_table; // table that is static with content . for now without AB
 	#endif
 } g_dst;
 
@@ -109,6 +109,8 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g );
 
 void init_bypass_stdout( G * _g );
 //void M_showMsg( LPCSTR msg );
+
+void init_UI( G * _g );
 
 ////int _connect_tcp( AB * pb );
 ////status connect_one_tcp( AB_tcp * tcp );
