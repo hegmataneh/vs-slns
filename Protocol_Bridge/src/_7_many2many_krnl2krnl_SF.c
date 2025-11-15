@@ -23,6 +23,9 @@ _CALLBACK_FXN _PRIVATE_FXN status fast_ring_2_huge_ring_7_( pass_p data , buffer
 	xudp_hdr * pkt = ( xudp_hdr * )buf;
 	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
 
+	// there in multiple tcp so each packet should have its own hash and uniq id
+	dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id );
+
 	return fast_ring_2_huge_ring( data , buf , sz );
 }
 
@@ -167,6 +170,8 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 	pkt->metadata.TCP_name_size = ( uint8_t )sizeof( pb->tcps[ 0 ].__tcp_cfg_pak->name );
 	pkt->metadata.payload_offset = ( uint8_t )sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + ( uint8_t )sizeof( EOS )/*to read hdr name faster*/;
 	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );
+
+	// TODO . add M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
 
 	//while ( !pb->comm.preq.bridg_prerequisite_stabled )
 	//{

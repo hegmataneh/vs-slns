@@ -24,6 +24,9 @@ _CALLBACK_FXN _PRIVATE_FXN status fast_ring_2_huge_ring_global( pass_p data , bu
 	xudp_hdr * pkt = ( xudp_hdr * )buf;
 	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
 
+	// there in multiple tcp so each packet should have its own hash and uniq id
+	dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id );
+
 	return fast_ring_2_huge_ring( data , buf , sz );
 }
 
@@ -163,12 +166,6 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 	int output_tcp_socket_error_tolerance_count = 0; // restart socket after many error accur
 
-	//char * p = ( char * )pb->cpy_cfg.m.m.id.short_name;
-	//if ( STR_SAME( p , ".70:1234" ) )
-	//{
-	//	int i = 1 + 2;
-	//}
-
 	//while ( !pb->comm.preq.bridg_prerequisite_stabled )
 	//{
 	//	if ( GRACEFULLY_END_THREAD() ) break;
@@ -176,6 +173,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 	//}
 
 	// to be insure we used correct tcp output
+	// / there is many tcp out so use one tcp name is wrong
 	//M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
 
 	while ( 1 )
@@ -199,7 +197,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 			break;
 		}
 
-		#ifdef ENABLE_COMMUNICATION
+	#ifdef ENABLE_COMMUNICATION
 
 		// from ring pcap to stack general
 		//while ( cbuf_pked_pop( shrtcut->raw_xudp_cache , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
@@ -230,9 +228,9 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 			pb->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
 		}
 
-		#else
+	#else
 		sleep(1);
-		#endif
+	#endif
 
 	}
 

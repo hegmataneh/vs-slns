@@ -48,6 +48,9 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	pkt->metadata.payload_offset = (uint8_t)sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + (uint8_t)sizeof( EOS )/*to read hdr name faster*/;
 	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );
 
+	// one tcp out so there is one place to set hash and uniq id is enough
+	M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
+
 	//while ( !pb->comm.preq.bridg_prerequisite_stabled )
 	//{
 	//	if ( pb->comm.preq.do_close_thread )

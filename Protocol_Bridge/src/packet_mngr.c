@@ -554,7 +554,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 		{
 			AB_tcp * ptcp = ( AB_tcp * )ab_tcp_p;
 		}
-		err_sent = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 ); // send is too heavy
+		err_sent = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 , ACK_TIMEOUT_ms ); // send is too heavy
 		switch ( err_sent )
 		{
 			case errOK:
@@ -605,7 +605,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 					{
 						if ( pb->tcps[ itcp ].this->tcp_connection_established )
 						{
-							err_sent = tcp_send_all( pb->tcps[ itcp ].this->tcp_sockfd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 ); // send is to heavy
+							err_sent = tcp_send_all( pb->tcps[ itcp ].this->tcp_sockfd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 , ACK_TIMEOUT_ms ); // send is to heavy
 							switch ( err_sent )
 							{
 								case errOK:
