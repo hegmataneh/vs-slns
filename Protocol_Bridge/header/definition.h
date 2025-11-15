@@ -171,4 +171,6 @@ enum stat_init_priority_order /*bottom up termination priority*/
 
 #define ENABLE_BYPASS_STDOUT
 
+#define ENABLE_KEEPALIVE_CHAOTIC
+
 #endif

@@ -235,16 +235,16 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g ) /*call by
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_globals ) , _g , clean_globals ); // place to release global variables
 
 	#ifdef ENABLE_VERBOSE_FAULT
-	signal( SIGPIPE , bad_interrupt );
-	signal( SIGBUS , bad_interrupt );
-	signal( SIGSEGV , bad_interrupt );
-	signal( SIGFPE , bad_interrupt );
-	signal( SIGILL , bad_interrupt );
-	signal( SIGABRT , bad_interrupt );
-	signal( SIGSYS , bad_interrupt );
-	signal( SIGXCPU , bad_interrupt );
-	signal( SIGXFSZ , bad_interrupt );
-	signal( SIGURG , bad_interrupt );
+	//signal( SIGPIPE , bad_interrupt );
+	//signal( SIGBUS , bad_interrupt );
+	//signal( SIGSEGV , bad_interrupt );
+	//signal( SIGFPE , bad_interrupt );
+	//signal( SIGILL , bad_interrupt );
+	//signal( SIGABRT , bad_interrupt );
+	//signal( SIGSYS , bad_interrupt );
+	//signal( SIGXCPU , bad_interrupt );
+	//signal( SIGXFSZ , bad_interrupt );
+	//signal( SIGURG , bad_interrupt );
 	#endif
 
 	distributor_init( &_g->distributors.bcast_app_lvl_failure , 1 ); // error counter anywhere occured in app
@@ -492,7 +492,9 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		else
 		{
 			fcntl( tcp->tcp_sockfd , F_SETFL , O_NONBLOCK ); // to prevent tcp stack handles lingering to closed peer connection
+		#ifdef ENABLE_KEEPALIVE_CHAOTIC
 			enable_keepalive_chaotic( tcp->tcp_sockfd ); // to keep alive and try to probe peer in semi normal sitribution time and does not have line up in connction
+		#endif
 
 			tcp->tcp_connection_established = 1;
 			tcp->tcp_is_about_to_connect = 0;
