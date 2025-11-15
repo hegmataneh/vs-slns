@@ -975,4 +975,5 @@ void cleanup_pkt_mgr( pkt_mgr_t * pktmgr )
 #ifdef ENABLE_USE_DBG_TAG
 	DBG_PT();
 #endif
+	pthread_mutex_destroy( &pktmgr->pm_lock );
 }

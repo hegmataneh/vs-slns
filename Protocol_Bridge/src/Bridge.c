@@ -1,3 +1,4 @@
+#define Uses_pthread_mutex_timedlock_rel
 #define Uses_MARK_LINE
 #define Uses_proc_many2many_krnl_udp_store
 #define Uses_sleep
@@ -54,6 +55,32 @@ _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
 		{
 			CIRCUIT_BREAKER long break_cuit = 0;
 			for ( pb->comm.preq.stop_sending = true ; !pb->comm.preq.send_stoped && break_cuit < 1000 ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ ); // order to stop. then after stop continue to clean up
+
+			for ( CIRCUIT_BREAKER long break_cuit_1 = 0 ; break_cuit_1 < 10 ; break_cuit_1++ ) /*make a gap to insure there is no sender on tcp*/
+			{
+				if ( pthread_mutex_timedlock_rel( &_g->bridges.tcps_trd.mtx , 1 ) != errOK ) continue;
+
+				for ( CIRCUIT_BREAKER long break_cuit_2 = 0 ; break_cuit_2 < 10 ; break_cuit_2++ )
+				{
+					if ( pthread_mutex_timedlock_rel( &_g->hdls.pkt_mgr.pm_lock , 1 ) != errOK ) continue;
+					
+					for ( size_t tcpidx = 0 ; tcpidx < pb->tcps_count ; tcpidx++ )
+					{
+						if ( pb->tcps[ tcpidx ].main_instance )
+						{
+							if ( pb->tcps[ tcpidx ].tcp_connection_established )
+							{
+								_close_socket( &pb->tcps[ tcpidx ].tcp_sockfd );
+							}
+						}
+					}
+					
+					pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
+					break;
+				}
+				pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
+				break;
+			}
 		}
 	}
 #ifdef ENABLE_USE_DBG_TAG

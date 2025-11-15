@@ -414,7 +414,7 @@ void * thread_tcp_connection_proc( void * src_tl )
 		_close_socket( &tl->tcp_client_connection_sockfd );
 		//_close_socket( &tl->tcp_server_listener_sockfd );
 		tl->tcp_connection_established = 0;
-		_g->stat.tcp_connection_count--;
+		if ( _g->stat.tcp_connection_count > 0 ) _g->stat.tcp_connection_count--;
 	}
 
 	if ( _connect_tcp( tl ) == 0 )

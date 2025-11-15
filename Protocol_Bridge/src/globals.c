@@ -322,11 +322,11 @@ _CALLBACK_FXN void udp_disconnected( pass_p src_AB , long src_AB_udp )
 	AB_udp * pudp = ( AB_udp * )src_AB_udp;
 	AB * pb = pudp->owner_pb;
 
-	pb->stat.round_zero_set.udp_connection_count--;
+	if ( pb->stat.round_zero_set.udp_connection_count > 0 ) pb->stat.round_zero_set.udp_connection_count--;
 
 	//distributor_publish_long( &pudp->bcast_change_state , 0 , src_AB_udp ); // transfer state per case
 
-	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count--;
+	if ( TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count > 0 ) TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count--;
 
 	#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_UDP_conn_cell );
@@ -371,11 +371,11 @@ _CALLBACK_FXN void tcp_disconnected( pass_p src_AB_tcp , long v )
 	AB_tcp * tcp = ( AB_tcp * )src_AB_tcp;
 	AB * pb = tcp->owner_pb;
 
-	pb->stat.round_zero_set.tcp_connection_count--;
+	if ( pb->stat.round_zero_set.tcp_connection_count > 0 ) pb->stat.round_zero_set.tcp_connection_count--;
 
 	distributor_publish_long( &tcp->this->bcast_change_state , 0 , src_AB_tcp ); // transfer state per case
 
-	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count--;
+	if ( TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count > 0 ) TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count--;
 
 	#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_conn_cell );
@@ -538,7 +538,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 				{
 					if ( pb->tcps[ itcp ].main_instance )
 					{
-						if ( pb->tcps[ itcp ].tcp_connection_established )
+						if ( pb->tcps[ itcp ].tcp_connection_established && !_g->cmd.block_sending_1 )
 						{
 							if
 							(
