@@ -207,6 +207,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 				_sem_in_fast_cache = cbuf_pked_unreliable_sem_count( &pb->comm.preq.raw_xudp_cache );
 			#endif
 
+			pkt->metadata.payload_sz = sz;
 			pkt->metadata.udp_hdr.log_double_checked = false;
 			pkt->metadata.udp_hdr.logged_2_mem = false;
 			//clock_gettime( CLOCK_MONOTONIC_COARSE , &pkt->flags.rec_t );

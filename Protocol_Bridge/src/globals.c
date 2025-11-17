@@ -235,12 +235,13 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g ) /*call by
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_globals ) , _g , clean_globals ); // place to release global variables
 
 	#ifdef ENABLE_VERBOSE_FAULT
-	//signal( SIGPIPE , bad_interrupt );
-	//signal( SIGBUS , bad_interrupt );
-	//signal( SIGSEGV , bad_interrupt );
+	signal( SIGPIPE , bad_interrupt );
+	signal( SIGBUS , bad_interrupt ); // invalid pointer is dereferenced
+	signal( SIGSEGV , bad_interrupt ); // read or write outside memory
 	//signal( SIGFPE , bad_interrupt );
-	//signal( SIGILL , bad_interrupt );
-	//signal( SIGABRT , bad_interrupt );
+	signal( SIGKILL , bad_interrupt );
+	signal( SIGILL , bad_interrupt ); // illegal instruction
+	signal( SIGABRT , bad_interrupt ); // program itself detect error
 	//signal( SIGSYS , bad_interrupt );
 	//signal( SIGXCPU , bad_interrupt );
 	//signal( SIGXFSZ , bad_interrupt );

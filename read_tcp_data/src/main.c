@@ -1,5 +1,6 @@
 ﻿#ifndef section_include
 
+#define Uses_create_unique_file
 #define Uses_signal
 #define Uses_fcntl
 #define Uses_pthread_create
@@ -474,6 +475,7 @@ void * tcp_listener_runner( void * src_tl )
 	ssize_t bytes_received;
 	fd_set readfds; // Set of socket descriptors
 
+
 	int socket_error_tolerance_count = 0; // restart socket after many error accur
 
 	int config_changes = 0;
@@ -677,6 +679,7 @@ void * tcp_listener_runner( void * src_tl )
 						continue;
 					}
 				}
+				
 				_g->stat.last_command[ 0 ] = 0;
 				_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
 				if ( bytes_received > 0 )

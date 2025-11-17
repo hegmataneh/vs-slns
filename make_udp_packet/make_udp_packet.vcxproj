@@ -78,6 +78,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
+    <EnableASAN>true</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ExtensionsToDeleteOnClean>*.dep;*.inc;*.use;*.d;*.tlog;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
@@ -126,7 +127,8 @@
       <AdditionalOptions>-D__COMPILING %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <LibraryDependencies>ncurses</LibraryDependencies>
+      <LibraryDependencies>ncurses;pthread;tinfo</LibraryDependencies>
+      <AdditionalOptions>-pthread %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

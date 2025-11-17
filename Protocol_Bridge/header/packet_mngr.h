@@ -48,6 +48,7 @@ typedef struct /*ready_2_send_packet_v1*/
 			bool sent;
 			uint8_t TCP_name_size;
 			uint8_t payload_offset; // offset to pkt payload . max 256 metadata sz
+			size_t payload_sz;
 
 			bool retry; // do retry
 			bool retried;

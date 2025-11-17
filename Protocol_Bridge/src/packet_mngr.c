@@ -1,4 +1,5 @@
-﻿#define Uses_MARK_LINE
+﻿#define Uses_create_unique_file
+#define Uses_MARK_LINE
 #define Uses_log10
 #define Uses_LOCK_LINE
 #define Uses_pthread_mutex_timedlock_rel
@@ -129,9 +130,11 @@ _PRIVATE_FXN void pre_main_init_packet_mngr_component( void )
 	_GLOBAL_VAR _EXTERN int _sem_in_fast_cache;
 	_GLOBAL_VAR long long _open_gate_cnt;
 	_GLOBAL_VAR long long _close_gate_cnt;
-	
 	_GLOBAL_VAR long long _half_segment_send_directly = 0;
 	_GLOBAL_VAR long long _whole_segment_send_directly = 0;
+
+	_GLOBAL_VAR long long _send_by_fast_dic = 0;
+	_GLOBAL_VAR long long _send_by_slow_seek = 0;
 #endif
 
 #ifdef HAS_STATISTICSS
@@ -140,7 +143,7 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_segment_total_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "A:%zu F:%zu +:%zu -:%zu" , huge_fst_cache->segment_total , huge_fst_cache->filled_count , huge_fst_cache->newed_segments , huge_fst_cache->released_segments );
+	sprintf( pcell->storage.tmpbuf , "A:%zu F:%zu + %zu - %zu" , huge_fst_cache->segment_total , huge_fst_cache->filled_count , huge_fst_cache->newed_segments , huge_fst_cache->released_segments );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -188,7 +191,7 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_suc_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "+:%lld  !:%lld" , _mem_to_tcp , _mem_to_tcp_failure);
+	sprintf( pcell->storage.tmpbuf , "+ %lld  ! %lld" , _mem_to_tcp , _mem_to_tcp_failure);
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -262,11 +265,19 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_memmap_time_cell( pass_p src_pcell )
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
+_CALLBACK_FXN PASSED_CSTR auto_refresh_send_kind_cell( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	G * _g = ( G * )pcell->storage.bt.pass_data;
+	sprintf( pcell->storage.tmpbuf , "Fst:%lld Slw:%lld" , _send_by_fast_dic , _send_by_slow_seek );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
 _CALLBACK_FXN PASSED_CSTR auto_refresh_gateway_open_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	G * _g = ( G * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%s +:%lld -:%lld" , _g->hdls.gateway.pagestack_gateway_open_val ? "o" : "c" , _open_gate_cnt , _close_gate_cnt);
+	sprintf( pcell->storage.tmpbuf , "%s + %lld - %lld" , _g->hdls.gateway.pagestack_gateway_open_val ? "o" : "c" , _open_gate_cnt , _close_gate_cnt);
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -452,6 +463,12 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	pcell->storage.bt.pass_data = _g; pcell->conversion_fxn = auto_refresh_memmap_time_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , (size_t)irow , (size_t)icol++ , pcell ) , 0 );
 
+	// sent memmap items
+	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_FILE " snd T" ) , 0 ); pcell = NULL;
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->storage.bt.pass_data = _g; pcell->conversion_fxn = auto_refresh_send_kind_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
+
 #ifdef ENABLE_USE_DBG_TAG
 	// sent memmap items
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_FILE " pkt_snt" ) , 0 ); pcell = NULL;
@@ -535,7 +552,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	}
 	
 	xudp_hdr * pkt1 = ( xudp_hdr * )data;
-	size_t sz_t = len - pkt1->metadata.payload_offset;
+	size_t sz_t = pkt1->metadata.payload_sz;
 	WARNING( pkt1->metadata.version == TCP_XPKT_V1 );
 	bool try_resolve_route = false;
 
@@ -571,11 +588,13 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 		{
 			AB_tcp * ptcp = ( AB_tcp * )ab_tcp_p;
 		}
-		err_sent = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 , ACK_TIMEOUT_ms ); // send is too heavy
+
+		err_sent = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM ); // send is too heavy
 		switch ( err_sent )
 		{
 			case errOK:
 			{
+				_send_by_fast_dic++;
 				pkt1->metadata.sent = true;
 				if ( ab_tcp_p )
 				{
@@ -622,11 +641,12 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 					{
 						if ( pb->tcps[ itcp ].this->tcp_connection_established )
 						{
-							err_sent = tcp_send_all( pb->tcps[ itcp ].this->tcp_sockfd , data + pkt1->metadata.payload_offset , sz_t , 0 , 0 , ACK_TIMEOUT_ms ); // send is to heavy
+							err_sent = tcp_send_all( pb->tcps[ itcp ].this->tcp_sockfd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM ); // send is to heavy
 							switch ( err_sent )
 							{
 								case errOK:
 								{
+									_send_by_slow_seek++;
 									pkt1->metadata.sent = true;
 									pb->tcps[ itcp ].last_access = time( NULL );
 									if ( try_resolve_route )
@@ -738,7 +758,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 	G * _g = ( G * )src_g;
 	status d_error = errCanceled;
 	xudp_hdr * pkt1 = ( xudp_hdr * )data;
-	size_t sz_t = len - pkt1->metadata.payload_offset;
+	size_t sz_t = pkt1->metadata.payload_sz;
 
 	if ( pkt1->metadata.sent || pkt1->metadata.fault_registered )
 	{

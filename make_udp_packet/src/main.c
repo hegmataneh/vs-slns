@@ -1,5 +1,10 @@
 ﻿#ifndef section_include
 
+#define Uses_create_unique_file
+#define Uses_format_clock_time
+#define Uses_MALLOC_AR
+#define Uses__ECHO
+#define Uses_WARNING
 #define Uses_timeval
 #define Uses_cbuf_metric
 #define Uses_strcasecmp
@@ -389,6 +394,10 @@ void * wave_runner( void * src_pwave )
 		char * buffer = MALLOC_AR( buffer , buf_size );
 		MEMSET_ZERO( buffer , buf_size );
 		buff_fill_seq( buffer , buf_size );
+
+		buffer[ buf_size - 2 ] = 'F';
+		buffer[ buf_size - 1 ] = 'F';
+
 		//static int iii = 0;
 		//__snprintf( buffer , buf_size , "a %d" , iii++ );
 
