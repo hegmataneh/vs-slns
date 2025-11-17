@@ -1,3 +1,4 @@
+#define Uses_TCP_NODELAY
 #define Uses_log_write
 #define Uses_MARK_LINE
 #define Uses_ddlck
@@ -496,6 +497,9 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		#ifdef ENABLE_KEEPALIVE_CHAOTIC
 			enable_keepalive_chaotic( tcp->tcp_sockfd ); // to keep alive and try to probe peer in semi normal sitribution time and does not have line up in connction
 		#endif
+
+			int flag = 1;
+			setsockopt( tcp->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , &flag , sizeof( flag ) ); // try to be no nagle. no batching . because packet to hdr is very hi
 
 			tcp->tcp_connection_established = 1;
 			tcp->tcp_is_about_to_connect = 0;
