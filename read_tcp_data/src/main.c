@@ -1,5 +1,7 @@
 ﻿#ifndef section_include
 
+#define Uses_PATH_MAX
+#define Uses_LOG
 #define Uses_create_unique_file
 #define Uses_signal
 #define Uses_fcntl
@@ -367,18 +369,32 @@ int _connect_tcp( struct tcp_listener * src_tl )
 			break;
 		}
 		
-		d_error = create_server_socket_with_timeout( src_tl->tlcfg.m.m.id.TCP_listen_ip , src_tl->tlcfg.m.m.id.TCP_listen_port , BAD_NETWORK_HANDSHAKE_TIMEOUT , &src_tl->tcp_client_connection_sockfd );
+		IMMORTAL_LPCSTR errString = NULL;
+		uchar buf[MIN_SYSERR_BUF_SZ] = {0};
+		d_error = create_server_socket_with_timeout( src_tl->tlcfg.m.m.id.TCP_listen_ip , src_tl->tlcfg.m.m.id.TCP_listen_port ,
+			BAD_NETWORK_HANDSHAKE_TIMEOUT , &src_tl->tcp_client_connection_sockfd , &errString , ( buffer * )&buf );
 		if ( d_error <= 0 )
 		{
 			_ERR_COUNTER[ -d_error ]++;
 		}
 		if ( d_error != errOK )
 		{
+			SET_STDERR( errString );
+			log_write( LOG_ERROR , "%d %s %s" , __LINE__ , errString , buf );
 			sleep(1);
 			continue;
 		}
+		else
+		{
+			log_write( LOG_INFO , "connection stablished." );
+		}
 
-		enable_keepalive_chaotic( src_tl->tcp_client_connection_sockfd );
+		errString = NULL;
+		enable_keepalive_chaotic( src_tl->tcp_client_connection_sockfd , &errString );
+		if ( errString )
+		{
+			log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+		}
 
 		src_tl->tcp_connection_established = 1;
 
@@ -411,8 +427,10 @@ void * thread_tcp_connection_proc( void * src_tl )
 
 	if ( tl->tcp_connection_established )
 	{
+		log_write( LOG_INFO , "restart connection" );
+
 		SYS_ALIVE_CHECK();
-		_close_socket( &tl->tcp_client_connection_sockfd );
+		_close_socket( &tl->tcp_client_connection_sockfd , NULL );
 		//_close_socket( &tl->tcp_server_listener_sockfd );
 		tl->tcp_connection_established = 0;
 		if ( _g->stat.tcp_connection_count > 0 ) _g->stat.tcp_connection_count--;
@@ -1001,7 +1019,7 @@ void * version_checker( void * app_data )
 			prev_time = cur_time;
 
 			memset( buf , 0 , sizeof( buf ) );
-			const char * config_ver_file_content = read_file( CONFIG_ROOT_PATH "/config_ver.txt" , ( char * )buf );
+			const char * config_ver_file_content = read_file( CONFIG_ROOT_PATH "/config_ver.txt" , ( char * )buf , NULL );
 			MM_BREAK_IF( !config_ver_file_content , errGeneral , 0 , "cannot open and read version file" );
 
 			result( json_element ) rs_config_ver = json_parse( config_ver_file_content );
@@ -1074,7 +1092,7 @@ void * config_loader( void * app_data )
 			struct tcp_listener_cfg * ptcp_listeners = NULL;
 			size_t tcp_listeners_count = 0;
 			{
-				const char * tcp_listener_config_file_content = read_file( CONFIG_ROOT_PATH "/tcp_listener_config.txt" , NULL );
+				const char * tcp_listener_config_file_content = read_file( CONFIG_ROOT_PATH "/tcp_listener_config.txt" , NULL , NULL );
 				MM_BREAK_IF( !tcp_listener_config_file_content , errGeneral , 0 , "cannot open config file" );
 
 				result( json_element ) rs_tcp_listener_config = json_parse( tcp_listener_config_file_content );
@@ -1593,7 +1611,8 @@ void draw_table( struct App_Data * _g )
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , buf2 );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , "Value" );
+	snprintf( buf , sizeof( buf ) , "Value - %d%.*s" , MAIN_STAT().last_line_meet , MAIN_STAT().alive_check_counter , "-+-+-+-+-+-+-+-+" );
+	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	wattroff( MAIN_WIN , COLOR_PAIR( 1 ) );
 
@@ -1605,34 +1624,20 @@ void draw_table( struct App_Data * _g )
 
 	setlocale( LC_NUMERIC , "en_US.UTF-8" );
 
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "ver." );
-	snprintf( buf , sizeof( buf ) , "%s" , _g->appcfg._ver->version );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
-	//
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "alive" );
-	snprintf( buf , sizeof( buf ) , "%d%.*s" , MAIN_STAT().last_line_meet , MAIN_STAT().alive_check_counter , "-+-+-+-+-+-+-+-+" );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
+	////
+	//mvwprintw( MAIN_WIN , y , start_x , "|" );
+	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "ver." );
+	//snprintf( buf , sizeof( buf ) , "%s" , _g->appcfg._ver->version );
+	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
+	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
+	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	///////////
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "inp failure" );
-	snprintf( buf , sizeof( buf ) , "v%d Σv%d" , MAIN_STAT().round_zero_set.continuously_unsuccessful_receive_error , MAIN_STAT().round_zero_set.total_unsuccessful_receive_error );
-	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-
-	mvwprintw( MAIN_WIN , y , start_x , "|" );
-	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "syscal_err" );
-	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.syscal_err_count , 2 , "" ) );
+	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "input/sys failure" );
+	snprintf( buf , sizeof( buf ) , "v%d Σv%d %s" , MAIN_STAT().round_zero_set.continuously_unsuccessful_receive_error , 
+		MAIN_STAT().round_zero_set.total_unsuccessful_receive_error , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.syscal_err_count , 2 , "" ) );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1941,6 +1946,11 @@ int main()
 
 	init( _g );
 
+	char meta_path[ PATH_MAX ] = { 0 };
+	time_t tnow = time( NULL );
+	snprintf( meta_path , sizeof( meta_path ) , "./log%ld.txt" , tnow );
+	log_init( meta_path , true );
+
 	signal( SIGPIPE , bad_interrupt );
 	signal( SIGBUS , bad_interrupt );
 	signal( SIGSEGV , bad_interrupt );
@@ -1966,6 +1976,8 @@ int main()
 	MM_BREAK_IF( pthread_create( &trd_tcp_listener_manager , NULL , tcp_listener_manager , ( void * )_g ) != PTHREAD_CREATE_OK , errGeneral , 0 , "Failed to create thread" );
 
 	M_BREAK_IF( pthread_join( trd_tcp_listener_manager , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
+
+	log_close();
 
 	return 0;
 	BEGIN_RET

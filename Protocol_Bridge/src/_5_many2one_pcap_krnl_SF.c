@@ -30,10 +30,12 @@ _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _Ignorable_thread );
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_proc_many2many_pcap_krnl_SF , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
+#endif
 #endif
 
 	//WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );

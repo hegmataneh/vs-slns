@@ -171,7 +171,7 @@
 			"thread_handler_act": "one2one_pcap2krnl_SF",
 			"inputs":
 			{
-				"in1":
+				"in13":
 				{
 					"group": "1",
 					"group_type": "-",
@@ -185,7 +185,7 @@
 			},
 			"outputs":
 			{
-				"out1":
+				"out13":
 				{
 					"group": "1",
 					"group_type": "one_out",

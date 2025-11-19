@@ -82,7 +82,7 @@ PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_PERSISTANT_CACHE_MNGR )
 _PRIVATE_FXN void pre_main_init_persistant_cache_mngr_component( void )
 {
 	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_persistant_cache_mngr ) , _g );
-	distributor_subscribe( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_persistant_cache_mngr ) , _g );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_persistant_cache_mngr ) , _g , post_config_order_persistant_cache_mngr );
 }
 
 _CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src_xudp_hdr , size_t sz )
@@ -143,10 +143,12 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_discharge_persistant_cache_proc , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
+#endif
 #endif
 
 	status ret;
@@ -162,7 +164,9 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 			{
 				case errEmpty: // actually this fxn has loop and discharge it self
 				{
+				#ifdef ENABLE_USE_DBG_TA
 					_close_gate_cnt++;
+				#endif
 					_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
 					if ( _g->hdls.prst_csh.cool_down_attempt_onEmpty && _g->hdls.prst_csh.cool_down_attempt_onEmpty == *( int * )&tnow ) // in one second we should not attempt . and this check and possiblity is rare in not too many attempt situation
 					{

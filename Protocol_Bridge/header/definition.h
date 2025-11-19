@@ -95,6 +95,15 @@ enum program_stablity_bcast_order /*bottom up termination priority*/
 	config_stablity ,
 };
 
+enum postcfg_order
+{
+	post_config_order_last_call , /*in this step set post config is called to true*/
+	post_config_order_bridges ,
+	post_config_order_persistant_cache_mngr ,
+	post_config_order_packet_mngr ,
+	post_config_order_statistics ,
+};
+
 typedef enum cleanup_priority_order /*bottom up termination priority*/
 {
 	clean_globals ,
@@ -139,6 +148,32 @@ enum stat_init_priority_order /*bottom up termination priority*/
 	main_statistics
 };
 
+enum thread_used
+{
+	trdn_version_checker ,
+	trdn_config_loader ,
+	trdn_config_executer ,
+	trdn_connect_udps_proc ,
+	trdn_thread_tcp_connection_proc ,
+	trdn_watchdog_executer ,
+	trdn_stdout_bypass_thread ,
+	trdn_sync_thread ,
+	trdn_input_thread ,
+	trdn_process_filled_tcp_segment_proc ,
+	trdn_cleanup_unused_segment_proc ,
+	trdn_discharge_persistant_cache_proc ,
+	trdn_stats_thread ,
+	trdn_proc_pcap_udp_counter ,
+	trdn_proc_krnl_udp_counter ,
+	trdn_proc_one2one_pcap2krnl_SF_udp_pcap ,
+	trdn_proc_one2one_pcap2krnl_SF_tcp_out ,
+	trdn_proc_one2many_pcap2krnl_SF_udp_pcap ,
+	trdn_proc_one2many_tcp_out ,
+	trdn_proc_many2many_pcap_krnl_SF ,
+	trdn_proc_one2one_krnl_udp_store ,
+	trdn_proc_many2many_krnl_udp_store ,
+};
+
 #ifndef control_app_segment_in_deep
 
 #define HAS_STATISTICSS
@@ -172,5 +207,7 @@ enum stat_init_priority_order /*bottom up termination priority*/
 #define ENABLE_BYPASS_STDOUT
 
 #define ENABLE_KEEPALIVE_CHAOTIC
+
+#define ENABLE_LOG_THREADS /*always defined*/
 
 #endif

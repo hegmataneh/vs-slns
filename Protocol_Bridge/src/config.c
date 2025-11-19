@@ -69,13 +69,23 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( try_stoping_sending_from_bridge ) , _g , stop_sending_from_bridge );
 }
 
+_CALLBACK_FXN _PRIVATE_FXN void post_config_completed( void_p src_g )
+{
+	INIT_BREAKABLE_FXN();
+	G * _g = ( G * )src_g;
+	_g->distributors.bafter_post_cfg_called = true;
+}
+
 _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_cfg( void_p src_g )
 {
 	G * _g = ( G * )src_g;
+
+	distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_completed ) , _g , post_config_order_last_call ); // just before publish but call last
 	distributor_publish_void( &_g->distributors.bcast_post_cfg , SUBSCRIBER_PROVIDED );
-	#ifdef HAS_STATISTICSS
+
+#ifdef HAS_STATISTICSS
 	distributor_publish_void( &_g->distributors.init_static_table , SUBSCRIBER_PROVIDED );
-	#endif
+#endif
 
 	pthread_mutex_init( &_g->appcfg.cfg_mtx , NULL );
 	_g->appcfg.cfg_mtx_protector = false;
@@ -88,7 +98,7 @@ _PRIVATE_FXN void pre_main_init_config_component( void )
 	distributor_init( &_g->distributors.bcast_pre_cfg , 1 );
 	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g );
 
-	distributor_init( &_g->distributors.bcast_post_cfg , 1 );
+	distributor_init_withOrder( &_g->distributors.bcast_post_cfg , 1 );
 
 	distributor_init_withOrder( &_g->distributors.bcast_program_stabled , 1 );
 	distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_cfg ) , _g , config_stablity );
@@ -100,10 +110,12 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_version_checker , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
+#endif
 #endif
 
 	char buf[ 50 ] = { 0 };
@@ -120,7 +132,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 			prev_time = cur_time;
 
 			MEMSET( buf , 0 , sizeof( buf ) );
-			const char * config_ver_file_content = read_file( CONFIG_ROOT_PATH "/config_ver.txt" , ( char * )buf );
+			const char * config_ver_file_content = read_file( CONFIG_ROOT_PATH "/config_ver.txt" , ( char * )buf , NULL );
 			MM_BREAK_IF( !config_ver_file_content , errNotFound , 0 , "cannot open and read version file" );
 
 			result( json_element ) rs_config_ver = json_parse( config_ver_file_content );
@@ -171,10 +183,12 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_config_loader , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
+#endif
 #endif
 	
 	while ( !_g->appcfg.version_changed ) // load after version loaded
@@ -198,7 +212,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 			brg_cfg_t * pProtocol_Bridges = NULL;
 			size_t Protocol_Bridges_count = 0;
 			{
-				const char * Protocol_Bridge_config_file_content = read_file( CONFIG_ROOT_PATH "/Protocol_Bridge_config.txt" , NULL );
+				const char * Protocol_Bridge_config_file_content = read_file( CONFIG_ROOT_PATH "/Protocol_Bridge_config.txt" , NULL , NULL );
 				MM_BREAK_IF( !Protocol_Bridge_config_file_content , errNotFound , 0 , "cannot open config file" );
 					
 				result( json_element ) rs_Protocol_Bridge_config = json_parse( Protocol_Bridge_config_file_content );
@@ -614,10 +628,12 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_config_executer , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
+#endif
 #endif
 
 	while ( !_g->appcfg.bdj_psv_cfg_count ) // load after any config loaded

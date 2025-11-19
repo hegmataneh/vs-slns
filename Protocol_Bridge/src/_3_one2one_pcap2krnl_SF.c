@@ -43,10 +43,13 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _Ignorable_thread );
+
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_proc_one2one_pcap2krnl_SF_udp_pcap , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
+#endif
 #endif
 
 	WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
@@ -86,10 +89,12 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_tcp_out( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _Ignorable_thread );
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_proc_one2one_pcap2krnl_SF_tcp_out , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
+#endif
 #endif
 
 	shrt_pth_t shrtcut;

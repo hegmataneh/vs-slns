@@ -25,9 +25,19 @@ typedef struct app_cmd
 typedef struct global_distributor
 {
 	distributor_t bcast_pre_cfg; //pre_configuration;
-	distributor_t bcast_post_cfg; //post_config_stablished;
+	struct
+	{
+		distributor_t bcast_post_cfg; //post_config_stablished;
+		union
+		{
+			bool bafter_post_cfg_called; /*after all post config called then i should set variable to inform that*/
+			long pad1;
+		};
+	};
 	distributor_t bcast_program_stabled; // stabled after config loaded and first bridges determind
+#ifdef ENABLE_LOG_THREADS
 	SHARED_MEM distributor_t bcast_thread_startup; //thread_startup; // every thread start up declare himself by this
+#endif
 	distributor_t bcast_app_lvl_failure; //app_lvl_failure_dist;
 	distributor_t bcast_pb_lvl_failure; //pb_lvl_failure_dist;
 	distributor_t bcast_pb_udp_connected; //pb_udp_connected_dist; // dispatch tcp connection state to increase counter
@@ -36,10 +46,10 @@ typedef struct global_distributor
 	distributor_t bcast_pb_tcp_disconnected; //pb_tcp_disconnected_dist;
 	SHARED_MEM distributor_t bcast_quit; // quit_interrupt_dist; // quit interrupt dispatch to all pcap loop
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	SHARED_MEM distributor_t throttling_refresh_stat; // refresh stat intervally
 	SHARED_MEM distributor_t init_static_table; // table that is static with content . for now without AB
-	#endif
+#endif
 } g_dst;
 
 typedef enum
@@ -182,5 +192,3 @@ _CALLBACK_FXN PASSED_CSTR pb_40s_tcp_bps_2_str( pass_p src_pcell );
 
 #endif
 #endif
-
-_GLOBAL_VAR _EXTERN void * _Ignorable_thread;

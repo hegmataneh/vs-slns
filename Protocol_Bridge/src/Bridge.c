@@ -42,7 +42,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat_bridges( void_p src_g )
 PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_BRIDGES )
 _PRIVATE_FXN void pre_main_init_bridges_component( void )
 {
-	distributor_subscribe( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat_bridges ) , _g );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat_bridges ) , _g , post_config_order_bridges );
 }
 
 _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
@@ -70,7 +70,12 @@ _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
 						{
 							if ( pb->tcps[ tcpidx ].tcp_connection_established )
 							{
-								_close_socket( &pb->tcps[ tcpidx ].tcp_sockfd );
+								IMMORTAL_LPCSTR errString = NULL;
+								_close_socket( &pb->tcps[ tcpidx ].tcp_sockfd , &errString );
+								if ( errString )
+								{
+									log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+								}
 							}
 						}
 					}

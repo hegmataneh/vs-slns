@@ -31,9 +31,6 @@
 
 _GLOBAL_VAR _EXTERN G * _g;
 
-_GLOBAL_VAR void * _Ignorable_thread_main = NULL;
-_GLOBAL_VAR void * _Ignorable_thread = &_Ignorable_thread_main;
-
 #ifndef DEBUG_section
 
 _GLOBAL_VAR _STRONG_ATTR void M_showMsg( LPCSTR msg )
@@ -64,12 +61,14 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 	G * _g = ( G * )src_g;
 	pthread_mutex_destroy(&_g->hdls.thread_close_mtx);   // init lock
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	sub_destroy( &_g->distributors.throttling_refresh_stat );
-	#endif
+#endif
 	sub_destroy( &_g->distributors.bcast_pre_cfg );
 	sub_destroy( &_g->distributors.bcast_post_cfg );
+#ifdef ENABLE_LOG_THREADS
 	sub_destroy( &_g->distributors.bcast_thread_startup );
+#endif
 	sub_destroy( &_g->distributors.bcast_app_lvl_failure );
 	sub_destroy( &_g->distributors.bcast_pb_lvl_failure );
 	sub_destroy( &_g->distributors.bcast_pb_udp_connected );
@@ -77,9 +76,9 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 	sub_destroy( &_g->distributors.bcast_pb_tcp_connected );
 	sub_destroy( &_g->distributors.bcast_pb_tcp_disconnected );
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	sub_destroy( &_g->distributors.init_static_table );
-	#endif
+#endif
 	sub_destroy( &_g->distributors.bcast_program_stabled );
 	//sub_destroy( &_g->distributors.bcast_quit );
 
@@ -145,20 +144,73 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 #endif
 }
 
-_CALLBACK_FXN void thread_registration( pass_p src_p , long src_pthread_t )
+_CALLBACK_FXN void thread_registration( pass_p src_p , long src_pthread_t , long src_thread_used , long src_NP )
 {
 	//G * _g = ( G * )src_p;
+
+	/*register threads*/
 	pthread_mutex_lock( &_g->hdls.thread_close_mtx );
 	array_add( &_g->hdls.registered_thread , ( void * )&src_pthread_t );
-	if ( src_p == _Ignorable_thread )
+	switch ( src_thread_used ) /*decide wheater thread can hult the system so ignorable*/
 	{
-		array_add( &_g->hdls.sticky_thread , ( void * )&src_pthread_t );
+		case trdn_proc_pcap_udp_counter:
+		case trdn_proc_one2one_pcap2krnl_SF_udp_pcap:
+		case trdn_proc_one2many_pcap2krnl_SF_udp_pcap:
+		case trdn_proc_many2many_pcap_krnl_SF:
+		{
+			array_add( &_g->hdls.sticky_thread , ( void * )&src_pthread_t ); /*ignorable*/
+			break;
+		}
+		case trdn_proc_one2one_pcap2krnl_SF_tcp_out:
+		case trdn_version_checker:
+		case trdn_config_loader:
+		case trdn_config_executer:
+		case trdn_connect_udps_proc:
+		case trdn_thread_tcp_connection_proc:
+		case trdn_watchdog_executer:
+		case trdn_stdout_bypass_thread:
+		case trdn_sync_thread:
+		case trdn_input_thread:
+		case trdn_process_filled_tcp_segment_proc:
+		case trdn_cleanup_unused_segment_proc:
+		case trdn_discharge_persistant_cache_proc:
+		case trdn_stats_thread:
+		case trdn_proc_krnl_udp_counter:
+		case trdn_proc_one2many_tcp_out:
+		case trdn_proc_one2one_krnl_udp_store:
+		case trdn_proc_many2many_krnl_udp_store:
+		{
+			break;
+		}
+		default:
+		{
+			WARNING( "do finalize thread type rule" );
+			break;
+		}
 	}
 	pthread_mutex_unlock( &_g->hdls.thread_close_mtx );
-	
-	#ifdef HAS_STATISTICSS
+	/*~register threads*/
+
+	/*some thread should wait for stabled state because udp get started before huge mem initialized*/
+	switch ( src_thread_used )
+	{
+		case trdn_proc_pcap_udp_counter:
+		case trdn_proc_one2one_pcap2krnl_SF_udp_pcap:
+		case trdn_proc_one2many_pcap2krnl_SF_udp_pcap:
+		case trdn_proc_many2many_pcap_krnl_SF:
+		case trdn_proc_many2many_krnl_udp_store:
+		case trdn_connect_udps_proc:
+		case trdn_proc_one2one_krnl_udp_store:
+		{
+			//CIRCUIT_BREAKER long break_cuit = 0;
+			for ( ; !_g->distributors.bafter_post_cfg_called /* && break_cuit < 1000*/ ; mng_basic_thread_sleep(_g , HI_PRIORITY_THREAD) /* , break_cuit++*/ );
+			break;
+		}
+	}
+
+#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_thread_cnt_cell );
-	#endif
+#endif
 }
 
 _CALLBACK_FXN void bad_interrupt( int sig )
@@ -191,7 +243,7 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
 			}
 		}
 	}
-	if ( bstart_tcp_thread )
+	if ( bstart_tcp_thread ) // after program is stabled ny initial config then tcp proc started
 	{
 		#ifdef ENABLE_TCP_OUT_PROC
 		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
@@ -228,14 +280,16 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g ) /*call by
 	////pthread_mutex_init( &_g->sync.mutex , NULL );
 	////pthread_cond_init( &_g->sync.cond , NULL );
 
+#ifdef ENABLE_LOG_THREADS
 	distributor_init_withLock( &_g->distributors.bcast_thread_startup , 1 ); // to trace thread activity
-	distributor_subscribe( &_g->distributors.bcast_thread_startup , SUB_LONG , SUB_FXN( thread_registration ) , _g );
+	distributor_subscribe( &_g->distributors.bcast_thread_startup , SUB_x3LONG , SUB_FXN( thread_registration ) , _g );
+#endif
 
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_threads ) , _g , clean_threads ); // wait for open threads
 
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_globals ) , _g , clean_globals ); // place to release global variables
 
-	#ifdef ENABLE_VERBOSE_FAULT
+#ifdef ENABLE_VERBOSE_FAULT
 	signal( SIGPIPE , bad_interrupt );
 	signal( SIGBUS , bad_interrupt ); // invalid pointer is dereferenced
 	signal( SIGSEGV , bad_interrupt ); // read or write outside memory
@@ -247,7 +301,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g ) /*call by
 	//signal( SIGXCPU , bad_interrupt );
 	//signal( SIGXFSZ , bad_interrupt );
 	//signal( SIGURG , bad_interrupt );
-	#endif
+#endif
 
 	distributor_init( &_g->distributors.bcast_app_lvl_failure , 1 ); // error counter anywhere occured in app
 	distributor_init( &_g->distributors.bcast_pb_lvl_failure , 1 ); // error counter anywhere occured in app
@@ -397,17 +451,24 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 	AB * pb = ( AB * )src_pb;
 	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_connect_udps_proc , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
+#endif
 #endif
 
 	for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 	{
 		if ( pb->udps[ iudp ].udp_connection_established )
 		{
-			_close_socket( &pb->udps[ iudp ].udp_sockfd );
+			IMMORTAL_LPCSTR errString = NULL;
+			_close_socket( &pb->udps[ iudp ].udp_sockfd , &errString );
+			if ( errString )
+			{
+				log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+			}
 			pb->udps[ iudp ].udp_connection_established = 0;
 			//_g->stat.udp_connection_count--;
 			// TODO
@@ -460,10 +521,15 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 	INIT_BREAKABLE_FXN();
 	AB * pb = tcp->owner_pb;
 	G * _g = tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g;
+	IMMORTAL_LPCSTR errString = NULL;
 
 	while ( 1 )
 	{
-		_close_socket( &tcp->tcp_sockfd );
+		_close_socket( &tcp->tcp_sockfd , &errString );
+		if ( errString )
+		{
+			log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+		}
 
 		// try to create TCP socket
 		NM_BREAK_IF( ( tcp->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errSocket , 0 , "create sock error" );
@@ -479,12 +545,23 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		//NM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errSocket , 1 , "inet_pton sock error" );
 
 		//if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
-		d_error = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT TODO , &tcp->tcp_sockfd );
+		errString = NULL;
+		uchar buf[MIN_SYSERR_BUF_SZ] = {0};
+		d_error = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT TODO , &tcp->tcp_sockfd , &errString , ( buffer * )&buf );
 		if ( d_error != errOK )
 		{
+			if ( errString )
+			{
+				log_write( LOG_ERROR , "%d %s %s" , __LINE__ , errString , buf );
+			}
 			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
 			{
-				_close_socket( &tcp->tcp_sockfd );
+				errString = NULL;
+				_close_socket( &tcp->tcp_sockfd , &errString );
+				if ( errString )
+				{
+					log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+				}
 				//mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 				//continue;
 			}
@@ -495,14 +572,20 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		{
 			fcntl( tcp->tcp_sockfd , F_SETFL , O_NONBLOCK ); // to prevent tcp stack handles lingering to closed peer connection
 		#ifdef ENABLE_KEEPALIVE_CHAOTIC
-			enable_keepalive_chaotic( tcp->tcp_sockfd ); // to keep alive and try to probe peer in semi normal sitribution time and does not have line up in connction
+			errString = NULL;
+			enable_keepalive_chaotic( tcp->tcp_sockfd , &errString ); // to keep alive and try to probe peer in semi normal sitribution time and does not have line up in connction
+			if ( errString )
+			{
+				log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+			}
 		#endif
 
 			int flag = 1;
-			setsockopt( tcp->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , &flag , sizeof( flag ) ); // try to be no nagle. no batching . because packet to hdr is very hi
+			setsockopt( tcp->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , &flag , sizeof( flag ) ); // try to be no nagle. no batching . because packet size ration to hdr size is very hi. so each packet sending is matter
 
 			tcp->tcp_connection_established = 1;
 			tcp->tcp_is_about_to_connect = 0;
+			log_write( LOG_INFO , "%d tcp connected %s:%s" , __LINE__ , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , tcp->__tcp_cfg_pak->data.core.TCP_destination_ports );
 			distributor_publish_long( &_g->distributors.bcast_pb_tcp_connected , tcp->tcp_sockfd , ( pass_p )tcp );
 			return errOK;
 		}
@@ -511,7 +594,12 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 	BEGIN_RET
 	case 1:
 	{
-		_close_socket( &tcp->tcp_sockfd );
+		errString = NULL;
+		_close_socket( &tcp->tcp_sockfd , &errString );
+		if ( errString )
+		{
+			log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+		}
 		//DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
@@ -523,10 +611,12 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_thread_tcp_connection_proc , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
+#endif
 #endif
 
 	while ( 1 )
@@ -554,12 +644,21 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 							)
 							{
 								pb->tcps[ itcp ].last_access = time( NULL );
-								if ( is_socket_connected_peek( pb->tcps[ itcp ].tcp_sockfd , 0 ) <= 0 )
+								IMMORTAL_LPCSTR errString = NULL;
+								if ( is_socket_connected_peek( pb->tcps[ itcp ].tcp_sockfd , 0 , &errString ) <= 0 )
 								{
+									if ( errString )
+									{
+										log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+									}
 									pb->tcps[ itcp ].tcp_is_about_to_connect = 1;
 									pb->tcps[ itcp ].tcp_connection_established = 0;
 									itcp = 0;
 									continue;
+								}
+								if ( errString )
+								{
+									log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
 								}
 							}
 							continue;
@@ -790,6 +889,7 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 	M_V_END_RET
 }
 
+#ifdef ENABLE_LOG_THREADS
 _CALLBACK_FXN void thread_goes_out_of_scope( void * ptr )
 {
 	pthread_mutex_lock( &_g->hdls.thread_close_mtx );
@@ -805,6 +905,7 @@ _CALLBACK_FXN void thread_goes_out_of_scope( void * ptr )
 	}
 	pthread_mutex_unlock( &_g->hdls.thread_close_mtx );
 }
+#endif
 
 #endif
 
@@ -814,10 +915,12 @@ _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_stdout_bypass_thread , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
+#endif
 #endif
 
 	fd_set readfds;
@@ -874,7 +977,7 @@ _THREAD_FXN void_p sync_thread( pass_p src_g ) // pause app until moment other a
 	//INIT_BREAKABLE_FXN();
 
 	//G * _g = ( G * )src_g;
-	// distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+	// distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_sync_thread , NP , _g );
 	//__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 	////if ( _g->sync.lock_in_progress ) return NULL;
 
@@ -920,7 +1023,7 @@ _THREAD_FXN void_p input_thread( pass_p src_g )
 {
 	//INIT_BREAKABLE_FXN();
 	//G * _g = ( G * )src_g;
-	//distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+	//distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_input_thread , NP , _g );
 	//__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 
 	while ( 1 )

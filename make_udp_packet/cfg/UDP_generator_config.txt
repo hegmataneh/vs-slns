@@ -44,13 +44,13 @@
 		  "UDP_destination_port": 1234,
 		  "UDP_destination_interface": "-",
 		  "limited_packets": 1,
-		  "packet_count": 10000000,
+		  "packet_count": 1000000,
 		  "parallelism_count": 1,
 		  "enable": 1,
 		  "reset_connections": 0,
 		  "iteration_delay_nanosec": 0,
-		  "packet_payload_size": 1470,
-		  "rate_packet_per_second": 28500
+		  "packet_payload_size": 1031,
+		  "rate_packet_per_second": 0
 		}
 	}
 }

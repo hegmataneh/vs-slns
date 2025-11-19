@@ -88,7 +88,7 @@ PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_STATISTICS )
 _PRIVATE_FXN void pre_main_init_stat_component( void )
 {
 	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_stat ) , _g );
-	distributor_subscribe( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat ) , _g );
+	distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat ) , _g , post_config_order_statistics );
 }
 
 void reset_nonuse_stat()
@@ -254,16 +254,18 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
 	
-	distributor_publish_long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , _g );
+#ifdef ENABLE_LOG_THREADS
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_stats_thread , NP , _g );
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
+#endif
 	
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( g_every_ticking_refresh ) , _g );
 	_g->distributors.throttling_refresh_stat.iteration_dir = tail_2_head; // first order issued then applied
-	#endif
+#endif
 
 	int tmp_debounce_release_segment = 0;
 
@@ -275,18 +277,18 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 	{
 		if ( GRACEFULLY_END_NOLOSS_THREAD() ) break; // keep track changes until app is down
 
-		#ifdef HAS_STATISTICSS
+	#ifdef HAS_STATISTICSS
 		// distribute statistic referesh pulse
 		distributor_publish_void( &_g->distributors.throttling_refresh_stat , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ );
-		#endif
+	#endif
 
-		#ifdef ENABLE_HALFFILL_SEGMENT
+	#ifdef ENABLE_HALFFILL_SEGMENT
 		if ( !( tmp_debounce_release_segment++ % 5 ) )
 		{
 			// distribute segment management pulse
 			distributor_publish_long( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , NP , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ ); // check if condition is true then set halffill segemtn as fill
 		}
-		#endif
+	#endif
 
 		//pthread_mutex_lock( &_g->stat.lock_data.lock );
 		//werase( _g->stat.main_win );
@@ -302,7 +304,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 }
 
 // afer main config stablished then its time to broadcast it to every where meanwhile notcureses init him self and other stuff that suppose to happened
-void init_UI( G * _g ) /*call by main thread*/
+void init_UI( G * _g ) /*just to call by main thread*/
 {
 	CIRCUIT_BREAKER long break_cuit = 0;
 	for ( ; !_g->appcfg.already_main_cfg_stablished && break_cuit < 1000 ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ );
