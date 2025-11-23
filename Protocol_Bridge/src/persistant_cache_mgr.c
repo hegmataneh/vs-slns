@@ -46,15 +46,19 @@ _PRIVATE_FXN _CALLBACK_FXN void try_stop_sending_from_cach_mgr( pass_p src_g , l
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p src_g )
 {
+	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
-	distributor_init( &_g->hdls.prst_csh.bcast_store_data , 1 );
-	distributor_init( &_g->hdls.prst_csh.bcast_pagestacked_pkts , 1 );
-	distributor_subscribe( &_g->hdls.prst_csh.bcast_store_data , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( persistant_cache_mngr_store_data ) , _g );
+	M_BREAK_STAT( distributor_init( &_g->hdls.prst_csh.bcast_store_data , 1 ) , 0 );
+	M_BREAK_STAT( distributor_init( &_g->hdls.prst_csh.bcast_pagestacked_pkts , 1 ) , 0 );
+	M_BREAK_STAT( distributor_subscribe( &_g->hdls.prst_csh.bcast_store_data , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( persistant_cache_mngr_store_data ) , _g ) , 0 );
 
 	// register here to get quit cmd
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr ) , _g , clean_persistant_cache_mgr ); // when file write goes down
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( try_stop_sending_from_cach_mgr ) , _g , stop_sending_from_cach_mgr ); // when fetch from file not need
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr ) , _g , clean_persistant_cache_mgr ) , 0 ); // when file write goes down
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( try_stop_sending_from_cach_mgr ) , _g , stop_sending_from_cach_mgr ) , 0 ); // when fetch from file not need
+
+	BEGIN_SMPL
+	M_V_END_RET
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p src_g )
@@ -81,8 +85,13 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p s
 PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_PERSISTANT_CACHE_MNGR )
 _PRIVATE_FXN void pre_main_init_persistant_cache_mngr_component( void )
 {
-	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_persistant_cache_mngr ) , _g );
-	distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_persistant_cache_mngr ) , _g , post_config_order_persistant_cache_mngr );
+	INIT_BREAKABLE_FXN();
+
+	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_persistant_cache_mngr ) , _g ) , 0 );
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_persistant_cache_mngr ) , _g , post_config_order_persistant_cache_mngr ) , 0 );
+
+	BEGIN_SMPL
+	M_V_END_RET
 }
 
 _CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src_xudp_hdr , size_t sz )
@@ -144,8 +153,21 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 	G * _g = ( G * )src_g;
 	
 #ifdef ENABLE_LOG_THREADS
-	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_discharge_persistant_cache_proc , NP , _g );
-	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_discharge_persistant_cache_proc , (long)__FUNCTION__ , _g );
+	
+	/*retrieve track alive indicator*/
+	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	time_t * pthis_thread_alive_time = NULL;
+	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
+	{
+		thread_alive_indicator * pthread_ind = NULL;
+		if ( mms_array_get_s( &_g->stat.nc_s_req.thread_list , idx , ( void ** )&pthread_ind ) == errOK && pthread_ind->thread_id == this_thread )
+		{
+			pthis_thread_alive_time = &pthread_ind->alive_time;
+		}
+	}
+	pthread_mutex_unlock( &_g->stat.nc_s_req.thread_list_mtx );
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
@@ -154,6 +176,7 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 	status ret;
 	do
 	{
+		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
 		if ( GRACEFULLY_END_THREAD() ) break;
 		sem_wait( &_g->hdls.gateway.pagestack_gateway_open_sem ); // wait until gate open
 		while ( _g->hdls.gateway.pagestack_gateway_open_val == gws_open ) // do discharge untill open

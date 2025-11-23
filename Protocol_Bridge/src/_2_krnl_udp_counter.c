@@ -18,8 +18,21 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
 #ifdef ENABLE_LOG_THREADS
-	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_proc_krnl_udp_counter , NP , _g );
-	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_proc_krnl_udp_counter , (long)__FUNCTION__ , _g );
+	
+	/*retrieve track alive indicator*/
+	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	time_t * pthis_thread_alive_time = NULL;
+	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
+	{
+		thread_alive_indicator * pthread_ind = NULL;
+		if ( mms_array_get_s( &_g->stat.nc_s_req.thread_list , idx , ( void ** )&pthread_ind ) == errOK && pthread_ind->thread_id == this_thread )
+		{
+			pthis_thread_alive_time = &pthread_ind->alive_time;
+		}
+	}
+	pthread_mutex_unlock( &_g->stat.nc_s_req.thread_list_mtx );
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
@@ -41,6 +54,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 	int config_changes = 0;
 	do
 	{
+		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
 		if ( pb->comm.preq.stop_receiving )
 		{
 			break;
@@ -78,6 +92,7 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 
 		while ( 1 )
 		{
+			if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
 			//pthread_mutex_lock( &_g->sync.mutex );
 			//while ( _g->sync.lock_in_progress )
 			//{

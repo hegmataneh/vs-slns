@@ -26,6 +26,8 @@ _CALLBACK_FXN void handle_pcap_udp_counter( u_char * src_pb , const struct pcap_
 	( void )hdr;
 	( void )packet;
 
+	if ( pb->pthread_alive_time ) *pb->pthread_alive_time = time( NULL );
+
 	if ( pb->comm.preq.stop_receiving )
 	{
 		pb->comm.preq.receive_stoped = true;
@@ -48,8 +50,21 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
 #ifdef ENABLE_LOG_THREADS
-	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_proc_pcap_udp_counter , NP , _g );
-	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_proc_pcap_udp_counter , (long)__FUNCTION__ , _g );
+	
+	/*retrieve track alive indicator*/
+	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	time_t * pthis_thread_alive_time = NULL;
+	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
+	{
+		thread_alive_indicator * pthread_ind = NULL;
+		if ( mms_array_get_s( &_g->stat.nc_s_req.thread_list , idx , ( void ** )&pthread_ind ) == errOK && pthread_ind->thread_id == this_thread )
+		{
+			pthis_thread_alive_time = &pthread_ind->alive_time;
+		}
+	}
+	pthread_mutex_unlock( &_g->stat.nc_s_req.thread_list_mtx );
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
@@ -101,12 +116,17 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	}
 
 	distributor_publish_long( &_g->distributors.bcast_pb_udp_connected , 0 , ( pass_p )pb );
-	
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb , stop_input_udp );
 
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
+
+	if ( pthis_thread_alive_time )
+	{
+		*pthis_thread_alive_time = time( NULL );
+		pb->pthread_alive_time = pthis_thread_alive_time;
+	}
 
 	// Capture indefinitely
 	MM_FMT_BREAK_IF( pcap_loop( pb->comm.acts.p_pcap_udp_counter->pcp_handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->comm.acts.p_pcap_udp_counter->pcp_handle ) );

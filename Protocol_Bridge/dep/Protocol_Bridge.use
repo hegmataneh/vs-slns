@@ -1,3 +1,8 @@
+#ifdef Uses_packet_mngr_prerequisite
+	#define Uses_pkt_mgr_t
+	#define Uses_packet_mngr
+#endif
+
 #ifdef Uses_proc_many2many_krnl_udp_store
 	#define __INC__7_many2many_krnl2krnl_SF
 #endif
@@ -11,6 +16,9 @@
 #endif
 
 #ifdef Uses_pkt_mgr_t
+	#define Uses_packet_mngr_prerequisite
+	#define Uses_instBps_t
+	#define Uses_cir_rate_wnd_t
 	#define Uses_packet_mngr
 #endif
 

@@ -139,12 +139,19 @@ typedef struct // can be memset to zero all byte
 	int total_retry_tcp_connection_count;
 } stat_zero_init_memory;
 
+typedef struct
+{
+	IMMORTAL_LPCSTR thread_name; /*i use __FUNCTION__*/
+	time_t alive_time;
+	pthread_t thread_id;
+} thread_alive_indicator;
+
 typedef struct notcurses_stat_req
 {
 #ifdef HAS_STATISTICSS
 	nnc_table * pgeneral_tbl; // general overview page. add gere for additional field addition
 
-	SHARED_MEM dyn_mms_arr field_keeper; // one block keep array of field that dynamically changed. prevent memory fragment
+	SHARED_MEM dyn_mms_arr field_keeper; // nnc_cell_content . one block keep array of field that dynamically changed. prevent memory fragment
 	//kv_table_t map_flds; // make access to field faster
 
 	// fastest way to access important cell
@@ -157,6 +164,13 @@ typedef struct notcurses_stat_req
 	nnc_cell_content * ov_UDP_retry_conn_cell;
 	nnc_cell_content * ov_TCP_retry_conn_cell;
 	nnc_cell_content * ov_thread_cnt_cell;
+
+	struct
+	{
+		SHARED_MEM dyn_mms_arr thread_list; // thread_alive_indicator . use to check they are alive
+		pthread_mutex_t thread_list_mtx; /*use just on thread_list*/
+	};
+
 #endif
 } n_s_req;
 
@@ -191,5 +205,6 @@ _THREAD_FXN void_p stats_thread( pass_p pdata );
 //void init_ncursor();
 
 _CALLBACK_FXN void init_main_statistics( pass_p src_g );
+_CALLBACK_FXN void thread_overviewing( pass_p src_g );
 
 #endif

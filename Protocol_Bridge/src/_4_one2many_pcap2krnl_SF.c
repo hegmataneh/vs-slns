@@ -43,8 +43,21 @@ _THREAD_FXN void_p proc_one2many_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	G * _g = pb->cpy_cfg.m.m.temp_data._pseudo_g;
 	
 #ifdef ENABLE_LOG_THREADS
-	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_proc_one2many_pcap2krnl_SF_udp_pcap , NP , _g );
-	__attribute__((cleanup(thread_goes_out_of_scope))) pthread_t trd_id = pthread_self();
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_proc_one2many_pcap2krnl_SF_udp_pcap , (long)__FUNCTION__ , _g );
+	
+	/*retrieve track alive indicator*/
+	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	time_t * pthis_thread_alive_time = NULL;
+	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
+	{
+		thread_alive_indicator * pthread_ind = NULL;
+		if ( mms_array_get_s( &_g->stat.nc_s_req.thread_list , idx , ( void ** )&pthread_ind ) == errOK && pthread_ind->thread_id == this_thread )
+		{
+			pthis_thread_alive_time = &pthread_ind->alive_time;
+		}
+	}
+	pthread_mutex_unlock( &_g->stat.nc_s_req.thread_list_mtx );
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
@@ -74,6 +87,12 @@ _THREAD_FXN void_p proc_one2many_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	MARK_LINE();
 #endif
 
+	if ( pthis_thread_alive_time )
+	{
+		*pthis_thread_alive_time = time( NULL );
+		pb->pthread_alive_time = pthis_thread_alive_time;
+	}
+
 	M_BREAK_STAT( stablish_pcap_udp_connection( pb , &shrtcut ) , 1 );
 
 	BEGIN_RET
@@ -94,8 +113,21 @@ _THREAD_FXN void_p proc_one2many_tcp_out( pass_p src_pb )
 	
 
 #ifdef ENABLE_LOG_THREADS
-	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_proc_one2many_tcp_out , NP , _g );
-	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_proc_one2many_tcp_out , (long)__FUNCTION__ , _g );
+	
+	/*retrieve track alive indicator*/
+	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	time_t * pthis_thread_alive_time = NULL;
+	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
+	{
+		thread_alive_indicator * pthread_ind = NULL;
+		if ( mms_array_get_s( &_g->stat.nc_s_req.thread_list , idx , ( void ** )&pthread_ind ) == errOK && pthread_ind->thread_id == this_thread )
+		{
+			pthis_thread_alive_time = &pthread_ind->alive_time;
+		}
+	}
+	pthread_mutex_unlock( &_g->stat.nc_s_req.thread_list_mtx );
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
@@ -110,6 +142,12 @@ _THREAD_FXN void_p proc_one2many_tcp_out( pass_p src_pb )
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
+
+	if ( pthis_thread_alive_time )
+	{
+		*pthis_thread_alive_time = time( NULL );
+		pb->pthread_alive_time = pthis_thread_alive_time;
+	}
 
 	many_tcp_out_thread_proc( pb , &shrtcut );
 

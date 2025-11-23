@@ -30,14 +30,14 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_config( pass_p src_g , long v )
 	}
 	if ( _g->appcfg.g_cfg )
 	{
-		DAC( _g->appcfg.g_cfg->c.c.create_date );
-		DAC( _g->appcfg.g_cfg->c.c.modify_date );
-		DAC( _g->appcfg.g_cfg->c.c.config_name );
-		DAC( _g->appcfg.g_cfg->c.c.config_tags );
-		DAC( _g->appcfg.g_cfg->c.c.description );
-		DAC( _g->appcfg.g_cfg->c.c.log_level );
-		DAC( _g->appcfg.g_cfg->c.c.log_file );
-		DAC( _g->appcfg.g_cfg->c.c.NetworkStack_FilterType );
+		DAC( CFG().create_date );
+		DAC( CFG().modify_date );
+		DAC( CFG().config_name );
+		DAC( CFG().config_tags );
+		DAC( CFG().description );
+		DAC( CFG().log_level );
+		DAC( CFG().log_file );
+		DAC( CFG().NetworkStack_FilterType );
 		DAC( _g->appcfg.g_cfg );
 	}
 
@@ -64,44 +64,57 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_config( pass_p src_g , long v )
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
 {
+	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_config ) , _g , clean_config );
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( try_stoping_sending_from_bridge ) , _g , stop_sending_from_bridge );
+
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_config ) , _g , clean_config ) , 0 );
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( try_stoping_sending_from_bridge ) , _g , stop_sending_from_bridge ) , 0 );
+
+	BEGIN_SMPL
+	M_V_END_RET
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void post_config_completed( void_p src_g )
 {
-	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 	_g->distributors.bafter_post_cfg_called = true;
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_cfg( void_p src_g )
 {
+	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
-	distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_completed ) , _g , post_config_order_last_call ); // just before publish but call last
-	distributor_publish_void( &_g->distributors.bcast_post_cfg , SUBSCRIBER_PROVIDED );
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_completed ) , _g , post_config_order_last_call ) , 0 ); // just before publish but call last
+	M_BREAK_STAT( distributor_publish_void( &_g->distributors.bcast_post_cfg , SUBSCRIBER_PROVIDED ) , 0 );
 
 #ifdef HAS_STATISTICSS
-	distributor_publish_void( &_g->distributors.init_static_table , SUBSCRIBER_PROVIDED );
+	M_BREAK_STAT( distributor_publish_void( &_g->distributors.init_static_table , SUBSCRIBER_PROVIDED ) , 0 );
 #endif
 
-	pthread_mutex_init( &_g->appcfg.cfg_mtx , NULL );
+	MM_BREAK_IF( pthread_mutex_init( &_g->appcfg.cfg_mtx , NULL ) , errCreation , 0 , "mutex_init()" );
 	_g->appcfg.cfg_mtx_protector = false;
+
+	BEGIN_SMPL
+	M_V_END_RET
 }
 
 PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_CONFIG )
 _PRIVATE_FXN void pre_main_init_config_component( void )
 {
+	INIT_BREAKABLE_FXN();
+
 	// distribute initialization by the callback and throw components
-	distributor_init( &_g->distributors.bcast_pre_cfg , 1 );
-	distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g );
+	M_BREAK_STAT( distributor_init( &_g->distributors.bcast_pre_cfg , 1 ) , 0 );
+	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g ) , 0 );
 
-	distributor_init_withOrder( &_g->distributors.bcast_post_cfg , 1 );
+	M_BREAK_STAT( distributor_init_withOrder( &_g->distributors.bcast_post_cfg , 1 ) , 0 );
 
-	distributor_init_withOrder( &_g->distributors.bcast_program_stabled , 1 );
-	distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_cfg ) , _g , config_stablity );
+	M_BREAK_STAT( distributor_init_withOrder( &_g->distributors.bcast_program_stabled , 1 ) , 0 );
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_cfg ) , _g , config_stablity ) , 0 );
+
+	BEGIN_SMPL
+	M_V_END_RET
 }
 
 // TODO . think about race condition
@@ -111,8 +124,22 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	G * _g = ( G * )src_g;
 	
 #ifdef ENABLE_LOG_THREADS
-	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_version_checker , NP , _g );
-	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_version_checker , (long)__FUNCTION__ , _g );
+	
+	/*retrieve track alive indicator*/
+	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	time_t * pthis_thread_alive_time = NULL;
+	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
+	{
+		thread_alive_indicator * pthread_ind = NULL;
+		if ( mms_array_get_s( &_g->stat.nc_s_req.thread_list , idx , ( void ** )&pthread_ind ) == errOK && pthread_ind->thread_id == this_thread )
+		{
+			pthis_thread_alive_time = &pthread_ind->alive_time;
+		}
+	}
+	pthread_mutex_unlock( &_g->stat.nc_s_req.thread_list_mtx );
+
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
@@ -124,6 +151,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	while ( 1 )
 	{
 		cur_time = time( NULL );
+		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = cur_time;
 
 		if ( GRACEFULLY_END_THREAD() ) break;
 
@@ -184,8 +212,21 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	G * _g = ( G * )src_g;
 	
 #ifdef ENABLE_LOG_THREADS
-	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_config_loader , NP , _g );
-	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_config_loader , (long)__FUNCTION__ , _g );
+	
+	/*retrieve track alive indicator*/
+	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	time_t * pthis_thread_alive_time = NULL;
+	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
+	{
+		thread_alive_indicator * pthread_ind = NULL;
+		if ( mms_array_get_s( &_g->stat.nc_s_req.thread_list , idx , ( void ** )&pthread_ind ) == errOK && pthread_ind->thread_id == this_thread )
+		{
+			pthis_thread_alive_time = &pthread_ind->alive_time;
+		}
+	}
+	pthread_mutex_unlock( &_g->stat.nc_s_req.thread_list_mtx );
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
@@ -193,6 +234,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 	while ( !_g->appcfg.version_changed ) // load after version loaded
 	{
+		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
 		if ( GRACEFULLY_END_THREAD() ) break;
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
@@ -201,6 +243,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 	while ( 1 )
 	{
+		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
 		if ( GRACEFULLY_END_THREAD() ) break;
 		if ( _g->appcfg.g_cfg == NULL || _g->appcfg.version_changed )
 		{
@@ -242,6 +285,14 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );								/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						pGeneralConfiguration->name = (int64)el_##name.value.as_number.value.as_long;						/**/
+					#define CFG_ELEM_F( name )																				/**/\
+						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
+						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );								/**/\
+						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
+						pGeneralConfiguration->name = (float)el_##name.value.as_number.value.as_double;						/**/
+
+						
+
 
 					CFG_ELEM_STR( create_date );																			/**/\
 					CFG_ELEM_STR( modify_date );																			/**/\
@@ -272,15 +323,28 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					
 					CFG_ELEM_I64( default_low_basic_thread_delay_nanosec );													/**/\
 					CFG_ELEM_I64( default_normal_basic_thread_delay_nanosec );												/**/\
-					CFG_ELEM_I64( default_hi_basic_thread_delay_nanosec );													/**/
+					CFG_ELEM_I64( default_hi_basic_thread_delay_nanosec );													/**/\
 					
-					CFG_ELEM_I64( pkt_mgr_segment_capacity );																/**/
-					CFG_ELEM_I64( pkt_mgr_offsets_capacity );																/**/
+					CFG_ELEM_I64( pkt_mgr_segment_capacity );																/**/\
+					CFG_ELEM_I64( pkt_mgr_offsets_capacity );																/**/\
+					CFG_ELEM_I( pkt_mgr_keep_idle_segment_sec );															/**/\
+					CFG_ELEM_I64( pkt_mgr_allocation_allowed );																/**/\
+					CFG_ELEM_F( pkt_mgr_instantaneous_coefficient );														/**/\
+					CFG_ELEM_I( pkt_mgr_TTF_nopressure_sec );																/**/\
+					CFG_ELEM_I( pkt_mgr_TTF_gentle_backpressure_sec );														/**/\
+					CFG_ELEM_I( pkt_mgr_TTF_aggressive_sec );																/**/\
+					CFG_ELEM_I( pkt_mgr_TTF_emergency_drop_sec );															/**/\
+					CFG_ELEM_I( pkt_mgr_gentle_backpressure_stride );													/**/\
+					CFG_ELEM_I( pkt_mgr_aggressive_persist_stride );													/**/\
+					CFG_ELEM_I( pkt_mgr_emergency_drop_stride );														/**/\
+					CFG_ELEM_I( pkt_mgr_red_zone_stride );														/**/
+					
+					
 
-					CFG_ELEM_I( pkt_mgr_maximum_keep_unfinished_segment_sec );												/**/
-					
 					#undef CFG_ELEM_I
 					#undef CFG_ELEM_STR
+					#undef CFG_ELEM_F
+					#undef CFG_ELEM_I64
 				}
 	
 				// load Protocol_Bridges
@@ -468,45 +532,56 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 				if ( _g->appcfg.prev_cfg != NULL && _g->appcfg.g_cfg != NULL )
 				{
-					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.create_date , _g->appcfg.prev_cfg->c.c.create_date );
-					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.modify_date , _g->appcfg.prev_cfg->c.c.modify_date );
-					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.config_name , _g->appcfg.prev_cfg->c.c.config_name );
-					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.config_tags , _g->appcfg.prev_cfg->c.c.config_tags );
-					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.description , _g->appcfg.prev_cfg->c.c.description );
-					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.log_level , _g->appcfg.prev_cfg->c.c.log_level );
-					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.log_file , _g->appcfg.prev_cfg->c.c.log_file );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().create_date , _g->appcfg.prev_cfg->c.c.create_date );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().modify_date , _g->appcfg.prev_cfg->c.c.modify_date );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().config_name , _g->appcfg.prev_cfg->c.c.config_name );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().config_tags , _g->appcfg.prev_cfg->c.c.config_tags );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().description , _g->appcfg.prev_cfg->c.c.description );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().log_level , _g->appcfg.prev_cfg->c.c.log_level );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().log_file , _g->appcfg.prev_cfg->c.c.log_file );
 
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.enable == _g->appcfg.prev_cfg->c.c.enable );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.shutdown == _g->appcfg.prev_cfg->c.c.shutdown );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.watchdog_enabled == _g->appcfg.prev_cfg->c.c.watchdog_enabled );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.load_prev_config == _g->appcfg.prev_cfg->c.c.load_prev_config );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.dump_current_config == _g->appcfg.prev_cfg->c.c.dump_current_config );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.dump_prev_config == _g->appcfg.prev_cfg->c.c.dump_prev_config );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.time_out_sec == _g->appcfg.prev_cfg->c.c.time_out_sec );
+					_g->appcfg.g_cfg_changed |= !( CFG().enable == _g->appcfg.prev_cfg->c.c.enable );
+					_g->appcfg.g_cfg_changed |= !( CFG().shutdown == _g->appcfg.prev_cfg->c.c.shutdown );
+					_g->appcfg.g_cfg_changed |= !( CFG().watchdog_enabled == _g->appcfg.prev_cfg->c.c.watchdog_enabled );
+					_g->appcfg.g_cfg_changed |= !( CFG().load_prev_config == _g->appcfg.prev_cfg->c.c.load_prev_config );
+					_g->appcfg.g_cfg_changed |= !( CFG().dump_current_config == _g->appcfg.prev_cfg->c.c.dump_current_config );
+					_g->appcfg.g_cfg_changed |= !( CFG().dump_prev_config == _g->appcfg.prev_cfg->c.c.dump_prev_config );
+					_g->appcfg.g_cfg_changed |= !( CFG().time_out_sec == _g->appcfg.prev_cfg->c.c.time_out_sec );
 
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.verbose_mode == _g->appcfg.prev_cfg->c.c.verbose_mode );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.hi_frequent_log_interval_sec == _g->appcfg.prev_cfg->c.c.hi_frequent_log_interval_sec );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.refresh_variable_from_scratch == _g->appcfg.prev_cfg->c.c.refresh_variable_from_scratch );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.stat_referesh_interval_sec == _g->appcfg.prev_cfg->c.c.stat_referesh_interval_sec );
-					//_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.thread_handler_type , _g->appcfg.prev_cfg->c.c.thread_handler_type );
+					_g->appcfg.g_cfg_changed |= !( CFG().verbose_mode == _g->appcfg.prev_cfg->c.c.verbose_mode );
+					_g->appcfg.g_cfg_changed |= !( CFG().hi_frequent_log_interval_sec == _g->appcfg.prev_cfg->c.c.hi_frequent_log_interval_sec );
+					_g->appcfg.g_cfg_changed |= !( CFG().refresh_variable_from_scratch == _g->appcfg.prev_cfg->c.c.refresh_variable_from_scratch );
+					_g->appcfg.g_cfg_changed |= !( CFG().stat_referesh_interval_sec == _g->appcfg.prev_cfg->c.c.stat_referesh_interval_sec );
+					//_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().thread_handler_type , _g->appcfg.prev_cfg->c.c.thread_handler_type );
 	
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.synchronization_min_wait == _g->appcfg.prev_cfg->c.c.synchronization_min_wait );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.synchronization_max_roundup == _g->appcfg.prev_cfg->c.c.synchronization_max_roundup );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.show_line_hit == _g->appcfg.prev_cfg->c.c.show_line_hit );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.retry_unexpected_wait_for_sock == _g->appcfg.prev_cfg->c.c.retry_unexpected_wait_for_sock );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.number_in_short_form == _g->appcfg.prev_cfg->c.c.number_in_short_form );
+					_g->appcfg.g_cfg_changed |= !( CFG().synchronization_min_wait == _g->appcfg.prev_cfg->c.c.synchronization_min_wait );
+					_g->appcfg.g_cfg_changed |= !( CFG().synchronization_max_roundup == _g->appcfg.prev_cfg->c.c.synchronization_max_roundup );
+					_g->appcfg.g_cfg_changed |= !( CFG().show_line_hit == _g->appcfg.prev_cfg->c.c.show_line_hit );
+					_g->appcfg.g_cfg_changed |= !( CFG().retry_unexpected_wait_for_sock == _g->appcfg.prev_cfg->c.c.retry_unexpected_wait_for_sock );
+					_g->appcfg.g_cfg_changed |= !( CFG().number_in_short_form == _g->appcfg.prev_cfg->c.c.number_in_short_form );
 
-					_g->appcfg.g_cfg_changed |= !STR_SAME( _g->appcfg.g_cfg->c.c.NetworkStack_FilterType , _g->appcfg.prev_cfg->c.c.NetworkStack_FilterType );
+					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().NetworkStack_FilterType , _g->appcfg.prev_cfg->c.c.NetworkStack_FilterType );
 					
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.default_low_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_low_basic_thread_delay_nanosec );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.default_normal_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_normal_basic_thread_delay_nanosec );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.default_hi_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_hi_basic_thread_delay_nanosec );
+					_g->appcfg.g_cfg_changed |= !( CFG().default_low_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_low_basic_thread_delay_nanosec );
+					_g->appcfg.g_cfg_changed |= !( CFG().default_normal_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_normal_basic_thread_delay_nanosec );
+					_g->appcfg.g_cfg_changed |= !( CFG().default_hi_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_hi_basic_thread_delay_nanosec );
 					
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.pkt_mgr_segment_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_segment_capacity );
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.pkt_mgr_offsets_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_offsets_capacity );
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_segment_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_segment_capacity );
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_offsets_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_offsets_capacity );
 
-					_g->appcfg.g_cfg_changed |= !( _g->appcfg.g_cfg->c.c.pkt_mgr_maximum_keep_unfinished_segment_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_maximum_keep_unfinished_segment_sec );
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_keep_idle_segment_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_keep_idle_segment_sec );
 
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_allocation_allowed == _g->appcfg.prev_cfg->c.c.pkt_mgr_allocation_allowed );
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_TTF_nopressure_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_TTF_nopressure_sec );
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_TTF_gentle_backpressure_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_TTF_gentle_backpressure_sec );
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_TTF_aggressive_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_TTF_aggressive_sec );
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_TTF_emergency_drop_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_TTF_emergency_drop_sec );
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_gentle_backpressure_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_gentle_backpressure_stride );
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_aggressive_persist_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_aggressive_persist_stride );
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_emergency_drop_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_emergency_drop_stride );
+
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_red_zone_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_red_zone_stride );
+					
 				}
 			}
 	
@@ -629,8 +704,21 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 	G * _g = ( G * )src_g;
 	
 #ifdef ENABLE_LOG_THREADS
-	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_config_executer , NP , _g );
-	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_config_executer , (long)__FUNCTION__ , _g );
+	
+	/*retrieve track alive indicator*/
+	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	time_t * pthis_thread_alive_time = NULL;
+	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
+	{
+		thread_alive_indicator * pthread_ind = NULL;
+		if ( mms_array_get_s( &_g->stat.nc_s_req.thread_list , idx , ( void ** )&pthread_ind ) == errOK && pthread_ind->thread_id == this_thread )
+		{
+			pthis_thread_alive_time = &pthread_ind->alive_time;
+		}
+	}
+	pthread_mutex_unlock( &_g->stat.nc_s_req.thread_list_mtx );
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_START_THREAD();
 #endif
@@ -638,6 +726,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 
 	while ( !_g->appcfg.bdj_psv_cfg_count ) // load after any config loaded
 	{
+		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
 		if ( GRACEFULLY_END_THREAD() ) break;
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
@@ -648,6 +737,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 
 	while ( 1 )
 	{
+		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
 		if ( GRACEFULLY_END_THREAD() )
 		{
 			//for ( int icfg = 0 ; icfg < _g->appcfg.bdj_psv_cfg_count ; icfg++ )

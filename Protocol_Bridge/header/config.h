@@ -35,9 +35,17 @@ typedef struct Global_Config_0
 
 	int64 pkt_mgr_segment_capacity;
 	int64 pkt_mgr_offsets_capacity;
-
-	int pkt_mgr_maximum_keep_unfinished_segment_sec;
-
+	int pkt_mgr_keep_idle_segment_sec;
+	int64 pkt_mgr_allocation_allowed;
+	float pkt_mgr_instantaneous_coefficient;
+	int pkt_mgr_TTF_nopressure_sec;
+	int pkt_mgr_TTF_gentle_backpressure_sec;
+	int pkt_mgr_TTF_aggressive_sec;
+	int pkt_mgr_TTF_emergency_drop_sec;
+	int pkt_mgr_gentle_backpressure_stride;
+	int pkt_mgr_aggressive_persist_stride;
+	int pkt_mgr_emergency_drop_stride;
+	int pkt_mgr_red_zone_stride;
 } Gcfg0;
 
 typedef struct Global_Config_n
@@ -82,6 +90,8 @@ typedef struct App_Config // global config
 	bool already_main_cfg_stablished;
 
 } Acfg;
+
+#define CFG() _g->appcfg.g_cfg->c.c
 
 _THREAD_FXN void_p version_checker( pass_p src_g );
 _THREAD_FXN void_p config_loader( pass_p src_g );

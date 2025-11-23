@@ -31,7 +31,17 @@
 		"default_hi_basic_thread_delay_nanosec": 1000000,
 		"pkt_mgr_segment_capacity": 2097152,
 		"pkt_mgr_offsets_capacity": 10,
-		"pkt_mgr_maximum_keep_unfinished_segment_sec": 30
+		"pkt_mgr_keep_idle_segment_sec": 10,
+		"pkt_mgr_allocation_allowed": 10737418240,
+		"pkt_mgr_instantaneous_coefficient": 0.4,
+		"pkt_mgr_TTF_nopressure_sec": 120,
+		"pkt_mgr_TTF_gentle_backpressure_sec": 60,
+		"pkt_mgr_TTF_aggressive_sec": 30,
+		"pkt_mgr_TTF_emergency_drop_sec": 15,
+		"pkt_mgr_gentle_backpressure_stride": 2,
+		"pkt_mgr_aggressive_persist_stride": 4,
+		"pkt_mgr_emergency_drop_stride": 16,
+		"pkt_mgr_red_zone_stride": 100
 	},
 	"valid_key_values":
 	{

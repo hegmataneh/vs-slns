@@ -11,6 +11,7 @@
 _PRIVATE_FXN _CALLBACK_FXN void handle_pcap_udp_receiver( u_char * src_pb , const struct pcap_pkthdr * hdr , const u_char * packet )
 {
 	AB * pb = ( AB * )src_pb;
+	if ( pb->pthread_alive_time ) *pb->pthread_alive_time = time( NULL );
 	if ( pb->comm.preq.stop_receiving )
 	{
 		pb->comm.preq.receive_stoped = true;

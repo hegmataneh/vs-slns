@@ -31,7 +31,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat_bridges( void_p src_g )
 #endif
 
 #ifdef HAS_STATISTICSS
-	distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( init_bridges_statistics ) , _g , bridge_statistics );
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( init_bridges_statistics ) , _g , bridge_overview ) , 0 );
 #endif
 
 	BEGIN_SMPL
@@ -42,7 +42,12 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat_bridges( void_p src_g )
 PRE_MAIN_INITIALIZATION( PRE_MAIN_INIT_BRIDGES )
 _PRIVATE_FXN void pre_main_init_bridges_component( void )
 {
-	distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat_bridges ) , _g , post_config_order_bridges );
+	INIT_BREAKABLE_FXN();
+
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat_bridges ) , _g , post_config_order_bridges ) , 0 );
+
+	BEGIN_SMPL
+	M_V_END_RET
 }
 
 _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
@@ -74,7 +79,9 @@ _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
 								_close_socket( &pb->tcps[ tcpidx ].tcp_sockfd , &errString );
 								if ( errString )
 								{
+								#ifdef ENABLE_LOGGING
 									log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+								#endif
 								}
 							}
 						}
@@ -184,7 +191,7 @@ _CALLBACK_FXN void pb_every_ticking_refresh( pass_p src_pb )
 {
 	AB * pb = ( AB * )src_pb;
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( pb->stat.pb_elapse_cell );
 
 	nnc_cell_triggered( pb->stat.pb_total_udp_get_count_cell );
@@ -192,7 +199,7 @@ _CALLBACK_FXN void pb_every_ticking_refresh( pass_p src_pb )
 	nnc_cell_triggered( pb->stat.pb_total_tcp_put_count_cell );
 	nnc_cell_triggered( pb->stat.pb_total_tcp_put_byte_cell );
 	
-	#ifdef ENABLE_THROUGHPUT_MEASURE
+#ifdef ENABLE_THROUGHPUT_MEASURE
 	nnc_cell_triggered( pb->stat.pb_5s_udp_pps );
 	nnc_cell_triggered( pb->stat.pb_5s_udp_bps );
 	nnc_cell_triggered( pb->stat.pb_10s_udp_pps );
@@ -205,9 +212,9 @@ _CALLBACK_FXN void pb_every_ticking_refresh( pass_p src_pb )
 	nnc_cell_triggered( pb->stat.pb_10s_tcp_bps );
 	nnc_cell_triggered( pb->stat.pb_40s_tcp_pps );
 	nnc_cell_triggered( pb->stat.pb_40s_tcp_bps );
-	#endif
+#endif
 
-	#endif
+#endif
 }
 
 _CALLBACK_FXN void tcp_state_changed( pass_p src_g , long conn1_dis0 )
@@ -228,7 +235,7 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 	INIT_BREAKABLE_FXN();
 
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 
 	nnc_lock_for_changes( &_g->stat.nc_h );
 
@@ -441,7 +448,7 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 		}
 	}
 
-	#endif // HAS_STATISTICSS
+#endif // HAS_STATISTICSS
 
 	BEGIN_RET
 	M_V_END_RET
@@ -456,6 +463,7 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 {
 	INIT_BREAKABLE_FXN();
+
 	#ifdef ENABLE_USE_DBG_TAG
 		MARK_LINE();
 	#endif
@@ -471,7 +479,7 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 			pb->udps[ iudp ].udp_sockfd = invalid_fd;
 			pb->udps[ iudp ].owner_pb = pb;
 			pb->udps[ iudp ].__udp_cfg_pak = &pb->cpy_cfg.m.m.maintained.in[ iudp ];
-			distributor_init( &pb->udps[ iudp ].bcast_change_state , 1 );
+			M_BREAK_STAT( distributor_init( &pb->udps[ iudp ].bcast_change_state , 1 ) , 0 );
 		}
 	}
 
@@ -521,7 +529,7 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 					pb->tcps[ itcp_piv ].this = &pb->tcps[ itcp_piv ];
 					pb->tcps[ itcp_piv ].main_instance = true;
 					pb->tcps[ itcp_piv ].tcp_sockfd = invalid_fd;
-					distributor_init( &pb->tcps[ itcp_piv ].bcast_change_state , 1 );
+					M_BREAK_STAT( distributor_init( &pb->tcps[ itcp_piv ].bcast_change_state , 1 ) , 0 );
 					subscriber_t * psubscriber = NULL;
 					if ( distributor_subscribe_out( &pb->tcps[ itcp_piv ].bcast_change_state , SUB_LONG , SUB_FXN( tcp_state_changed ) , _g , &psubscriber ) == errOK )
 					{
@@ -543,39 +551,39 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 #endif
 
 	// TODO . if Ab goes away then unregister quit intrupt
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( bridge_insure_input_bus_stoping ) , pb , bridge_insure_input_bus_stoped ); // in several level bridge make cleanup
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_after_nomore_udp ) , pb , getting_new_udp_stoped ); // in several level bridge make cleanup
-	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_bridges ) , _g , clean_globals_shared_var ); // in several level bridge make cleanup
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( bridge_insure_input_bus_stoping ) , pb , bridge_insure_input_bus_stoped ) , 0 ); // in several level bridge make cleanup
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_after_nomore_udp ) , pb , getting_new_udp_stoped ) , 0 ); // in several level bridge make cleanup
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_bridges ) , _g , clean_globals_shared_var ) , 0 ); // in several level bridge make cleanup
 	
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
-	#ifdef HAS_STATISTICSS
-	#ifdef ENABLE_THROUGHPUT_MEASURE
-	cbuf_m_init( &pb->stat.round_init_set.udp_stat_5_sec_count , 5 );
-	cbuf_m_init( &pb->stat.round_init_set.udp_stat_10_sec_count , 10 );
-	cbuf_m_init( &pb->stat.round_init_set.udp_stat_40_sec_count , 40 );
+#ifdef HAS_STATISTICSS
+#ifdef ENABLE_THROUGHPUT_MEASURE
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.udp_stat_5_sec_count , 5 ) , 0 );
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.udp_stat_10_sec_count , 10 ) , 0 );
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.udp_stat_40_sec_count , 40 ) , 0 );
 
-	cbuf_m_init( &pb->stat.round_init_set.udp_stat_5_sec_bytes , 5 );
-	cbuf_m_init( &pb->stat.round_init_set.udp_stat_10_sec_bytes , 10 );
-	cbuf_m_init( &pb->stat.round_init_set.udp_stat_40_sec_bytes , 40 );
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.udp_stat_5_sec_bytes , 5 ) , 0 );
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.udp_stat_10_sec_bytes , 10 ) , 0 );
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.udp_stat_40_sec_bytes , 40 ) , 0 );
 
-	cbuf_m_init( &pb->stat.round_init_set.tcp_stat_5_sec_count , 5 );
-	cbuf_m_init( &pb->stat.round_init_set.tcp_stat_10_sec_count , 10 );
-	cbuf_m_init( &pb->stat.round_init_set.tcp_stat_40_sec_count , 40 );
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.tcp_stat_5_sec_count , 5 ) , 0 );
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.tcp_stat_10_sec_count , 10 ) , 0 );
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.tcp_stat_40_sec_count , 40 ) , 0 );
 
-	cbuf_m_init( &pb->stat.round_init_set.tcp_stat_5_sec_bytes , 5 );
-	cbuf_m_init( &pb->stat.round_init_set.tcp_stat_10_sec_bytes , 10 );
-	cbuf_m_init( &pb->stat.round_init_set.tcp_stat_40_sec_bytes , 40 );
-	#endif
-	#endif
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.tcp_stat_5_sec_bytes , 5 ) , 0 );
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.tcp_stat_10_sec_bytes , 10 ) , 0 );
+	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.tcp_stat_40_sec_bytes , 40 ) , 0 );
+#endif
+#endif
 
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
 
-	init_udps_defragmentator( &pb->comm.preq.defraged_udps ); // defragmentor
+	M_BREAK_STAT( init_udps_defragmentator( &pb->comm.preq.defraged_udps ) , 0 ); // defragmentor
 
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();

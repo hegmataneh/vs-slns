@@ -33,9 +33,9 @@
 
 #define SNAP_LEN MAX_PACKET_SIZE/*1518*/  // max bytes per packet to capture
 
-#define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
+#define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg.g_cfg ? CFG().hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
 
-#define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? (uint)_g->appcfg.g_cfg->c.c.stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
+#define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? (uint)CFG().stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
 
 #define GRACEFULLY_END_THREAD() ( _g->cmd.quit_first_level_thread_3 )
 
@@ -44,14 +44,14 @@
 //#define CLOSE_APP_VAR() ( _g->cmd.quit_app_4 )
 
 // TODO . maybe in middle of config change bug appear ad app unexpectedly quit but that sit is very rare
-#define RETRY_UNEXPECTED_WAIT_FOR_SOCK() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.retry_unexpected_wait_for_sock : 3 )
+#define RETRY_UNEXPECTED_WAIT_FOR_SOCK() ( _g->appcfg.g_cfg ? CFG().retry_unexpected_wait_for_sock : 3 )
 
-#define NUMBER_IN_SHORT_FORM() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.number_in_short_form : 1 )
+#define NUMBER_IN_SHORT_FORM() ( _g->appcfg.g_cfg ? CFG().number_in_short_form : 1 )
 
 #define VLOW_THREAD_DEFAULT_DELAY_NANOSEC() DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC
-#define LOW_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.default_low_basic_thread_delay_nanosec : DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC )
-#define NORMAL_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.default_normal_basic_thread_delay_nanosec : DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC )
-#define HI_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? _g->appcfg.g_cfg->c.c.default_hi_basic_thread_delay_nanosec : DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC )
+#define LOW_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().default_low_basic_thread_delay_nanosec : DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC )
+#define NORMAL_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().default_normal_basic_thread_delay_nanosec : DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC )
+#define HI_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().default_hi_basic_thread_delay_nanosec : DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC )
 
 
 #define STR_RoundRobin "RR"
@@ -143,9 +143,10 @@ typedef enum cleanup_priority_order /*bottom up termination priority*/
 enum stat_init_priority_order /*bottom up termination priority*/
 {
 	statistics_is_stabled , // at last call like event
-	bridge_statistics ,
-	packetmgr_statistics ,
-	main_statistics
+	bridge_overview ,
+	thread_overview ,
+	packetmgr_overview ,
+	app_overview ,
 };
 
 enum thread_used
@@ -176,38 +177,38 @@ enum thread_used
 
 #ifndef control_app_segment_in_deep
 
-#define HAS_STATISTICSS
+	#define HAS_STATISTICSS
 
-#define ENABLE_COMMUNICATION
+	#define ENABLE_COMMUNICATION
 
-#define ENABLE_PERSISTENT_CACHE
+	#define ENABLE_PERSISTENT_CACHE
 
-#define ENABLE_FILLED_TCP_SEGMENT_PROC
+	#define ENABLE_FILLED_TCP_SEGMENT_PROC
 
-#define ENABLE_CLEAN_UNUSED_SEGMENT
+	#define ENABLE_CLEAN_UNUSED_SEGMENT
 
-#define ENABLE_GATHER_STATIC
+	#define ENABLE_GATHER_STATIC
 
-// /*comment by default*/ #define SEND_DIRECTLY_ARRIVE_UDP /*comment by default*/
+	// /*comment by default*/ #define SEND_DIRECTLY_ARRIVE_UDP /*comment by default*/
 
-#define ENABLE_VERBOSE_FAULT
+	#define ENABLE_VERBOSE_FAULT
 
-#define ENABLE_THROUGHPUT_MEASURE
+	#define ENABLE_THROUGHPUT_MEASURE
 
-#define ENABLE_HALFFILL_SEGMENT
+	#define ENABLE_HALFFILL_SEGMENT
 
-#define ENABLE_LOCK_ON_CONFIG // TODO
+	#define ENABLE_LOCK_ON_CONFIG // TODO
 
-#define ENABLE_BRIDGE_THREAD_CREATION
+	#define ENABLE_BRIDGE_THREAD_CREATION
 
-#define ENABLE_TCP_OUT_PROC
+	#define ENABLE_TCP_OUT_PROC
 
-#define ENABLE_PCAP_LOOP_PREQ /*pcap and prerequisit that needed*/
+	#define ENABLE_PCAP_LOOP_PREQ /*pcap and prerequisit that needed*/
 
-#define ENABLE_BYPASS_STDOUT
+	#define ENABLE_BYPASS_STDOUT
 
-#define ENABLE_KEEPALIVE_CHAOTIC
+	#define ENABLE_KEEPALIVE_CHAOTIC
 
-#define ENABLE_LOG_THREADS /*always defined*/
+	#define ENABLE_LOG_THREADS /*always defined*/
 
 #endif

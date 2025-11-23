@@ -149,9 +149,11 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 	AB_tcp *tcps;
 	size_t tcps_count;
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	nnc_table * ab_stat_tbl;
-	#endif
+#endif
+
+	time_t * pthread_alive_time; /*use in pcap loop*/
 	
 } AB;
 

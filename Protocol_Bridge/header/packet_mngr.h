@@ -1,28 +1,5 @@
 #pragma once
 
-typedef struct packet_mngr_prerequisite
-{
-#ifdef ENABLE_HALFFILL_SEGMENT
-	distributor_t bcast_release_halffill_segment; //throttling_release_halffill_segment; // check if condition is true then set halffill segemtn as fill
-#endif
-	kv_table_t map_tcp_socket; // keep mapping between tcp & id
-	ci_sgmgr_t huge_fst_cache; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
-	pthread_t trd_tcp_sender; // get filled segment and send them
-
-	pthread_t trd_clean_unused_segment; // to clean long time unused free segment
-
-	cbuf_metr last_30_sec_seg_count; // peek segment count every one second
-	volatile size_t strides_packet_peek; // take step and prevent segment burst
-
-	//ci_sgmgr_t sent_package_log;
-
-	STAT_FLD timeval latest_huge_memory_time; // last successfull packet sent
-	STAT_FLD timeval latest_memmap_time; // last stored in memmap
-
-	pthread_mutex_t pm_lock;		/* protect against reentrance of threads(pkt_mgr,persist_mgr) */
-
-} pkt_mgr_t;
-
 //// ready packet
 
 typedef struct udp_packet_header
@@ -54,7 +31,7 @@ typedef struct /*ready_2_send_packet_v1*/
 			bool retried;
 			bool fault_registered;
 			uint8 cool_down_attempt; // it is very wiered that two attempt to send is near each other
-			
+
 			uint64 tcp_name_key_hash;
 			uint64 tcp_name_uniq_id;
 		};
@@ -63,7 +40,7 @@ typedef struct /*ready_2_send_packet_v1*/
 
 	union
 	{
-		CHAR TCP_name[1]; // variable length name
+		CHAR TCP_name[ 1 ]; // variable length name
 		//DATAB pkt[1]; // after TCP_name data come
 	};
 
@@ -81,6 +58,37 @@ typedef struct /*ready_2_send_packet_v1*/
 //	uint16_t udp_pkt_id;
 //} pkt_wal_t;
 
+#if defined Uses_packet_mngr_prerequisite || !defined __COMPILING
+
+typedef struct packet_mngr_prerequisite
+{
+#ifdef ENABLE_HALFFILL_SEGMENT
+	distributor_t bcast_release_halffill_segment; //throttling_release_halffill_segment; // check if condition is true then set halffill segemtn as fill
+#endif
+	kv_table_t map_tcp_socket; // keep mapping between tcp & id
+	ci_sgmgr_t huge_fst_cache; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
+	pthread_t trd_tcp_sender; // get filled segment and send them
+
+	pthread_t trd_clean_unused_segment; // to clean long time unused free segment
+
+	cbuf_metr last_30_sec_seg_count; // peek segment count every one second
+	volatile size_t strides_packet_peek; // take step and prevent segment burst
+
+	//ci_sgmgr_t sent_package_log;
+
+	STAT_FLD timeval latest_huge_memory_time; // last successfull packet sent
+	STAT_FLD timeval latest_memmap_time; // last stored in memmap
+
+	pthread_mutex_t pm_lock;		/* protect against reentrance of threads(pkt_mgr,persist_mgr) */
+
+	/*they are about huge mem not memmap so doeas not calc out from file*/
+	cir_rate_wnd_t longTermInputLoad /*just one thread work with this. TODO . change this if multi output used*/; /*make out two because of thread safe*/
+	cir_rate_wnd_t longTermTcpOutLoad;
+	cir_rate_wnd_t longTermFaultyOutLoad;
+	instBps_t instantaneousInputLoad; /*just input may have a peak*/
+	/*~*/
+
+} pkt_mgr_t;
 
 _CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz );
 
@@ -99,3 +107,5 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g );
 _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g );
 
 _CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g );
+
+#endif
