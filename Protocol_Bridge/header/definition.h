@@ -65,9 +65,9 @@
 typedef  char CONFIG_SECTION_ITEM_VALUE  [64];
 typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
 
-#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit_s ) ( NUMBER_IN_SHORT_FORM() ? /*make cell string in short form or long*/ \
-		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit_s ) :\
-		__snprintf( baaf , sizeof(baaf) , "%llu%s%s" , val , *unit_s ? " " : "", unit_s ) )
+#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit_s , prefix_string ) ( NUMBER_IN_SHORT_FORM() ? /*make cell string in short form or long*/ \
+		format_pps( baaf , sizeof(baaf) , (ubigint)val , decimal_precision , unit_s , ""prefix_string"" ) :\
+		__snprintf( baaf , sizeof(baaf) , "%s%llu%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) )
 
 
 enum pre_main_priority_order /*top down startup priority*/

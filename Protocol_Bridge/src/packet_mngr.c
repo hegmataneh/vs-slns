@@ -153,7 +153,7 @@ _PRIVATE_FXN void pre_main_init_packet_mngr_component( void )
 	_GLOBAL_VAR long long _send_by_slow_seek = 0;
 
 	_GLOBAL_VAR long long _try_resolve_route_counter = 0;
-
+	_GLOBAL_VAR long long _release_half_segment = 0;
 
 	_GLOBAL_VAR _EXTERN int64 _seg_ttl_sz;
 	_GLOBAL_VAR _EXTERN double _remain2use;
@@ -166,6 +166,10 @@ _PRIVATE_FXN void pre_main_init_packet_mngr_component( void )
 	_GLOBAL_VAR _EXTERN int _fill_condition_stride;
 	_GLOBAL_VAR _EXTERN int _which_cond;
 
+	_GLOBAL_VAR _EXTERN long long _filed_packet;
+	_GLOBAL_VAR _EXTERN long long _filed_segment;
+	_GLOBAL_VAR long long _try_filed_old_segment = 0;
+
 #endif
 
 #ifdef HAS_STATISTICSS
@@ -174,7 +178,20 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_segment_total_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "A:%zu F:%zu + %zu - %zu" , huge_fst_cache->segment_total , huge_fst_cache->filled_count , huge_fst_cache->newed_segments , huge_fst_cache->released_segments );
+	
+	char buf1[ 64 ];
+	_FORMAT_SHRTFRM( buf1 , sizeof( buf1 ) , huge_fst_cache->segment_total , 2 , "" , "A:" );
+
+	char buf2[ 64 ];
+	_FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , huge_fst_cache->filled_count , 2 , "" , "F:" );
+
+	char buf3[ 64 ];
+	_FORMAT_SHRTFRM( buf3 , sizeof( buf3 ) , huge_fst_cache->newed_segments , 2 , "" , "+" );
+
+	char buf4[ 64 ];
+	_FORMAT_SHRTFRM( buf4 , sizeof( buf4 ) , huge_fst_cache->released_segments , 2 , "" , "-" );
+	
+	sprintf( pcell->storage.tmpbuf , "%s %s %s %s" , buf1 , buf2 , buf3 , buf4 );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -183,7 +200,13 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_segment_send_partially_cell( pass_p src_p
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "w:%zu h:%zu" , _whole_segment_send_directly , _half_segment_send_directly );
+	char buf1[ 64 ];
+	_FORMAT_SHRTFRM( buf1 , sizeof( buf1 ) , _release_half_segment , 2 , "" , "rls:" );
+	char buf2[ 64 ];
+	_FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _whole_segment_send_directly , 2 , "" , "ful:" );
+	char buf3[ 64 ];
+	_FORMAT_SHRTFRM( buf3 , sizeof( buf3 ) , _half_segment_send_directly , 2 , "" , "hlf:" );
+	sprintf( pcell->storage.tmpbuf , "%s %s %s" , buf1 , buf2 , buf3 );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 #endif
@@ -192,7 +215,8 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_m2_cur_items_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%zu" , huge_fst_cache->current_items );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , huge_fst_cache->current_items , 2 , "" , "" );
+	//sprintf( pcell->storage.tmpbuf , "%zu" , huge_fst_cache->current_items );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -200,7 +224,8 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_m2_cur_bytes_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%zu" , huge_fst_cache->current_bytes );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , huge_fst_cache->current_bytes , 2 , "B" , "" );
+	//sprintf( pcell->storage.tmpbuf , "%zu" , huge_fst_cache->current_bytes );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -208,14 +233,16 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_m2_tt_items_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%zu" , huge_fst_cache->tt_items );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , huge_fst_cache->tt_items , 2 , "" , "" );
+	//sprintf( pcell->storage.tmpbuf , "%zu" , huge_fst_cache->tt_items );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 _CALLBACK_FXN PASSED_CSTR auto_refresh_m2_tt_bytes_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%zu" , huge_fst_cache->tt_bytes );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , huge_fst_cache->tt_bytes , 2 , "B" , "" );
+	//sprintf( pcell->storage.tmpbuf , "%zu" , huge_fst_cache->tt_bytes );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -223,8 +250,12 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_m2_tt_bytes_cell( pass_p src_pcell )
 _CALLBACK_FXN PASSED_CSTR auto_refresh_suc_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
-	//ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "+ %lld  ! %lld" , _mem_to_tcp , _mem_to_tcp_failure);
+	
+	char buf1[ 64 ];
+	_FORMAT_SHRTFRM( buf1 , sizeof( buf1 ) , _mem_to_tcp , 2 , "" , "" );
+	char buf2[ 64 ];
+	_FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _mem_to_tcp_failure , 2 , "" , "" );
+	sprintf( pcell->storage.tmpbuf , "+%s  !%s" , buf1 , buf2 );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -239,24 +270,27 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_memmap_items_sent_cell( pass_p src_pcell 
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	//G * _g = ( G * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%lld" , _sucFromFile );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _sucFromFile , 2 , "" , "" );
+	//sprintf( pcell->storage.tmpbuf , "%lld" , _sucFromFile );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 _CALLBACK_FXN PASSED_CSTR auto_refresh_defraged_udp_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	//ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%lld" , _defraged_udp );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _defraged_udp , 2 , "" , "" );
+	//sprintf( pcell->storage.tmpbuf , "%lld" , _defraged_udp );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
-
 _CALLBACK_FXN PASSED_CSTR auto_refresh_defraged_udp_sz_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	//ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%lld" , _defraged_udp_sz );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _defraged_udp_sz , 2 , "B" , "" );
+	//sprintf( pcell->storage.tmpbuf , "%lld" , _defraged_udp_sz );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
+
 _CALLBACK_FXN PASSED_CSTR auto_refresh_pkt_in_fst_cch_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
@@ -303,7 +337,11 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_send_kind_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	//G * _g = ( G * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "Fst:%lld Slw:%lld" , _send_by_fast_dic , _send_by_slow_seek );
+	char buf1[ 64 ];
+	_FORMAT_SHRTFRM( buf1 , sizeof( buf1 ) , _send_by_fast_dic , 2 , "" , "Fst:" );
+	char buf2[ 64 ];
+	_FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _send_by_slow_seek , 2 , "" , "Slw:" );
+	sprintf( pcell->storage.tmpbuf , "%s %s" , buf1 , buf2 );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 #endif
@@ -313,7 +351,11 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_gateway_open_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	G * _g = ( G * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%s + %lld - %lld" , _g->hdls.gateway.pagestack_gateway_open_val ? "o" : "c" , _open_gate_cnt , _close_gate_cnt);
+	char buf1[64];
+	_FORMAT_SHRTFRM( buf1 , sizeof( buf1 ) , _open_gate_cnt , 2 , "" , "" );
+	char buf2[ 64 ];
+	_FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _close_gate_cnt , 2 , "" , "" );
+	sprintf( pcell->storage.tmpbuf , "%s +%s -%s" , _g->hdls.gateway.pagestack_gateway_open_val ? "o" : "c" , buf1 , buf2 );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 #endif
@@ -330,7 +372,8 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_memmap_items_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	G * _g = ( G * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%zu" , _g->hdls.prst_csh.page_stack.item_stored );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _g->hdls.prst_csh.page_stack.item_stored , 2 , "" , "" );
+	//sprintf( pcell->storage.tmpbuf , "%zu" , _g->hdls.prst_csh.page_stack.item_stored );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -338,7 +381,8 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_memmap_items_sz_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	G * _g = ( G * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%zu" , _g->hdls.prst_csh.page_stack.item_stored_byte );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _g->hdls.prst_csh.page_stack.item_stored_byte , 2 , "B" , "" );
+	//sprintf( pcell->storage.tmpbuf , "%zu" , _g->hdls.prst_csh.page_stack.item_stored_byte );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -347,7 +391,8 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_try_resolve_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	G * _g = ( G * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "try:%lld" , _try_resolve_route_counter );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _try_resolve_route_counter , 2 , "" , "try:" );
+	//sprintf( pcell->storage.tmpbuf , "try:%lld" , _try_resolve_route_counter );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 #endif
@@ -355,43 +400,50 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_try_resolve_cell( pass_p src_pcell )
 _CALLBACK_FXN PASSED_CSTR auto_refresh_seg_ttl_sz_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
-	sprintf( pcell->storage.tmpbuf , "seg_ttl_sz:%llu" , _seg_ttl_sz );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _seg_ttl_sz , 2 , "B" , "segs_sz:" );
+	//sprintf( pcell->storage.tmpbuf , "seg_ttl_sz:%llu" , _seg_ttl_sz );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 _CALLBACK_FXN PASSED_CSTR auto_refresh_remain2use_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
-	sprintf( pcell->storage.tmpbuf , "remain2use:%.2f" , _remain2use );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _remain2use , 2 , "B" , "remnMem:" );
+	//sprintf( pcell->storage.tmpbuf , "remain2use:%.2f" , _remain2use );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 _CALLBACK_FXN PASSED_CSTR auto_refresh_longTermInputLoad_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
-	sprintf( pcell->storage.tmpbuf , "longTermInputLoad:%.2f" , _longTermInputLoad );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _longTermInputLoad , 2 , "Bps" , "inpLoad:" );
+	//sprintf( pcell->storage.tmpbuf , "longTermInputLoad:%.2f" , _longTermInputLoad );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 _CALLBACK_FXN PASSED_CSTR auto_refresh_longTermTcpOutLoad_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
-	sprintf( pcell->storage.tmpbuf , "longTermTcpOutLoad:%.2f" , _longTermTcpOutLoad );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _longTermTcpOutLoad , 2 , "Bps" , "TcpOutLoad:" );
+	//sprintf( pcell->storage.tmpbuf , "longTermTcpOutLoad:%.2f" , _longTermTcpOutLoad );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 _CALLBACK_FXN PASSED_CSTR auto_refresh_longTermFaultyOutLoad_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
-	sprintf( pcell->storage.tmpbuf , "longTermFaultyOutLoad:%.2f" , _longTermFaultyOutLoad );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _longTermFaultyOutLoad , 2 , "Bps" , "FaltOutLoad:" );
+	//sprintf( pcell->storage.tmpbuf , "longTermFaultyOutLoad:%.2f" , _longTermFaultyOutLoad );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 _CALLBACK_FXN PASSED_CSTR auto_refresh_instantaneousInputLoad_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
-	sprintf( pcell->storage.tmpbuf , "instantaneousInputLoad:%.2f" , _instantaneousInputLoad );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _instantaneousInputLoad , 2 , "Bps" , "instantInputLoad:" );
+	//sprintf( pcell->storage.tmpbuf , "instantaneousInputLoad:%.2f" , _instantaneousInputLoad );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 _CALLBACK_FXN PASSED_CSTR auto_refresh_rate_totally_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
-	sprintf( pcell->storage.tmpbuf , "rate_totally:%.2f" , _rate_totally );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _rate_totally , 2 , "Bps" , "accRate:" );
+	//sprintf( pcell->storage.tmpbuf , "rate_totally:%.2f" , _rate_totally );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 _CALLBACK_FXN PASSED_CSTR auto_refresh_TTF_cell( pass_p src_pcell )
@@ -413,6 +465,22 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_which_cond_cell( pass_p src_pcell )
 	sprintf( pcell->storage.tmpbuf , "which_cond:%d" , _which_cond );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
+
+#ifdef ENABLE_USE_DBG_TAG
+_CALLBACK_FXN PASSED_CSTR auto_refresh_clean_old_segment_cell( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	ci_sgmgr_t * huge_fst_cache = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
+	char buf1[ 64 ];
+	_FORMAT_SHRTFRM( buf1 , sizeof( buf1 ) , _filed_packet , 2 , "" , "filpkt:" );
+	char buf2[ 64 ];
+	_FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , _filed_segment , 2 , "" , "filseg:" );
+	char buf3[ 64 ];
+	_FORMAT_SHRTFRM( buf3 , sizeof( buf3 ) , _try_filed_old_segment , 2 , "" , "tryold:" );
+	sprintf( pcell->storage.tmpbuf , "%s %s %s" , buf1 , buf2 , buf3 );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+#endif
 
 #define MEM_FAST "Mm1"
 #define MEM_HUGE "Mm2"
@@ -454,7 +522,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 #ifdef ENABLE_USE_DBG_TAG
 	// segment_send_stat
-	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_HUGE " partially" ) , 0 ); pcell = NULL;
+	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_HUGE " snd partial" ) , 0 ); pcell = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
 	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.huge_fst_cache; pcell->conversion_fxn = auto_refresh_segment_send_partially_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
@@ -633,42 +701,6 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
 
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
-	pcell->conversion_fxn = auto_refresh_longTermInputLoad_cell;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
-
-	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
-	pcell->conversion_fxn = auto_refresh_longTermTcpOutLoad_cell;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
-
-
-	//--------------------
-	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
-	M_BREAK_STAT( nnc_set_static_int( ptbl , ( size_t )irow , ( size_t )icol++ , irow + 1 ) , 0 );
-	//--------------------
-
-	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
-	pcell->conversion_fxn = auto_refresh_longTermFaultyOutLoad_cell;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
-
-	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
-	pcell->conversion_fxn = auto_refresh_instantaneousInputLoad_cell;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
-
-	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
-	pcell->conversion_fxn = auto_refresh_rate_totally_cell;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
-
-	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
-	pcell->conversion_fxn = auto_refresh_TTF_cell;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
-
-
-	//--------------------
-	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
-	M_BREAK_STAT( nnc_set_static_int( ptbl , ( size_t )irow , ( size_t )icol++ , irow + 1 ) , 0 );
-	//--------------------
-
-	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
 	pcell->conversion_fxn = auto_refresh_fill_condition_stride_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
 
@@ -676,8 +708,47 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	pcell->conversion_fxn = auto_refresh_which_cond_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
 
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->conversion_fxn = auto_refresh_TTF_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
 
 
+
+	//--------------------
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , ( size_t )irow , ( size_t )icol++ , irow + 1 ) , 0 );
+	//--------------------
+
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->conversion_fxn = auto_refresh_longTermInputLoad_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
+
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->conversion_fxn = auto_refresh_instantaneousInputLoad_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
+
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->conversion_fxn = auto_refresh_longTermTcpOutLoad_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
+
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->conversion_fxn = auto_refresh_longTermFaultyOutLoad_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
+
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->conversion_fxn = auto_refresh_rate_totally_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
+
+
+	//--------------------
+	irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+	M_BREAK_STAT( nnc_set_static_int( ptbl , ( size_t )irow , ( size_t )icol++ , irow + 1 ) , 0 );
+	//--------------------
+	
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->conversion_fxn = auto_refresh_clean_old_segment_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 );
+	
 
 	// --------------------
 
@@ -749,7 +820,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	WARNING( pkt1->metadata.version == TCP_XPKT_V1 );
 	bool try_resolve_route = false;
 
-	if ( pkt1->metadata.sent ) { err_sent = errOK; goto _exit_pt; }
+	if ( pkt1->metadata.sent || pkt1->metadata.filed /*filed one on memory does not send*/ ) { err_sent = errOK; goto _exit_pt; }
 	if ( _g->cmd.block_sending_1 ) { err_sent = errCanceled; goto _exit_pt; }
 
 	time_t tnow = 0;
@@ -759,7 +830,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	AB * pb = NULL;
 
 	// normal packet come and go. retried packet should just checked
-	if ( pkt1->metadata.fault_registered ) // faulty item should not have too many attempt
+	if ( pkt1->metadata.is_faulti ) // faulty item should not have too many attempt
 	{
 		if ( pkt1->metadata.cool_down_attempt && pkt1->metadata.cool_down_attempt == *( uchar * )&tnow ) // in one second we should not attempt . and this check and possiblity is rare in not too many attempt situation
 		{
@@ -811,7 +882,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 					pb = ptcp->owner_pb; // not safe at all . but for now is ok . TODO . fix this error prone potentially faulty part
 				}
 
-				if ( !pkt1->metadata.fault_registered )
+				if ( !pkt1->metadata.is_faulti )
 				{
 					cwnd_rate_add_packet( &_g->hdls.pkt_mgr.longTermTcpOutLoad , ( uint64_t )len );
 				}
@@ -898,7 +969,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 										dict_fst_put( &_g->hdls.pkt_mgr.map_tcp_socket , pkt1->TCP_name , pb->tcps[ itcp ].this->tcp_sockfd , ( void_p )pb->tcps[ itcp ].this , NULL , NULL , NULL );
 									}
 
-									if ( !pkt1->metadata.fault_registered ) // faulti item come from file so why should i conder them in calculation
+									if ( !pkt1->metadata.is_faulti ) // faulti item come from file so why should i conder them in calculation
 									{
 										cwnd_rate_add_packet( &_g->hdls.pkt_mgr.longTermTcpOutLoad , ( uint64_t )len );
 									}
@@ -945,13 +1016,13 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 		pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
 	}
 	
-	if ( !pkt1->metadata.sent && pkt1->metadata.retry )
-	{
-		pkt1->metadata.retry = false;
-		pkt1->metadata.retried = true;
-		err_sent = process_segment_itm( data , len , src_g ); // retry
-		goto _exit_pt;
-	}
+	//if ( !pkt1->metadata.sent && pkt1->metadata.retry )
+	//{
+	//	pkt1->metadata.retry = false;
+	//	pkt1->metadata.retried = true;
+	//	err_sent = process_segment_itm( data , len , src_g ); // retry
+	//	goto _exit_pt;
+	//}
 
 	// under here err_sent could not be change because its used as succesful sending
 
@@ -1024,14 +1095,21 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 	xudp_hdr * pkt1 = ( xudp_hdr * )data;
 	size_t sz_t = pkt1->metadata.payload_sz;
 
-	if ( pkt1->metadata.sent || pkt1->metadata.fault_registered )
+	if ( pkt1->metadata.sent || /*pkt1->metadata.is_faulti ||*/ pkt1->metadata.filed )
 	{
 		return errOK;
 	}
 	
-	_g->hdls.pkt_mgr.latest_memmap_time = pkt1->metadata.udp_hdr.tm; // wheter memmap packet is most important so first send them
+	if ( _g->hdls.pkt_mgr.latest_memmap_time.tv_sec && _g->hdls.pkt_mgr.latest_memmap_time.tv_sec > pkt1->metadata.udp_hdr.tm.tv_sec )
+	{
+		// just because olds segment also released then latest_memmap_time must be latest faulti packet
+	}
+	else
+	{
+		_g->hdls.pkt_mgr.latest_memmap_time = pkt1->metadata.udp_hdr.tm; // wheter memmap packet is most important so first send them
+	}
 
-	pkt1->metadata.fault_registered = 1;
+	pkt1->metadata.is_faulti = 1;
 
 #ifdef ENABLE_USE_DBG_TAG
 	_mem_to_tcp_failure++;
@@ -1044,6 +1122,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 	
 	if ( d_error == errOK )
 	{
+		pkt1->metadata.filed = true; // after sure that is stored on file set filed . so retry this on memory cause stoped. and that one from file is about to sent
 		cwnd_rate_add_packet( &_g->hdls.pkt_mgr.longTermFaultyOutLoad , ( uint64_t )len );
 	}
 
@@ -1052,6 +1131,21 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 	
 	return d_error;
 }
+
+//_PRIVATE_FXN _CALLBACK_FXN status filed_itm( buffer data , size_t len , pass_p src_g )
+//{
+//	G * _g = ( G * )src_g;
+//	xudp_hdr * pkt1 = ( xudp_hdr * )data;
+//
+//	struct timeval tnow;
+//	gettimeofday( &tnow , NULL );
+//	double df_sec = timeval_diff_ms( &pkt1->metadata.udp_hdr.tm , &tnow ) / 1000;
+//	if ( df_sec > 30 TODO )
+//	{
+//		return errNoCountinue;
+//	}
+//	return process_faulty_itm( data , len , src_g );
+//}
 
 _CALLBACK_FXN status discharge_persistent_storage_data( pass_p src_g , buffer buf , size_t sz )
 {
@@ -1259,19 +1353,26 @@ _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g )
 #endif
 #endif
 
+	//int swp = 0;
+
 	do
 	{
 		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
 		if ( GRACEFULLY_END_THREAD() ) break;
 
-		if ( !segmgr_cleanup_idle( &_g->hdls.pkt_mgr.huge_fst_cache , 5 ) ) // if there is no work to do clean unused segment
+		//swp = ( swp + 1 ) % 2;
+
+		//if ( swp )
 		{
-			mng_basic_thread_sleep( _g , LOW_PRIORITY_THREAD );
+			segmgr_cleanup_idle( &_g->hdls.pkt_mgr.huge_fst_cache , 5 ); // if there is no work to do clean unused segment
 		}
-		else
+		//else
 		{
-			mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+			//_try_filed_old_segment++;
+			//segmgr_try_process_filled_segment( &_g->hdls.pkt_mgr.huge_fst_cache , filed_itm , src_g , seg_trv_FIFO_nolock );
 		}
+
+		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	} while ( 1 );
 
 #ifdef ENABLE_USE_DBG_TAG
@@ -1302,6 +1403,7 @@ _CALLBACK_FXN void release_halffill_segment( pass_p src_g , long v )
 	G * _g = ( G * )src_g;
 	if ( ci_sgm_peek_decide_active( &_g->hdls.pkt_mgr.huge_fst_cache , peek_decide_active_sgm ) )
 	{
+		_release_half_segment++;
 		//MEMSET_ZERO_O( &_g->hdls.pkt_mgr.latest_huge_memory_time ); // try to send new packet cause time reset
 	}
 }
