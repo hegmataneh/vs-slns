@@ -75,10 +75,14 @@ typedef struct packet_mngr_prerequisite
 	ci_sgmgr_t huge_fst_cache; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
 	pthread_t trd_tcp_sender; // get filled segment and send them
 
-	pthread_t trd_clean_unused_segment; // to clean long time unused free segment
+	//pthread_t trd_clean_unused_segment; // to clean long time unused free segment
 
-	cbuf_metr last_30_sec_seg_count; // peek segment count every one second
-	volatile size_t strides_packet_peek; // take step and prevent segment burst
+	cbuf_metr last_n_peek_total_seg_count; // peek segment count every one second
+	cbuf_metr last_n_peek_filled_seg_count; // peek segment count every one second
+	//cbuf_metr input_rates , output_rates; /*these cr_in_wnd_t keep track of bandwidth on IO*/
+	
+	size_t sampling_sent_packet_stride; // take step and prevent segment burst
+	//size_t hysteresis_evacuate_segments_countdown; // take step and prevent segment burst . depend on prev state
 
 	//ci_sgmgr_t sent_package_log;
 
@@ -87,10 +91,11 @@ typedef struct packet_mngr_prerequisite
 
 	pthread_mutex_t pm_lock;		/* protect against reentrance of threads(pkt_mgr,persist_mgr) */
 
-	/*they are about huge mem not memmap so doeas not calc out from file*/
-	cir_rate_wnd_t longTermInputLoad /*just one thread work with this. TODO . change this if multi output used*/; /*make out two because of thread safe*/
-	cir_rate_wnd_t longTermTcpOutLoad;
-	cir_rate_wnd_t longTermFaultyOutLoad;
+	/*they are about huge mem not memmap so does not calc out from file*/
+	cr_in_wnd_t longTermInputLoad /*just one thread work with this. TODO . change this if multi output used*/; /*make out two because of thread safe*/
+	//cr_in_wnd_t longTermTcpOutLoad;
+	//cr_in_wnd_t longTermFaultyOutLoad;
+	cr_in_wnd_t longTermOutLoad;
 	instBps_t instantaneousInputLoad; /*just input may have a peak*/
 	/*~*/
 
@@ -111,6 +116,8 @@ void cleanup_pkt_mgr( pkt_mgr_t * pktmgr );
 _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g );
 
 _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g );
+
+_THREAD_FXN void_p evacuate_old_segment_proc( pass_p src_g );
 
 _CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g );
 

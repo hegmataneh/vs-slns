@@ -1,3 +1,4 @@
+#define Uses__MK_MSG
 #define Uses_MARK_START_THREAD
 #define Uses_strcasecmp
 #define Uses_WARNING
@@ -70,7 +71,11 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_config ) , _g , clean_config ) , 0 );
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( try_stoping_sending_from_bridge ) , _g , stop_sending_from_bridge ) , 0 );
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -95,7 +100,11 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_cfg( void_p src_g )
 	MM_BREAK_IF( pthread_mutex_init( &_g->appcfg.cfg_mtx , NULL ) , errCreation , 0 , "mutex_init()" );
 	_g->appcfg.cfg_mtx_protector = false;
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -113,7 +122,11 @@ _PRIVATE_FXN void pre_main_init_config_component( void )
 	M_BREAK_STAT( distributor_init_withOrder( &_g->distributors.bcast_program_stabled , 1 ) , 0 );
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_cfg ) , _g , config_stablity ) , 0 );
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -195,7 +208,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	}
 	BEGIN_RET
-		case 1: DIST_APP_FAILURE();
+		case 1: if ( d_error ) DIST_APP_FAILURE();
 	M_V_END_RET
 
 #ifdef ENABLE_USE_DBG_TAG
@@ -210,6 +223,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
+	char tmp_arr[ DEFAULT_MFS_BUF_SZ ] = "";
 	
 #ifdef ENABLE_LOG_THREADS
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
@@ -256,43 +270,40 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 			size_t Protocol_Bridges_count = 0;
 			{
 				const char * Protocol_Bridge_config_file_content = read_file( CONFIG_ROOT_PATH "/Protocol_Bridge_config.txt" , NULL , NULL );
-				MM_BREAK_IF( !Protocol_Bridge_config_file_content , errNotFound , 0 , "cannot open config file" );
+				MM_BREAK_IF( !Protocol_Bridge_config_file_content , errNotFound , 0 , _MK_MSG( tmp_arr , "cannot open %s" , CONFIG_ROOT_PATH "/Protocol_Bridge_config.txt" ) );
 					
 				result( json_element ) rs_Protocol_Bridge_config = json_parse( Protocol_Bridge_config_file_content );
 				FREE( ( void_p )Protocol_Bridge_config_file_content );
-				MM_BREAK_IF( catch_error( &rs_Protocol_Bridge_config , "Protocol_Bridge_config" , 1 ) , errGeneral , 0 , "cannot parse config file" );
+				MM_BREAK_IF( catch_error( &rs_Protocol_Bridge_config , "Protocol_Bridge_config" , 1 ) , errGeneral , 0 , _MK_MSG( tmp_arr , "cannot parse %s" , CONFIG_ROOT_PATH "/Protocol_Bridge_config.txt" ) );
 				el_Protocol_Bridge_config = result_unwrap( json_element )( &rs_Protocol_Bridge_config );
 	
 				// load general configurations
 				if ( _g->appcfg.ver->Major >= 1 ) // first version of config file structure
 				{
 					result( json_element ) re_configurations = json_object_find( el_Protocol_Bridge_config.value.as_object , "configurations" );
-					MM_BREAK_IF( catch_error( &re_configurations , "configurations" , 1 ) , errNotFound , 0 , "configurations" );
+					MM_BREAK_IF( catch_error( &re_configurations , "configurations" , 1 ) , errNotFound , 0 , "configurations tag not found" );
 					typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 	
 					#define CFG_ELEM_STR( name )																			/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );								/**/\
+						MM_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 , "@configurations " #name " not found" );								/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						NEWSTR( pGeneralConfiguration->name , el_##name.value.as_string , 0 );								/**/
 					#define CFG_ELEM_I( name )																				/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );								/**/\
+						MM_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 , "@configurations " #name " not found" );								/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						pGeneralConfiguration->name = (int)el_##name.value.as_number.value.as_long;							/**/
 					#define CFG_ELEM_I64( name )																			/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );								/**/\
+						MM_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 , "@configurations " #name " not found" );								/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						pGeneralConfiguration->name = (int64)el_##name.value.as_number.value.as_long;						/**/
 					#define CFG_ELEM_F( name )																				/**/\
 						result( json_element ) re_##name = json_object_find( el_configurations.value.as_object , #name );	/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );								/**/\
+						MM_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 , "@configurations " #name " not found" );								/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );						/**/\
 						pGeneralConfiguration->name = (float)el_##name.value.as_number.value.as_double;						/**/
-
-						
-
 
 					CFG_ELEM_STR( create_date );																			/**/\
 					CFG_ELEM_STR( modify_date );																			/**/\
@@ -313,7 +324,6 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I( refresh_variable_from_scratch );															/**/\
 					CFG_ELEM_I( stat_referesh_interval_sec );																/**/\
 
-
 					CFG_ELEM_I( synchronization_min_wait );																	/**/\
 					CFG_ELEM_I( synchronization_max_roundup );																/**/\
 					CFG_ELEM_I( show_line_hit );																			/**/\
@@ -325,6 +335,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I64( default_normal_basic_thread_delay_nanosec );												/**/\
 					CFG_ELEM_I64( default_hi_basic_thread_delay_nanosec );													/**/\
 					
+					CFG_ELEM_I( pkt_mgr_segments_slope_slides_sec )															/**/\
 					CFG_ELEM_I64( pkt_mgr_segment_capacity );																/**/\
 					CFG_ELEM_I64( pkt_mgr_offsets_capacity );																/**/\
 					CFG_ELEM_I( pkt_mgr_keep_idle_segment_sec );															/**/\
@@ -334,12 +345,10 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I( pkt_mgr_TTF_gentle_backpressure_sec );														/**/\
 					CFG_ELEM_I( pkt_mgr_TTF_aggressive_sec );																/**/\
 					CFG_ELEM_I( pkt_mgr_TTF_emergency_drop_sec );															/**/\
-					CFG_ELEM_I( pkt_mgr_gentle_backpressure_stride );													/**/\
-					CFG_ELEM_I( pkt_mgr_aggressive_persist_stride );													/**/\
-					CFG_ELEM_I( pkt_mgr_emergency_drop_stride );														/**/\
-					CFG_ELEM_I( pkt_mgr_red_zone_stride );														/**/
-					
-					
+					CFG_ELEM_I( pkt_mgr_gentle_backpressure_stride );														/**/\
+					CFG_ELEM_I( pkt_mgr_aggressive_persist_stride );														/**/\
+					CFG_ELEM_I( pkt_mgr_emergency_drop_stride );															/**/\
+					CFG_ELEM_I( pkt_mgr_red_zone_stride );																	/**/
 
 					#undef CFG_ELEM_I
 					#undef CFG_ELEM_STR
@@ -350,7 +359,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 				// load Protocol_Bridges
 				{
 					result( json_element ) re_Protocol_Bridges = json_object_find( el_Protocol_Bridge_config.value.as_object , "Protocol_Bridges" );
-					MM_BREAK_IF( catch_error( &re_Protocol_Bridges , "Protocol_Bridges" , 1 ) , errNotFound , 0 , "Protocol_Bridges" );
+					MM_BREAK_IF( catch_error( &re_Protocol_Bridges , "Protocol_Bridges" , 1 ) , errNotFound , 0 , "tag Protocol_Bridges not found" );
 					typed( json_element ) el_Protocol_Bridges = result_unwrap( json_element )( &re_Protocol_Bridges );
 	
 					//MM_BREAK_IF( ( Protocol_Bridges_count = el_Protocol_Bridges.value.as_object->count ) < 1 , errGeneral , 0 , "Protocol_Bridges must be not zero" );
@@ -365,18 +374,18 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						const char * output_Protocol_Bridge_name = ( *( el_Protocol_Bridges.value.as_object->entries + icnf_section ) )->key;
 	
 						result( json_element ) re_each_bridge = json_object_find( el_Protocol_Bridges.value.as_object , output_Protocol_Bridge_name );
-						M_BREAK_IF( catch_error( &re_each_bridge , output_Protocol_Bridge_name , 1 ) , errNotFound , 0 );
+						MM_BREAK_IF( catch_error( &re_each_bridge , output_Protocol_Bridge_name , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s not found" , output_Protocol_Bridge_name ) );
 						typed( json_element ) el_each_bridge = result_unwrap( json_element )( &re_each_bridge );
 	
 						#define CFG_ELEM_STR( part , name )																					/**/\
 						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );						/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );												/**/\
+						MM_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "%s> " #name " not found" , output_Protocol_Bridge_name ) );	/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );										/**/\
 						strcpy(((Bcfg0 *)(pProtocol_Bridges + iactual_section))->part.name , el_##name.value.as_string );					/**/
 	
 						#define CFG_ELEM_I( part , name )																					/**/\
 						result( json_element ) re_##name = json_object_find( el_each_bridge.value.as_object , #name );						/**/\
-						M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 );												/**/\
+						MM_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "%s> " #name " not found" , output_Protocol_Bridge_name ) );	/**/\
 						typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );										/**/\
 						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->part.name = (int)el_##name.value.as_number.value.as_long;			/**/
 	
@@ -391,7 +400,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						
 						// bridge inputs
 						result( json_element ) re_inputs = json_object_find( el_each_bridge.value.as_object , "inputs" );
-						MM_BREAK_IF( catch_error( &re_inputs , "inputs" , 1 ) , errNotFound , 0 , "inputs" );
+						MM_BREAK_IF( catch_error( &re_inputs , "inputs" , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>inputs not found" , output_Protocol_Bridge_name ) );
 						typed( json_element ) el_inputs = result_unwrap( json_element )( &re_inputs );
 												
 						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count = el_inputs.value.as_object->count;
@@ -401,28 +410,27 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						for ( size_t iin = 0 ; iin < ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count ; iin++ )
 						{
 							const char * output_input_name = ( *( el_inputs.value.as_object->entries + iin ) )->key;
-
 							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in + iin )->name , output_input_name );
 
 							result( json_element ) re_inp = json_object_find( el_inputs.value.as_object , output_input_name );
-							M_BREAK_IF( catch_error( &re_inp , output_input_name , 1 ) , errNotFound , 0 );
+							MM_BREAK_IF( catch_error( &re_inp , output_input_name , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>inputs>%s not found" , output_Protocol_Bridge_name , output_input_name ) );
 							typed( json_element ) el_inp = result_unwrap( json_element )( &re_inp );
 
 							#define IN_CFG_ELEM_STR( elem , namee )																		/**/\
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );											/**/\
+							MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>inputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_input_name ) );	 /**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
 							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in + iin )->data.namee , el_##namee.value.as_string );					/**/
 
 							#define IN_CORE_CFG_ELEM_STR( elem , namee )																		/**/\
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );											/**/\
+							MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>inputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_input_name ) );											/**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
 							strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in + iin )->data.core.namee , el_##namee.value.as_string );					/**/
 
 							#define IN_CFG_ELEM_I( elem , namee )																				/**/\
 							result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
-							M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );													/**/\
+							MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>inputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_input_name ) );													/**/\
 							typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
 							( ((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in + iin )->data.namee = (int)el_##namee.value.as_number.value.as_long;					/**/
 
@@ -446,7 +454,6 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						if ( !catch_error( &re_outputs , "outputs" , 0 ) )
 						{
 							typed( json_element ) el_outputs = result_unwrap( json_element )( &re_outputs );
-
 							( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count = el_outputs.value.as_object->count;
 
 							M_BREAK_IF( !( ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out = MALLOC_AR( ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out , ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count ) ) , errMemoryLow , 0 );
@@ -454,28 +461,27 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 							for ( int iout = 0 ; iout < ( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count ; iout++ )
 							{
 								const char * output_outputs_name = ( *( el_outputs.value.as_object->entries + iout ) )->key;
-
 								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->name , output_outputs_name );
 
 								result( json_element ) re_out = json_object_find( el_outputs.value.as_object , output_outputs_name );
-								M_BREAK_IF( catch_error( &re_out , output_outputs_name , 1 ) , errNotFound , 0 );
+								MM_BREAK_IF( catch_error( &re_out , output_outputs_name , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>outputs>%s not found" , output_Protocol_Bridge_name , output_outputs_name ) );
 								typed( json_element ) el_out = result_unwrap( json_element )( &re_out );
 
 								#define IN_CFG_ELEM_STR( elem , namee )																		/**/\
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );											/**/\
+								MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>outputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_outputs_name ) );	/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
 								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.namee , el_##namee.value.as_string );		/**/
 
 								#define IN_CFG_CORE_ELEM_STR( elem , namee )																		/**/\
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );											/**/\
+								MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>outputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_outputs_name ) );	/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
 								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.core.namee , el_##namee.value.as_string );		/**/
 
 								#define IN_CFG_ELEM_I( elem , namee )																				/**/\
 								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
-								M_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 );													/**/\
+								MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>outputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_outputs_name ) );	/**/\
 								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
 								( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
 
@@ -539,7 +545,6 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().description , _g->appcfg.prev_cfg->c.c.description );
 					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().log_level , _g->appcfg.prev_cfg->c.c.log_level );
 					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().log_file , _g->appcfg.prev_cfg->c.c.log_file );
-
 					_g->appcfg.g_cfg_changed |= !( CFG().enable == _g->appcfg.prev_cfg->c.c.enable );
 					_g->appcfg.g_cfg_changed |= !( CFG().shutdown == _g->appcfg.prev_cfg->c.c.shutdown );
 					_g->appcfg.g_cfg_changed |= !( CFG().watchdog_enabled == _g->appcfg.prev_cfg->c.c.watchdog_enabled );
@@ -547,30 +552,24 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					_g->appcfg.g_cfg_changed |= !( CFG().dump_current_config == _g->appcfg.prev_cfg->c.c.dump_current_config );
 					_g->appcfg.g_cfg_changed |= !( CFG().dump_prev_config == _g->appcfg.prev_cfg->c.c.dump_prev_config );
 					_g->appcfg.g_cfg_changed |= !( CFG().time_out_sec == _g->appcfg.prev_cfg->c.c.time_out_sec );
-
 					_g->appcfg.g_cfg_changed |= !( CFG().verbose_mode == _g->appcfg.prev_cfg->c.c.verbose_mode );
 					_g->appcfg.g_cfg_changed |= !( CFG().hi_frequent_log_interval_sec == _g->appcfg.prev_cfg->c.c.hi_frequent_log_interval_sec );
 					_g->appcfg.g_cfg_changed |= !( CFG().refresh_variable_from_scratch == _g->appcfg.prev_cfg->c.c.refresh_variable_from_scratch );
 					_g->appcfg.g_cfg_changed |= !( CFG().stat_referesh_interval_sec == _g->appcfg.prev_cfg->c.c.stat_referesh_interval_sec );
 					//_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().thread_handler_type , _g->appcfg.prev_cfg->c.c.thread_handler_type );
-	
 					_g->appcfg.g_cfg_changed |= !( CFG().synchronization_min_wait == _g->appcfg.prev_cfg->c.c.synchronization_min_wait );
 					_g->appcfg.g_cfg_changed |= !( CFG().synchronization_max_roundup == _g->appcfg.prev_cfg->c.c.synchronization_max_roundup );
 					_g->appcfg.g_cfg_changed |= !( CFG().show_line_hit == _g->appcfg.prev_cfg->c.c.show_line_hit );
 					_g->appcfg.g_cfg_changed |= !( CFG().retry_unexpected_wait_for_sock == _g->appcfg.prev_cfg->c.c.retry_unexpected_wait_for_sock );
 					_g->appcfg.g_cfg_changed |= !( CFG().number_in_short_form == _g->appcfg.prev_cfg->c.c.number_in_short_form );
-
 					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().NetworkStack_FilterType , _g->appcfg.prev_cfg->c.c.NetworkStack_FilterType );
-					
 					_g->appcfg.g_cfg_changed |= !( CFG().default_low_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_low_basic_thread_delay_nanosec );
 					_g->appcfg.g_cfg_changed |= !( CFG().default_normal_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_normal_basic_thread_delay_nanosec );
 					_g->appcfg.g_cfg_changed |= !( CFG().default_hi_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_hi_basic_thread_delay_nanosec );
-					
+					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_segments_slope_slides_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_segments_slope_slides_sec );
 					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_segment_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_segment_capacity );
 					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_offsets_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_offsets_capacity );
-
 					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_keep_idle_segment_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_keep_idle_segment_sec );
-
 					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_allocation_allowed == _g->appcfg.prev_cfg->c.c.pkt_mgr_allocation_allowed );
 					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_TTF_nopressure_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_TTF_nopressure_sec );
 					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_TTF_gentle_backpressure_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_TTF_gentle_backpressure_sec );
@@ -579,9 +578,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_gentle_backpressure_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_gentle_backpressure_stride );
 					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_aggressive_persist_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_aggressive_persist_stride );
 					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_emergency_drop_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_emergency_drop_stride );
-
 					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_red_zone_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_red_zone_stride );
-					
 				}
 			}
 	
@@ -682,7 +679,15 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 		mng_basic_thread_sleep( _g , LOW_PRIORITY_THREAD );
 	}
 	
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error )
+		{
+			DIST_APP_FAILURE();
+			fprintf( stderr , EACH_FXN_MSG_HOLDER );
+		}
+	}
 	M_V_END_RET
 
 	if ( _g->appcfg.cfg_mtx_protector )
@@ -862,6 +867,10 @@ void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg )
 	MARK_LINE();
 #endif
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }

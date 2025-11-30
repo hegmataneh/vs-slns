@@ -177,6 +177,7 @@ _CALLBACK_FXN void thread_registration( pass_p src_p , long src_pthread_t , long
 		case trdn_input_thread:
 		case trdn_process_filled_tcp_segment_proc:
 		case trdn_cleanup_unused_segment_proc:
+		case trdn_evacuate_old_segment_proc:
 		case trdn_discharge_persistant_cache_proc:
 		case trdn_stats_thread:
 		case trdn_proc_krnl_udp_counter:
@@ -285,7 +286,7 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
 	BEGIN_RET // TODO . complete reverse on error
 	case 1:
 	{
-		DIST_APP_FAILURE();
+		if ( d_error ) DIST_APP_FAILURE();
 	}
 	M_V_END_RET
 }
@@ -344,7 +345,11 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g ) /*call by
 
 	M_BREAK_STAT( mms_array_init( &_g->bridges.ABs , sizeof( AB ) , 1 , 1 , 0 ) , 0 );
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -357,7 +362,11 @@ _PRIVATE_FXN void pre_main_init_helper_component( void )
 	
 	M_BREAK_STAT( distributor_init_withOrder_lock( &_g->distributors.bcast_quit , 1 ) , 0 );
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -370,9 +379,9 @@ _CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg )
 	G * _g = ( G * )src_g;
 	
 	_g->stat.aggregate_stat.app_fault_count++;
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_fault_cell );
-	#endif
+#endif
 }
 _CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg )
 {
@@ -380,9 +389,9 @@ _CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg )
 	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
 	pb->stat.round_zero_set.pb_fault_count++;
 	distributor_publish_str( &_g->distributors.bcast_app_lvl_failure , msg , ( pass_p )_g );
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( pb->stat.pb_fault_cell ); // this is how i priotorized error view by addign this line in changes call back. instead if i added this line in some place that like pool and every for example one second call that it has lower prio .
-	#endif
+#endif
 }
 
 _CALLBACK_FXN void udp_connected( pass_p src_AB , long src_AB_udp )
@@ -398,12 +407,12 @@ _CALLBACK_FXN void udp_connected( pass_p src_AB , long src_AB_udp )
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count++;
 	TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_udp_connection_count++;
 	
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_UDP_conn_cell );
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_UDP_retry_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_UDP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_UDP_retry_conn_cell );
-	#endif
+#endif
 }
 _CALLBACK_FXN void udp_disconnected( pass_p src_AB , long src_AB_udp )
 {
@@ -416,10 +425,10 @@ _CALLBACK_FXN void udp_disconnected( pass_p src_AB , long src_AB_udp )
 
 	if ( TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count > 0 ) TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_udp_connection_count--;
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_UDP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_UDP_conn_cell );
-	#endif
+#endif
 }
 
 // upper obeserver and distributor
@@ -444,7 +453,7 @@ _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , long file_desc )
 		TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_tcp_connection_count++;
 	}
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	if ( tcp->main_instance )
 	{
 		nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_conn_cell );
@@ -452,7 +461,7 @@ _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , long file_desc )
 	}
 	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_TCP_retry_conn_cell );
-	#endif
+#endif
 }
 _CALLBACK_FXN void tcp_disconnected( pass_p src_AB_tcp , long v )
 {
@@ -465,10 +474,10 @@ _CALLBACK_FXN void tcp_disconnected( pass_p src_AB_tcp , long v )
 
 	if ( TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count > 0 ) TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count--;
 
-	#ifdef HAS_STATISTICSS
+#ifdef HAS_STATISTICSS
 	nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_conn_cell );
 	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
-	#endif
+#endif
 }
 
 // TODO . close connection after change in config
@@ -766,8 +775,12 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 
 	BREAK_OK( 0 ); // to just ignore gcc warning
 
-	BEGIN_SMPL
-		M_V_END_RET
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
+	M_V_END_RET
 		return NULL; // Threads can return a value, but this example returns NULL
 }
 
@@ -802,7 +815,11 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	}
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 	return NULL; // Threads can return a value, but this time returns NULL
 }
@@ -964,7 +981,11 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 		n += sprintf( prt_flt + n , ")" );
 	}
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -990,6 +1011,7 @@ _CALLBACK_FXN void thread_goes_out_of_scope( void * ptr )
 
 #ifndef input_thread
 
+#ifdef ENABLE_BYPASS_STDOUT
 _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
@@ -1046,7 +1068,9 @@ _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g )
 	}
 	return NULL;
 }
+#endif
 
+#ifdef ENABLE_BYPASS_STDOUT
 void init_bypass_stdout( G * _g )
 {
 	int pipefd[ 2 ];
@@ -1064,6 +1088,7 @@ void init_bypass_stdout( G * _g )
 	pthread_t tid_stdout_bypass;
 	pthread_create( &tid_stdout_bypass , NULL , stdout_bypass_thread , ( pass_p )_g );
 }
+#endif
 
 _THREAD_FXN void_p sync_thread( pass_p src_g ) // pause app until moment other app exist
 {
@@ -1231,11 +1256,13 @@ _CALLBACK_FXN PASSED_CSTR ov_TCP_retry_2_str( pass_p src_pcell )
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
+_GLOBAL_VAR _EXTERN long long _inner_status_error;
+
 _CALLBACK_FXN PASSED_CSTR ov_fault_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	G * _g = ( G * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof(pcell->storage.tmpbuf) , _g->stat.aggregate_stat.app_fault_count , 2 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof(pcell->storage.tmpbuf) , _g->stat.aggregate_stat.app_fault_count + (__int64u)_inner_status_error , 2 , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 

@@ -34,7 +34,11 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat_bridges( void_p src_g )
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( init_bridges_statistics ) , _g , bridge_overview ) , 0 );
 #endif
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -46,7 +50,11 @@ _PRIVATE_FXN void pre_main_init_bridges_component( void )
 
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat_bridges ) , _g , post_config_order_bridges ) , 0 );
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 

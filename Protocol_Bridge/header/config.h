@@ -33,6 +33,8 @@ typedef struct Global_Config_0
 	int64 default_normal_basic_thread_delay_nanosec;
 	int64 default_hi_basic_thread_delay_nanosec;
 
+	int pkt_mgr_segments_slope_slides_sec;
+
 	int64 pkt_mgr_segment_capacity;
 	int64 pkt_mgr_offsets_capacity;
 	int pkt_mgr_keep_idle_segment_sec;

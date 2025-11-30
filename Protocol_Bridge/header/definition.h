@@ -33,6 +33,8 @@
 
 #define SNAP_LEN MAX_PACKET_SIZE/*1518*/  // max bytes per packet to capture
 
+#define RATE_METER_WINDOW_SZ 60
+
 #define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg.g_cfg ? CFG().hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
 
 #define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? (uint)CFG().stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
@@ -162,6 +164,7 @@ enum thread_used
 	trdn_input_thread ,
 	trdn_process_filled_tcp_segment_proc ,
 	trdn_cleanup_unused_segment_proc ,
+	trdn_evacuate_old_segment_proc ,
 	trdn_discharge_persistant_cache_proc ,
 	trdn_stats_thread ,
 	trdn_proc_pcap_udp_counter ,
@@ -187,6 +190,8 @@ enum thread_used
 
 	#define ENABLE_CLEAN_UNUSED_SEGMENT
 
+	#define ENABLE_ABSOLETE_OLD_SEGMENT
+
 	#define ENABLE_GATHER_STATIC
 
 	// /*comment by default*/ #define SEND_DIRECTLY_ARRIVE_UDP /*comment by default*/
@@ -205,10 +210,12 @@ enum thread_used
 
 	#define ENABLE_PCAP_LOOP_PREQ /*pcap and prerequisit that needed*/
 
-	#define ENABLE_BYPASS_STDOUT
+	//#define ENABLE_BYPASS_STDOUT // be comment
 
 	#define ENABLE_KEEPALIVE_CHAOTIC
 
 	#define ENABLE_LOG_THREADS /*always defined*/
+
+	#define ENABLE_MEMMAP_SYNC_FOR_EACH_WRITE
 
 #endif

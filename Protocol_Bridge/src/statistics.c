@@ -68,7 +68,11 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
 
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_stat ) , _g , clean_stat ) , 0 );
 	
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -80,7 +84,11 @@ _CALLBACK_FXN _PRIVATE_FXN void statistics_is_stabled_event( void_p src_g )
 
 	MM_BREAK_IF( pthread_create( &_g->trds.tid_stats , NULL , stats_thread , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "failed stats_thread" );
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 #endif
@@ -96,7 +104,11 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat( void_p src_g )
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( thread_overviewing ) , _g , thread_overview ) , 0 );
 #endif
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -108,7 +120,11 @@ _PRIVATE_FXN void pre_main_init_stat_component( void )
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_stat ) , _g ) , 0 );
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat ) , _g , post_config_order_statistics ) , 0 );
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 

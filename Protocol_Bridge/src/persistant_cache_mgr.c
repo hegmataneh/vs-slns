@@ -57,7 +57,11 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p sr
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr ) , _g , clean_persistant_cache_mgr ) , 0 ); // when file write goes down
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( try_stop_sending_from_cach_mgr ) , _g , stop_sending_from_cach_mgr ) , 0 ); // when fetch from file not need
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -78,7 +82,11 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p s
 	MM_BREAK_IF( pthread_create( &_g->hdls.prst_csh.trd_pagestack_discharger , NULL , discharge_persistant_cache_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
 #endif
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -90,7 +98,11 @@ _PRIVATE_FXN void pre_main_init_persistant_cache_mngr_component( void )
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_persistant_cache_mngr ) , _g ) , 0 );
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_persistant_cache_mngr ) , _g , post_config_order_persistant_cache_mngr ) , 0 );
 
-	BEGIN_SMPL
+	BEGIN_RET
+	default:
+	{
+		if ( d_error ) DIST_APP_FAILURE();
+	}
 	M_V_END_RET
 }
 
@@ -100,7 +112,8 @@ _CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src
 	G * _g = ( G * )src_g;
 	xudp_hdr * pkt1 = ( xudp_hdr * )src_xudp_hdr;
 
-	return pg_stk_store( &_g->hdls.prst_csh.page_stack , src_xudp_hdr , sz );
+	status d_error = pg_stk_store( &_g->hdls.prst_csh.page_stack , src_xudp_hdr , sz );
+	return d_error;
 #else
 	return errOK;
 #endif

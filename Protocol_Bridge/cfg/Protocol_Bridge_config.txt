@@ -29,6 +29,7 @@
 		"default_low_basic_thread_delay_nanosec": 5000000000,
 		"default_normal_basic_thread_delay_nanosec": 1000000000,
 		"default_hi_basic_thread_delay_nanosec": 1000000,
+		"pkt_mgr_segments_slope_slides_sec": 60,
 		"pkt_mgr_segment_capacity": 2097152,
 		"pkt_mgr_offsets_capacity": 10,
 		"pkt_mgr_keep_idle_segment_sec": 10,

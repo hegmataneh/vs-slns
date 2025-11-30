@@ -18,7 +18,7 @@
 #ifdef Uses_pkt_mgr_t
 	#define Uses_packet_mngr_prerequisite
 	#define Uses_instBps_t
-	#define Uses_cir_rate_wnd_t
+	#define Uses_cr_in_wnd_t
 	#define Uses_packet_mngr
 #endif
 

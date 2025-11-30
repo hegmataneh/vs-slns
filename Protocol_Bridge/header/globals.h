@@ -111,14 +111,19 @@ typedef struct App_Data
 	};
 } G;
 
+#ifdef ENABLE_BYPASS_STDOUT
 _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g );
+#endif
+
 _THREAD_FXN void_p sync_thread( pass_p src_g ); // pause app until moment other app exist
 _THREAD_FXN void_p input_thread( pass_p src_g );
 _THREAD_FXN void_p connect_udps_proc( pass_p src_pb );
 _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb );
 _THREAD_FXN void_p watchdog_executer( pass_p src_g );
 
-void init_bypass_stdout( G * _g );
+#ifdef ENABLE_BYPASS_STDOUT
+	void init_bypass_stdout( G * _g );
+#endif
 //void M_showMsg( LPCSTR msg );
 
 void init_UI( G * _g );
