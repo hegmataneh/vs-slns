@@ -54,7 +54,7 @@ typedef struct AB_thread_action_handler
 
 typedef struct AB_communication // threads use to recv and send data
 {
-	struct /*AB_common_prerequisite*/ // TODO . aware for cache line alignment
+	struct /*AB_common_prerequisite*/
 	{
 		union
 		{
@@ -157,7 +157,6 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 	
 } AB;
 
-// TODO . IPv6
 typedef struct AB_holders
 {
 	SHARED_MEM dyn_mms_arr ABs; // AB . all the active protocol_bridge or Active bridges

@@ -13,7 +13,7 @@ typedef struct udp_packet_header
 
 typedef struct /*ready_2_send_packet_v1*/
 {
-	// TODO . every thing that need for postpond writing must store here
+	// everything that need for postpond writing, must store here
 
 	struct
 	{
@@ -72,10 +72,8 @@ typedef struct packet_mngr_prerequisite
 	distributor_t bcast_release_halffill_segment; //throttling_release_halffill_segment; // check if condition is true then set halffill segemtn as fill
 #endif
 	kv_table_t map_tcp_socket; // keep mapping between tcp & id
-	ci_sgmgr_t huge_fst_cache; // second huge buffer for after each pcap fast buffer. this buffer can extend to maximum ram size
+	ci_sgmgr_t harbor_memory; // second huge buffer for storing all otput pkts. this buffer can extend to maximum ram size
 	pthread_t trd_tcp_sender; // get filled segment and send them
-
-	//pthread_t trd_clean_unused_segment; // to clean long time unused free segment
 
 	cbuf_metr last_n_peek_total_seg_count; // peek segment count every one second
 	cbuf_metr last_n_peek_filled_seg_count; // peek segment count every one second
@@ -92,9 +90,9 @@ typedef struct packet_mngr_prerequisite
 	pthread_mutex_t pm_lock;		/* protect against reentrance of threads(pkt_mgr,persist_mgr) */
 
 	/*they are about huge mem not memmap so does not calc out from file*/
-	cr_in_wnd_t longTermInputLoad /*just one thread work with this. TODO . change this if multi output used*/; /*make out two because of thread safe*/
+	cr_in_wnd_t longTermInputLoad /*just one thread work with this. change this if multi output used*/; /*make out two because of thread safe*/
 	//cr_in_wnd_t longTermTcpOutLoad;
-	//cr_in_wnd_t longTermFaultyOutLoad;
+	cr_in_wnd_t longTermToStorageOutLoad;
 	cr_in_wnd_t longTermOutLoad;
 	instBps_t instantaneousInputLoad; /*just input may have a peak*/
 	/*~*/

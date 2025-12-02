@@ -1,3 +1,4 @@
+#define Uses_CFG
 #define Uses_timeval_diff_ms
 #define Uses_WARNING
 #define Uses_udphdr
@@ -204,11 +205,12 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_t * out_len_B , OUTcpy rdy_udp_hdr_t * out_hdr )
 {
 	AB * pb = ( AB * )src_pb;
+	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
 	
 	status d_error;
 	dfrg_udp_metadata tmp_hdr;
 	size_t hdr_sz = 0;
-	if ( ( d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , &tmp_hdr , sizeof( tmp_hdr ) , &hdr_sz , 60/*timeout*/  TODO , true ) ) != errOK )
+	if ( ( d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , &tmp_hdr , sizeof( tmp_hdr ) , &hdr_sz , (long)CFG().time_out_sec , true ) ) != errOK )
 	{
 		if ( d_error != errTimeout )
 		{
@@ -235,7 +237,7 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 	if ( tmp_hdr.data_length_B && tmp_hdr.data_length_B == tmp_hdr.data_progress_B ) // it is completed
 	{
 		if ( out_hdr ) MEMCPY( out_hdr , &tmp_hdr.hdr );
-		d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , out_buf , 0/*no exp*/ , out_len_B , 60/*timeout*/  TODO , false ); // most of the packet get here na dis normal
+		d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , out_buf , 0/*no exp*/ , out_len_B , (long)CFG().time_out_sec , false ); // most of the packet get here na dis normal
 		if( d_error ) return d_error;
 		goto _update_stat;
 	}
@@ -251,7 +253,7 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 	{
 		struct timespec ts;
 		clock_gettime( CLOCK_REALTIME , &ts );
-		ts.tv_nsec += 5000000;  TODO // 5 mili
+		ts.tv_nsec += CFG().fragment_udp_retention_time_msec * 1000000; // 5 mili
 		if ( sem_timedwait( &pb->comm.preq.defraged_udps.gateway , &ts ) < 0 ) // wait for open signal . decrements the semaphore . if zero wait
 		{
 			if ( errno == ETIMEDOUT )
@@ -264,7 +266,7 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 
 		struct timeval tnow;
 		gettimeofday( &tnow , NULL );
-		if ( timeval_diff_ms( &tmp_hdr.hdr.tm , &tnow ) > 5 ) TODO
+		if ( timeval_diff_ms( &tmp_hdr.hdr.tm , &tnow ) > ( double )CFG().fragment_udp_retention_time_msec )
 		{
 			break;
 		}

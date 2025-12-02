@@ -36,7 +36,7 @@ _CALLBACK_FXN void handle_pcap_udp_counter( u_char * src_pb , const struct pcap_
 	{
 		gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 		pb->stat.round_zero_set.udp.total_udp_get_count++;
-		pb->stat.round_zero_set.udp.total_udp_get_byte += 1; // TODO . actual byte
+		pb->stat.round_zero_set.udp.total_udp_get_byte += 1;
 		pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
 		pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += 1;
 		pb->stat.round_zero_set.udp_get_data_alive_indicator++;

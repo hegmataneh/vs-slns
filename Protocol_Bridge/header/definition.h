@@ -11,18 +11,19 @@
 
 //#define PARALLELISM_COUNT 1
 
-#define LOW_PRIORITY_THREAD 1
-#define NORMAL_PRIORITY_THREAD 2
-#define HI_PRIORITY_THREAD 3
-#define VLOW_PRIORITY_THREAD 4
+typedef enum
+{
+	LOW_PRIORITY_THREAD = 1,
+	NORMAL_PRIORITY_THREAD = 2,
+	HI_PRIORITY_THREAD = 3,
+	VLOW_PRIORITY_THREAD = 4
+} etrd_priority;
 
 #define DEFAULT_BUF_SIZE 2048
 
-#define PREALLOCAION_SIZE 4
-
 #define VERBOSE_MODE_DEFAULT 0
-#define HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT 5
-#define STAT_REFERESH_INTERVAL_SEC_DEFUALT 1
+#define LOG_COOLDOWN_SEC 5
+#define REFRESH_INTERVAL_SEC_DEFUALT 1
 #define CLOSE_APP_VAR_DEFAULT 0
 
 #define DEFAULT_VLOW_BASIC_THREAD_DELAY_NANOSEC 10000000000 /*10 sec*/
@@ -31,13 +32,13 @@
 #define DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC 1000000000 /*1 sec*/
 #define DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC 1000000 /*1 milsec*/
 
+#define DEFAULT_INFINITE_LOOP_GUARD 1000
+
 #define SNAP_LEN MAX_PACKET_SIZE/*1518*/  // max bytes per packet to capture
 
-#define RATE_METER_WINDOW_SZ 60
+#define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg.g_cfg ? CFG().log_cooldown_sec : LOG_COOLDOWN_SEC )
 
-#define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg.g_cfg ? CFG().hi_frequent_log_interval_sec : HI_FREQUENT_LOG_INTERVAL_SEC_DEFAULT )
-
-#define STAT_REFERESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? (uint)CFG().stat_referesh_interval_sec : STAT_REFERESH_INTERVAL_SEC_DEFUALT )
+#define REFRESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? (uint)CFG().refresh_interval_sec : REFRESH_INTERVAL_SEC_DEFUALT )
 
 #define GRACEFULLY_END_THREAD() ( _g->cmd.quit_first_level_thread_3 )
 
@@ -45,15 +46,20 @@
 
 //#define CLOSE_APP_VAR() ( _g->cmd.quit_app_4 )
 
-// TODO . maybe in middle of config change bug appear ad app unexpectedly quit but that sit is very rare
-#define RETRY_UNEXPECTED_WAIT_FOR_SOCK() ( _g->appcfg.g_cfg ? CFG().retry_unexpected_wait_for_sock : 3 )
-
 #define NUMBER_IN_SHORT_FORM() ( _g->appcfg.g_cfg ? CFG().number_in_short_form : 1 )
 
+#define DOUBLE_PRECISION() ( _g->appcfg.g_cfg ? CFG().precision_of_double_in_short_form : 1 )
+
+
 #define VLOW_THREAD_DEFAULT_DELAY_NANOSEC() DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC
-#define LOW_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().default_low_basic_thread_delay_nanosec : DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC )
-#define NORMAL_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().default_normal_basic_thread_delay_nanosec : DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC )
-#define HI_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().default_hi_basic_thread_delay_nanosec : DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC )
+#define LOW_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().low_priority_thread_cooldown_delay_nanosec : DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC )
+#define NORMAL_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().normal_priority_thread_cooldown_delay_nanosec : DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC )
+#define HI_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().hi_priority_thread_cooldown_delay_nanosec : DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC )
+
+#define BAD_NETWORK_HANDSHAKE_TIMEOUT() ( _g->appcfg.g_cfg ? CFG().network_handshake_pessimistic_timeout_sec : DEFAULT_BAD_NETWORK_HANDSHAKE_TIMEOUT )
+
+#define INFINITE_LOOP_GUARD() ( _g->appcfg.g_cfg ? CFG().infinite_loop_guard : DEFAULT_INFINITE_LOOP_GUARD )
+
 
 
 #define STR_RoundRobin "RR"
@@ -67,9 +73,21 @@
 typedef  char CONFIG_SECTION_ITEM_VALUE  [64];
 typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
 
-#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit_s , prefix_string ) ( NUMBER_IN_SHORT_FORM() ? /*make cell string in short form or long*/ \
-		format_pps( baaf , sizeof(baaf) , (ubigint)val , decimal_precision , unit_s , ""prefix_string"" ) :\
-		__snprintf( baaf , sizeof(baaf) , "%s%llu%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) )
+#define _FORMAT_SHRTFRM_SNPRINTF_BY_TYPE( buf , val , decimal_precision , unit_s , prefix_string ) \
+    ({_Generic((val), \
+        int:        __snprintf( buf , sizeof(buf) , "%s%d%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+        long:       __snprintf( buf , sizeof(buf) , "%s%ld%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+        long long:  __snprintf( buf , sizeof(buf) , "%s%lld%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+        unsigned long long: __snprintf( buf , sizeof(buf) , "%s%llu%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+        double:     __snprintf( buf , sizeof(buf) , "%s%.2f%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+        default:    __snprintf( buf , sizeof(buf) , "%s%.2f%s%s" , ""prefix_string"" , (double)val , *unit_s ? " " : "", unit_s ) /* fallback */ \
+	); })
+
+#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit_s , prefix_string ) \
+		( NUMBER_IN_SHORT_FORM() ? /*make cell string in short form or long*/ \
+		format_pps_double( baaf , sizeof(baaf) , (double)val , decimal_precision , ""unit_s"" , ""prefix_string"" ) :\
+		_FORMAT_SHRTFRM_SNPRINTF_BY_TYPE( baaf , val , decimal_precision , ""unit_s"" , ""prefix_string"" )/*;*/ \
+		)
 
 
 enum pre_main_priority_order /*top down startup priority*/

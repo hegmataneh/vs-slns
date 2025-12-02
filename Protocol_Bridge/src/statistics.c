@@ -37,7 +37,7 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 #endif
 }
 
-_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
+_CALLBACK_FXN _PRIVATE_FXN void state_pre_config_init_statistics( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
@@ -56,8 +56,6 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
 	MM_BREAK_IF( pthread_mutex_init( &_g->stat.nc_s_req.thread_list_mtx , NULL ) , errCreation , 0 , "mutex_init()" );
 #endif
 
-	//init_tui( _g );
-	
 #ifdef ENABLE_BYPASS_STDOUT
 	init_bypass_stdout( _g );
 #endif
@@ -77,7 +75,7 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_stat( void_p src_g )
 }
 
 #ifdef HAS_STATISTICSS
-_CALLBACK_FXN _PRIVATE_FXN void statistics_is_stabled_event( void_p src_g )
+_CALLBACK_FXN _PRIVATE_FXN void event_statistics_is_stabled( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
@@ -93,14 +91,14 @@ _CALLBACK_FXN _PRIVATE_FXN void statistics_is_stabled_event( void_p src_g )
 }
 #endif
 
-_CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat( void_p src_g )
+_CALLBACK_FXN _PRIVATE_FXN void state_post_config_init_statistics( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
 #ifdef HAS_STATISTICSS
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( init_main_statistics ) , _g , app_overview ) , 0 );
-	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( statistics_is_stabled_event ) , _g , statistics_is_stabled ) , 0 );
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( event_statistics_is_stabled ) , _g , statistics_is_stabled ) , 0 );
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( thread_overviewing ) , _g , thread_overview ) , 0 );
 #endif
 
@@ -117,8 +115,8 @@ _PRIVATE_FXN void pre_main_init_stat_component( void )
 {
 	INIT_BREAKABLE_FXN();
 
-	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_stat ) , _g ) , 0 );
-	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( post_config_init_stat ) , _g , post_config_order_statistics ) , 0 );
+	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( state_pre_config_init_statistics ) , _g ) , 0 );
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_post_cfg , SUB_VOID , SUB_FXN( state_post_config_init_statistics ) , _g , post_config_order_statistics ) , 0 );
 
 	BEGIN_RET
 	default:
@@ -424,8 +422,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 		//wrefresh( _g->stat.main_win );
 		//pthread_mutex_unlock( &_g->stat.lock_data.lock );
 
-		sleep( STAT_REFERESH_INTERVAL_SEC() ); // OK 14040526
-		//sleep( 3 /*STAT_REFERESH_INTERVAL_SEC()*/ ); // OK 14040526
+		sleep( REFRESH_INTERVAL_SEC() ); // OK 14040526
 	}
 	return NULL;
 }
@@ -434,188 +431,10 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 void init_UI( G * _g ) /*just to call by main thread*/
 {
 	CIRCUIT_BREAKER long break_cuit = 0;
-	for ( ; !_g->appcfg.already_main_cfg_stablished && break_cuit < 1000 ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ );
+	for ( ; !_g->appcfg.already_main_cfg_stablished && break_cuit < INFINITE_LOOP_GUARD() ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ );
 	if ( _g->appcfg.already_main_cfg_stablished && _g->distributors.bcast_program_stabled.grps.count )
 	{
 		distributor_publish_void( &_g->distributors.bcast_program_stabled , SUBSCRIBER_PROVIDED );
 		sub_destroy( &_g->distributors.bcast_program_stabled ); // just one time anounce stablity
 	}
 }
-
-//void init_ncursor()
-//{
-//	initscr();
-//	start_color();
-//	cbreak();
-//	noecho();
-//	curs_set( 1 );
-//
-//	init_pair( 1 , COLOR_WHITE , COLOR_BLUE );   // Header
-//	init_pair( 2 , COLOR_GREEN , COLOR_BLACK );  // Data
-//	init_pair( 3 , COLOR_YELLOW , COLOR_BLACK ); // Last Command
-//}
-//void init_tui( G * _g )
-//{
-//	//init_ncursor( _g );
-//
-//	//getmaxyx( stdscr , _g->stat.scr_height , _g->stat.scr_width );
-//
-//	//// Calculate window sizes (60% for cells, 40% for input)
-//	//int stats_height = _g->stat.scr_height - 3;
-//	//int input_height = 3;
-//
-//	//// Create or replace windows
-//	//if ( _g->stat.main_win ) delwin( _g->stat.main_win );
-//	//if ( _g->stat.input_win ) delwin( _g->stat.input_win );
-//
-//	//_g->stat.main_win = newwin( stats_height , _g->stat.scr_width , 0 , 0 );
-//	//_g->stat.input_win = newwin( input_height , _g->stat.scr_width , stats_height , 0 );
-//
-//	//// Enable scrolling and keypad for input window
-//	//scrollok( _g->stat.main_win , TRUE );
-//	//keypad( _g->stat.input_win , TRUE );
-//
-//	//// Set box borders
-//	//box( _g->stat.main_win , 0 , 0 );
-//	//box( _g->stat.input_win , 0 , 0 );
-//
-//	//// Refresh windows
-//	//wrefresh( _g->stat.main_win );
-//	//wrefresh( _g->stat.input_win );
-//}
-//// Centered cell printing
-//void print_cell( WINDOW * win , int y , int x , int width , LPCSTR text )
-//{
-//	size_t len = STRLEN( text );
-//	int pad = ( width - ( int )len ) / 2;
-//	if ( pad < 0 ) pad = 0;
-//	mvwprintw( win , y , x + pad , "%s" , text );
-//}
-//// Drawing the full table
-//void draw_table( G * _g )
-//{
-//	char * header_border = "+----------+--------------------------------------------------------------------------------+";
-//
-//	int cell_w = STRLEN( header_border ) / 2;
-//	int start_x = 2;
-//	int y = 1;
-//
-//	// Top border
-//	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
-//
-//	char buf[ 640 ];
-//	char buf2[ 64 ];
-//	char buf3[ 64 ];
-//
-//	//
-//	mvwprintw( MAIN_WIN , y , start_x , "|" );
-//	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "alive" );
-//	snprintf( buf , sizeof( buf ) , "%d%.*s" , MAIN_STAT().last_line_meet , MAIN_STAT().alive_check_counter , "-+-+-+-+-+-+-+-+" );
-//	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-//	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-//	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-//
-//	//////////////
-//	
-//	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "inp failure" );
-//	//snprintf( buf , sizeof( buf ) , "v%d Σv%d" , MAIN_STAT().round_zero_set.continuously_unsuccessful_receive_error , MAIN_STAT().round_zero_set.total_unsuccessful_receive_error);
-//
-//	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "full head tail" );
-//	//snprintf( buf , sizeof( buf ) , "%d %d %d" , ppp ? ppp->err_full : 0 , ppp ? ppp->head : 0 , ppp ? ppp->tail : 0 );
-//	
-//	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-//	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-//	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-//
-//	mvwprintw( MAIN_WIN , y , start_x , "|" );
-//	
-//	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "out failure" );
-//	//snprintf( buf , sizeof( buf ) , "^%d Σ^%d" , MAIN_STAT().round_zero_set.continuously_unsuccessful_send_error , MAIN_STAT().round_zero_set.total_unsuccessful_send_error );
-//
-//	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "max packet delay udp tcp" );
-//	//snprintf( buf , sizeof( buf ) , "%.0f %.0f" , MAIN_STAT().max_udp_packet_delay , MAIN_STAT().max_tcp_packet_delay );
-//
-//	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-//	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-//	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-//
-//	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
-//
-//	#ifdef __USE_DBG_TOOLS
-//	if ( _g->appcfg.g_cfg && CFG().show_line_hit )
-//	{
-//		for ( int itu = 0 ; itu < MAX_TU ; itu++ )
-//		{
-//			for ( int iline = 0 ; iline < MAX_TU_LINES ; iline++ )
-//			{
-//				if ( __FXN_HIT[ itu ][ iline ][ 0 ] > 0 ) // this line hit
-//				{
-//					mvwprintw( MAIN_WIN , y , start_x , "|" );
-//					snprintf( buf , sizeof( buf ) , "%s %d" , __map_c2idx[ itu ] , iline ); // line
-//					print_cell( MAIN_WIN , y , start_x + 1 , cell_w , buf ); // line
-//					snprintf( buf , sizeof( buf ) , "%d " , __FXN_HIT[ itu ][ iline ][ 0 ] ); // hit count
-//
-//					for ( int ibt = 1 ; ibt < BACKTRACK_COUNT ; ibt++ )
-//					{
-//						if ( __FXN_HIT[ itu ][ iline ][ ibt ] == 0 )
-//						{
-//							break;
-//						}
-//						snprintf( buf2 , sizeof( buf2 ) , ",%d" , __FXN_HIT[ itu ][ iline ][ ibt ] );
-//						strcat( buf , buf2 );
-//					}
-//			
-//					mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-//					print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-//					mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-//				}
-//			}
-//		}
-//
-//		mvwprintw( MAIN_WIN , y++ , start_x , header_border );
-//	}
-//	#endif
-//
-//	///////////
-//	
-//
-//	
-//
-//	mvwprintw( MAIN_WIN , y , start_x , "|" );
-//	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "syscal_err" );
-//	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof(buf2) , MAIN_STAT().round_zero_set.syscal_err_count , 2 , "" ) );
-//	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-//	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-//	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-//
-//	//if ( _g->appcfg.g_cfg && CFG().atht == bidirection && _g->bridges.bidirection_thread )
-//	//{
-//	//	mvwprintw( MAIN_WIN , y , start_x , "|" );
-//	//	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "qu cnt " );
-//	//	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , ( ubigint )_g->bridges.bidirection_thread->queue.count , 2 , "" ) );
-//	//	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-//	//	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
-//	//	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-//	//}
-//
-//	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
-//
-//
-//
-//	wattroff( MAIN_WIN , COLOR_PAIR( 2 ) );
-//
-//	// Mid border
-//	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
-//
-//	// Last Command Row
-//	wattron( MAIN_WIN , COLOR_PAIR( 3 ) );
-//	mvwprintw( MAIN_WIN , y , start_x , "|" );
-//	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "Last Cmd" );
-//	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
-//	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , MAIN_STAT().last_command );
-//	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
-//	wattroff( MAIN_WIN , COLOR_PAIR( 3 ) );
-//
-//	// Bottom border
-//	mvwprintw( MAIN_WIN , y++ , start_x , header_border );
-//}

@@ -10,44 +10,92 @@ typedef struct Global_Config_0
 	const char * log_level; // no , error , warn , verbose,
 	const char * log_file;
 
-	int enable;
-	int shutdown;
-	int watchdog_enabled;
-	int load_prev_config;
-	int dump_current_config;
-	int dump_prev_config;
-	int time_out_sec;
+	union
+	{
+		struct
+		{
+			int load_prev_config;
+			int dump_current_config;
+			int dump_prev_config;
+			int time_out_sec;
+			int verbose_mode;
+			int log_cooldown_sec;
+			int refresh_interval_sec;
+			int number_in_short_form;
+			int precision_of_double_in_short_form;
+			int64 low_priority_thread_cooldown_delay_nanosec;
+			int64 normal_priority_thread_cooldown_delay_nanosec;
+			int64 hi_priority_thread_cooldown_delay_nanosec;
+			int64 harbor_mem_segment_capacity;
+			int64 harbor_mem_segment_offsets_cnt_base;
+			int idle_active_harbor_mem_segment_timeout_sec;
+			int64 harbor_mem_max_allowed_allocation;
+			float instantaneous_input_load_coefficient;
+			int TTF_no_backpressure_threshold_sec;
+			int TTF_gentle_backpressure_threshold_sec;
+			int TTF_aggressive_backpressure_threshold_sec;
+			int TTF_emergency_drop_backpressure_threshold_sec;
+			int TTF_gentle_backpressure_stride;
+			int TTF_aggressive_backpressure_stride;
+			int TTF_emergency_drop_backpressure_stride;
+			int TTF_red_zone_stride;
+			int wait_at_cleanup_until_unsaved_packet_stored_sec;
+			int raw_udp_cache_sz_byte;
+			int network_handshake_pessimistic_timeout_sec;
+			int tcp_connection_idle_timeout_sec;
+			int harbor_mem_flood_detection_sample_count;
+			int long_term_throughput_smoothing_samples;
+			int in_memory_udp_hold_time_sec;
+			int unused_memory_block_hold_time_sec;
+			int instant_load_influence_window_time_sec;
+			int fragment_udp_retention_time_msec;
+			int infinite_loop_guard;
+			// everything add here most be copy down there
 
-	int verbose_mode;
-	int hi_frequent_log_interval_sec;
-	int refresh_variable_from_scratch;
-	int stat_referesh_interval_sec;
+		} cfg_change_pck; /*config that are solid*/
 
-	int synchronization_min_wait;
-	int synchronization_max_roundup;
-	int show_line_hit;
-	int retry_unexpected_wait_for_sock;
-	int number_in_short_form;
-	const char * NetworkStack_FilterType;
-	int64 default_low_basic_thread_delay_nanosec;
-	int64 default_normal_basic_thread_delay_nanosec;
-	int64 default_hi_basic_thread_delay_nanosec;
+		struct
+		{
+			int load_prev_config;
+			int dump_current_config;
+			int dump_prev_config;
+			int time_out_sec;
+			int verbose_mode;
+			int log_cooldown_sec;
+			int refresh_interval_sec;
+			int number_in_short_form;
+			int precision_of_double_in_short_form;
+			int64 low_priority_thread_cooldown_delay_nanosec;
+			int64 normal_priority_thread_cooldown_delay_nanosec;
+			int64 hi_priority_thread_cooldown_delay_nanosec;
+			int64 harbor_mem_segment_capacity;
+			int64 harbor_mem_segment_offsets_cnt_base;
+			int idle_active_harbor_mem_segment_timeout_sec;
+			int64 harbor_mem_max_allowed_allocation;
+			float instantaneous_input_load_coefficient;
+			int TTF_no_backpressure_threshold_sec;
+			int TTF_gentle_backpressure_threshold_sec;
+			int TTF_aggressive_backpressure_threshold_sec;
+			int TTF_emergency_drop_backpressure_threshold_sec;
+			int TTF_gentle_backpressure_stride;
+			int TTF_aggressive_backpressure_stride;
+			int TTF_emergency_drop_backpressure_stride;
+			int TTF_red_zone_stride;
+			int wait_at_cleanup_until_unsaved_packet_stored_sec;
+			int raw_udp_cache_sz_byte;
+			int network_handshake_pessimistic_timeout_sec;
+			int tcp_connection_idle_timeout_sec;
+			int harbor_mem_flood_detection_sample_count;
+			int long_term_throughput_smoothing_samples;
+			int in_memory_udp_hold_time_sec;
+			int unused_memory_block_hold_time_sec;
+			int instant_load_influence_window_time_sec;
+			int fragment_udp_retention_time_msec;
+			int infinite_loop_guard;
+			// everything add here most be copy up here
+		};
+	};
 
-	int pkt_mgr_segments_slope_slides_sec;
-
-	int64 pkt_mgr_segment_capacity;
-	int64 pkt_mgr_offsets_capacity;
-	int pkt_mgr_keep_idle_segment_sec;
-	int64 pkt_mgr_allocation_allowed;
-	float pkt_mgr_instantaneous_coefficient;
-	int pkt_mgr_TTF_nopressure_sec;
-	int pkt_mgr_TTF_gentle_backpressure_sec;
-	int pkt_mgr_TTF_aggressive_sec;
-	int pkt_mgr_TTF_emergency_drop_sec;
-	int pkt_mgr_gentle_backpressure_stride;
-	int pkt_mgr_aggressive_persist_stride;
-	int pkt_mgr_emergency_drop_stride;
-	int pkt_mgr_red_zone_stride;
 } Gcfg0;
 
 typedef struct Global_Config_n
@@ -93,7 +141,7 @@ typedef struct App_Config // global config
 
 } Acfg;
 
-#define CFG() _g->appcfg.g_cfg->c.c
+#define CFG() ( _g->appcfg.g_cfg->c.c )
 
 _THREAD_FXN void_p version_checker( pass_p src_g );
 _THREAD_FXN void_p config_loader( pass_p src_g );

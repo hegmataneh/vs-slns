@@ -22,12 +22,12 @@ _PRIVATE_FXN void pre_main_top_prio_init( void )
 	static G g = {0};
 	_g = &g;
 
-	#ifdef ENABLE_LOGGING
+#ifdef ENABLE_LOGGING
 	char meta_path[ MAX_PATH ] = {0};
 	time_t tnow = time( NULL );
 	snprintf( meta_path , sizeof( meta_path ) , "./log%ld.txt" , tnow );
 	log_init( meta_path , true );
-	#endif
+#endif
 }
 
 #if defined Uses_MemLEAK || !defined __COMPILING
@@ -107,21 +107,21 @@ int main()
 	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_version_checker , NULL , version_checker , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create version_checker thread" );
 	
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_loader , NULL , config_loader , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_loader thread" );
 	
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_executer , NULL , config_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_executer thread" );
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 
 	init_UI( _g );
 

@@ -17,7 +17,7 @@ _CALLBACK_FXN void quit_interrupt_dist_one2many_pcap2krnl_SF( pass_p src_pb , lo
 	AB * pb = ( AB * )src_pb;
 	
 	CIRCUIT_BREAKER long break_cuit = 0;
-	for ( ; pb->comm.acts.p_one2many_pcap2krnl_SF->pcp_handle && break_cuit < 1000 ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ )
+	for ( ; pb->comm.acts.p_one2many_pcap2krnl_SF->pcp_handle && break_cuit < INFINITE_LOOP_GUARD() ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ )
 	{
 		pcap_breakloop( pb->comm.acts.p_one2many_pcap2krnl_SF->pcp_handle ); // in case we're inside pcap_loop
 		// close really happened after loop closed

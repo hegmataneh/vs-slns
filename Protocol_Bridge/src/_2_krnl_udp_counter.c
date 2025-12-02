@@ -135,26 +135,6 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 				{
 					_VERBOSE_ECHO( "Socket error: %d\n" , error );
 				}
-
-				//if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-				//{
-				//	input_udp_socket_error_tolerance_count = 0;
-				//	for ( int i = 0 ; i < pb->ABhs_masks_count ; i++ )
-				//	{
-				//		if ( pb->ABhs_masks[ i ] )
-				//		{
-				//			if ( pb->ABs[ i ].single_AB->udp_connection_established ) // all the connected udp stoped or die so restart them
-				//			{
-				//				//if ( FD_ISSET( pb->ABs[ i ].single_AB->udp_sockfd , &readfds ) )
-				//				{
-				//					pb->ABs[ i ].single_AB->retry_to_connect_udp = 1;
-				//					break;
-				//				}
-				//			}
-				//		}
-				//	}
-				//}
-
 				continue;
 			}
 			if ( activity == 0 ) // timed out
@@ -166,24 +146,6 @@ _THREAD_FXN void_p proc_krnl_udp_counter( void_p src_pb )
 				if ( error == 0 )
 				{
 					pb->stat.round_zero_set.udp.continuously_unsuccessful_select_on_open_port_count++;
-					//if ( ++input_udp_socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-					//{
-					//	input_udp_socket_error_tolerance_count = 0;
-					//	for ( int i = 0 ; i < pb->ABhs_masks_count ; i++ )
-					//	{
-					//		if ( pb->ABhs_masks[ i ] )
-					//		{
-					//			if ( pb->ABs[ i ].single_AB->udp_connection_established ) // all the connected udp stoped or die so restart them
-					//			{
-					//				//if ( FD_ISSET( pb->ABs[ i ].single_AB->udp_sockfd , &readfds ) )
-					//				{
-					//					pb->ABs[ i ].single_AB->retry_to_connect_udp = 1;
-					//					break;
-					//				}
-					//			}
-					//		}
-					//	}
-					//}
 					continue;
 				}
 				_VERBOSE_ECHO( "Socket error: %d\n" , error );

@@ -26,7 +26,7 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_config( pass_p src_g , long v )
 		DAC( _g->appcfg.prev_cfg->c.c.description );
 		DAC( _g->appcfg.prev_cfg->c.c.log_level );
 		DAC( _g->appcfg.prev_cfg->c.c.log_file );
-		DAC( _g->appcfg.prev_cfg->c.c.NetworkStack_FilterType );
+		
 		DAC( _g->appcfg.prev_cfg );
 	}
 	if ( _g->appcfg.g_cfg )
@@ -38,7 +38,7 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_config( pass_p src_g , long v )
 		DAC( CFG().description );
 		DAC( CFG().log_level );
 		DAC( CFG().log_file );
-		DAC( CFG().NetworkStack_FilterType );
+		
 		DAC( _g->appcfg.g_cfg );
 	}
 
@@ -63,7 +63,7 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_config( pass_p src_g , long v )
 	}
 }
 
-_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_config( void_p src_g )
+_CALLBACK_FXN _PRIVATE_FXN void state_pre_config_init_config( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
@@ -85,7 +85,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_completed( void_p src_g )
 	_g->distributors.bafter_post_cfg_called = true;
 }
 
-_CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_cfg( void_p src_g )
+_CALLBACK_FXN _PRIVATE_FXN void event_program_is_stabled_cfg( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
@@ -115,12 +115,12 @@ _PRIVATE_FXN void pre_main_init_config_component( void )
 
 	// distribute initialization by the callback and throw components
 	M_BREAK_STAT( distributor_init( &_g->distributors.bcast_pre_cfg , 1 ) , 0 );
-	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_config ) , _g ) , 0 );
+	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( state_pre_config_init_config ) , _g ) , 0 );
 
 	M_BREAK_STAT( distributor_init_withOrder( &_g->distributors.bcast_post_cfg , 1 ) , 0 );
 
 	M_BREAK_STAT( distributor_init_withOrder( &_g->distributors.bcast_program_stabled , 1 ) , 0 );
-	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_cfg ) , _g , config_stablity ) , 0 );
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( event_program_is_stabled_cfg ) , _g , config_stablity ) , 0 );
 
 	BEGIN_RET
 	default:
@@ -130,7 +130,6 @@ _PRIVATE_FXN void pre_main_init_config_component( void )
 	M_V_END_RET
 }
 
-// TODO . think about race condition
 _THREAD_FXN void_p version_checker( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
@@ -218,7 +217,6 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	return VOID_RET;
 }
 
-// TODO . echo acceptible config one time to inform user
 _THREAD_FXN void_p config_loader( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
@@ -280,8 +278,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 				// load general configurations
 				if ( _g->appcfg.ver->Major >= 1 ) // first version of config file structure
 				{
-					result( json_element ) re_configurations = json_object_find( el_Protocol_Bridge_config.value.as_object , "configurations" );
-					MM_BREAK_IF( catch_error( &re_configurations , "configurations" , 1 ) , errNotFound , 0 , "configurations tag not found" );
+					result( json_element ) re_configurations = json_object_find( el_Protocol_Bridge_config.value.as_object , "CONFIGURATIONS" );
+					MM_BREAK_IF( catch_error( &re_configurations , "CONFIGURATIONS" , 1 ) , errNotFound , 0 , "CONFIGURATIONS tag not found" );
 					typed( json_element ) el_configurations = result_unwrap( json_element )( &re_configurations );
 	
 					#define CFG_ELEM_STR( name )																			/**/\
@@ -312,43 +310,44 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_STR( description );																			/**/\
 					CFG_ELEM_STR( log_level );																				/**/\
 					CFG_ELEM_STR( log_file );																				/**/\
-					CFG_ELEM_I( enable );																					/**/\
-					CFG_ELEM_I( shutdown );																					/**/\
-					CFG_ELEM_I( watchdog_enabled );																			/**/\
+					
 					CFG_ELEM_I( load_prev_config );																			/**/\
 					CFG_ELEM_I( dump_current_config );																		/**/\
 					CFG_ELEM_I( dump_prev_config );																			/**/\
 					CFG_ELEM_I( time_out_sec );																				/**/\
 					CFG_ELEM_I( verbose_mode );																				/**/\
-					CFG_ELEM_I( hi_frequent_log_interval_sec );																/**/\
-					CFG_ELEM_I( refresh_variable_from_scratch );															/**/\
-					CFG_ELEM_I( stat_referesh_interval_sec );																/**/\
-
-					CFG_ELEM_I( synchronization_min_wait );																	/**/\
-					CFG_ELEM_I( synchronization_max_roundup );																/**/\
-					CFG_ELEM_I( show_line_hit );																			/**/\
-					CFG_ELEM_I( retry_unexpected_wait_for_sock );															/**/\
+					CFG_ELEM_I( log_cooldown_sec );																			/**/\
+					CFG_ELEM_I( refresh_interval_sec );																		/**/\
 					CFG_ELEM_I( number_in_short_form );																		/**/\
-					CFG_ELEM_STR( NetworkStack_FilterType );																/**/\
+					CFG_ELEM_I( precision_of_double_in_short_form );														/**/\
+					CFG_ELEM_I64( low_priority_thread_cooldown_delay_nanosec );												/**/\
+					CFG_ELEM_I64( normal_priority_thread_cooldown_delay_nanosec );											/**/\
+					CFG_ELEM_I64( hi_priority_thread_cooldown_delay_nanosec );												/**/\
+					CFG_ELEM_I64( harbor_mem_segment_capacity );															/**/\
+					CFG_ELEM_I64( harbor_mem_segment_offsets_cnt_base );													/**/\
+					CFG_ELEM_I( idle_active_harbor_mem_segment_timeout_sec );												/**/\
+					CFG_ELEM_I64( harbor_mem_max_allowed_allocation );														/**/\
+					CFG_ELEM_F( instantaneous_input_load_coefficient );														/**/\
+					CFG_ELEM_I( TTF_no_backpressure_threshold_sec );														/**/\
+					CFG_ELEM_I( TTF_gentle_backpressure_threshold_sec );													/**/\
+					CFG_ELEM_I( TTF_aggressive_backpressure_threshold_sec );												/**/\
+					CFG_ELEM_I( TTF_emergency_drop_backpressure_threshold_sec );											/**/\
+					CFG_ELEM_I( TTF_gentle_backpressure_stride );															/**/\
+					CFG_ELEM_I( TTF_aggressive_backpressure_stride );														/**/\
+					CFG_ELEM_I( TTF_emergency_drop_backpressure_stride );													/**/\
+					CFG_ELEM_I( TTF_red_zone_stride );																		/**/\
+					CFG_ELEM_I( wait_at_cleanup_until_unsaved_packet_stored_sec );											/**/\
+					CFG_ELEM_I( raw_udp_cache_sz_byte );																	/**/\
+					CFG_ELEM_I( network_handshake_pessimistic_timeout_sec );												/**/\
+					CFG_ELEM_I( tcp_connection_idle_timeout_sec );															/**/\
+					CFG_ELEM_I( harbor_mem_flood_detection_sample_count );													/**/\
+					CFG_ELEM_I( long_term_throughput_smoothing_samples );													/**/\
+					CFG_ELEM_I( in_memory_udp_hold_time_sec );																/**/\
+					CFG_ELEM_I( unused_memory_block_hold_time_sec );														/**/\
+					CFG_ELEM_I( instant_load_influence_window_time_sec );													/**/\
+					CFG_ELEM_I( fragment_udp_retention_time_msec );															/**/\
+					CFG_ELEM_I( infinite_loop_guard );																		/**/
 					
-					CFG_ELEM_I64( default_low_basic_thread_delay_nanosec );													/**/\
-					CFG_ELEM_I64( default_normal_basic_thread_delay_nanosec );												/**/\
-					CFG_ELEM_I64( default_hi_basic_thread_delay_nanosec );													/**/\
-					
-					CFG_ELEM_I( pkt_mgr_segments_slope_slides_sec )															/**/\
-					CFG_ELEM_I64( pkt_mgr_segment_capacity );																/**/\
-					CFG_ELEM_I64( pkt_mgr_offsets_capacity );																/**/\
-					CFG_ELEM_I( pkt_mgr_keep_idle_segment_sec );															/**/\
-					CFG_ELEM_I64( pkt_mgr_allocation_allowed );																/**/\
-					CFG_ELEM_F( pkt_mgr_instantaneous_coefficient );														/**/\
-					CFG_ELEM_I( pkt_mgr_TTF_nopressure_sec );																/**/\
-					CFG_ELEM_I( pkt_mgr_TTF_gentle_backpressure_sec );														/**/\
-					CFG_ELEM_I( pkt_mgr_TTF_aggressive_sec );																/**/\
-					CFG_ELEM_I( pkt_mgr_TTF_emergency_drop_sec );															/**/\
-					CFG_ELEM_I( pkt_mgr_gentle_backpressure_stride );														/**/\
-					CFG_ELEM_I( pkt_mgr_aggressive_persist_stride );														/**/\
-					CFG_ELEM_I( pkt_mgr_emergency_drop_stride );															/**/\
-					CFG_ELEM_I( pkt_mgr_red_zone_stride );																	/**/
 
 					#undef CFG_ELEM_I
 					#undef CFG_ELEM_STR
@@ -358,8 +357,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 				// load Protocol_Bridges
 				{
-					result( json_element ) re_Protocol_Bridges = json_object_find( el_Protocol_Bridge_config.value.as_object , "Protocol_Bridges" );
-					MM_BREAK_IF( catch_error( &re_Protocol_Bridges , "Protocol_Bridges" , 1 ) , errNotFound , 0 , "tag Protocol_Bridges not found" );
+					result( json_element ) re_Protocol_Bridges = json_object_find( el_Protocol_Bridge_config.value.as_object , "PROTOCOL_BRIDGES" );
+					MM_BREAK_IF( catch_error( &re_Protocol_Bridges , "PROTOCOL_BRIDGES" , 1 ) , errNotFound , 0 , "tag PROTOCOL_BRIDGES not found" );
 					typed( json_element ) el_Protocol_Bridges = result_unwrap( json_element )( &re_Protocol_Bridges );
 	
 					//MM_BREAK_IF( ( Protocol_Bridges_count = el_Protocol_Bridges.value.as_object->count ) < 1 , errGeneral , 0 , "Protocol_Bridges must be not zero" );
@@ -399,8 +398,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						{ continue; }
 						
 						// bridge inputs
-						result( json_element ) re_inputs = json_object_find( el_each_bridge.value.as_object , "inputs" );
-						MM_BREAK_IF( catch_error( &re_inputs , "inputs" , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>inputs not found" , output_Protocol_Bridge_name ) );
+						result( json_element ) re_inputs = json_object_find( el_each_bridge.value.as_object , "INPUTS" );
+						MM_BREAK_IF( catch_error( &re_inputs , "INPUTS" , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>INPUTS not found" , output_Protocol_Bridge_name ) );
 						typed( json_element ) el_inputs = result_unwrap( json_element )( &re_inputs );
 												
 						((Bcfg0 *)(pProtocol_Bridges + iactual_section))->maintained.in_count = el_inputs.value.as_object->count;
@@ -450,8 +449,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 						}
 						
 						// bridge outputs
-						result( json_element ) re_outputs = json_object_find( el_each_bridge.value.as_object , "outputs" );
-						if ( !catch_error( &re_outputs , "outputs" , 0 ) )
+						result( json_element ) re_outputs = json_object_find( el_each_bridge.value.as_object , "OUTPUTS" );
+						if ( !catch_error( &re_outputs , "OUTPUTS" , 0 ) )
 						{
 							typed( json_element ) el_outputs = result_unwrap( json_element )( &re_outputs );
 							( ( Bcfg0 * )( pProtocol_Bridges + iactual_section ) )->maintained.out_count = el_outputs.value.as_object->count;
@@ -513,7 +512,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	
 			int initial_general_config = 0;
 			// 
-			if ( _g->appcfg.g_cfg == NULL ) // TODO . make assignemnt atomic
+			if ( _g->appcfg.g_cfg == NULL )
 			{
 				M_BREAK_IF( !( _g->appcfg.g_cfg = MALLOC( sizeof( struct Global_Config ) ) ) , errMemoryLow , 0 );
 	
@@ -545,40 +544,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().description , _g->appcfg.prev_cfg->c.c.description );
 					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().log_level , _g->appcfg.prev_cfg->c.c.log_level );
 					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().log_file , _g->appcfg.prev_cfg->c.c.log_file );
-					_g->appcfg.g_cfg_changed |= !( CFG().enable == _g->appcfg.prev_cfg->c.c.enable );
-					_g->appcfg.g_cfg_changed |= !( CFG().shutdown == _g->appcfg.prev_cfg->c.c.shutdown );
-					_g->appcfg.g_cfg_changed |= !( CFG().watchdog_enabled == _g->appcfg.prev_cfg->c.c.watchdog_enabled );
-					_g->appcfg.g_cfg_changed |= !( CFG().load_prev_config == _g->appcfg.prev_cfg->c.c.load_prev_config );
-					_g->appcfg.g_cfg_changed |= !( CFG().dump_current_config == _g->appcfg.prev_cfg->c.c.dump_current_config );
-					_g->appcfg.g_cfg_changed |= !( CFG().dump_prev_config == _g->appcfg.prev_cfg->c.c.dump_prev_config );
-					_g->appcfg.g_cfg_changed |= !( CFG().time_out_sec == _g->appcfg.prev_cfg->c.c.time_out_sec );
-					_g->appcfg.g_cfg_changed |= !( CFG().verbose_mode == _g->appcfg.prev_cfg->c.c.verbose_mode );
-					_g->appcfg.g_cfg_changed |= !( CFG().hi_frequent_log_interval_sec == _g->appcfg.prev_cfg->c.c.hi_frequent_log_interval_sec );
-					_g->appcfg.g_cfg_changed |= !( CFG().refresh_variable_from_scratch == _g->appcfg.prev_cfg->c.c.refresh_variable_from_scratch );
-					_g->appcfg.g_cfg_changed |= !( CFG().stat_referesh_interval_sec == _g->appcfg.prev_cfg->c.c.stat_referesh_interval_sec );
-					//_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().thread_handler_type , _g->appcfg.prev_cfg->c.c.thread_handler_type );
-					_g->appcfg.g_cfg_changed |= !( CFG().synchronization_min_wait == _g->appcfg.prev_cfg->c.c.synchronization_min_wait );
-					_g->appcfg.g_cfg_changed |= !( CFG().synchronization_max_roundup == _g->appcfg.prev_cfg->c.c.synchronization_max_roundup );
-					_g->appcfg.g_cfg_changed |= !( CFG().show_line_hit == _g->appcfg.prev_cfg->c.c.show_line_hit );
-					_g->appcfg.g_cfg_changed |= !( CFG().retry_unexpected_wait_for_sock == _g->appcfg.prev_cfg->c.c.retry_unexpected_wait_for_sock );
-					_g->appcfg.g_cfg_changed |= !( CFG().number_in_short_form == _g->appcfg.prev_cfg->c.c.number_in_short_form );
-					_g->appcfg.g_cfg_changed |= !STR_SAME( CFG().NetworkStack_FilterType , _g->appcfg.prev_cfg->c.c.NetworkStack_FilterType );
-					_g->appcfg.g_cfg_changed |= !( CFG().default_low_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_low_basic_thread_delay_nanosec );
-					_g->appcfg.g_cfg_changed |= !( CFG().default_normal_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_normal_basic_thread_delay_nanosec );
-					_g->appcfg.g_cfg_changed |= !( CFG().default_hi_basic_thread_delay_nanosec == _g->appcfg.prev_cfg->c.c.default_hi_basic_thread_delay_nanosec );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_segments_slope_slides_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_segments_slope_slides_sec );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_segment_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_segment_capacity );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_offsets_capacity == _g->appcfg.prev_cfg->c.c.pkt_mgr_offsets_capacity );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_keep_idle_segment_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_keep_idle_segment_sec );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_allocation_allowed == _g->appcfg.prev_cfg->c.c.pkt_mgr_allocation_allowed );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_TTF_nopressure_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_TTF_nopressure_sec );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_TTF_gentle_backpressure_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_TTF_gentle_backpressure_sec );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_TTF_aggressive_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_TTF_aggressive_sec );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_TTF_emergency_drop_sec == _g->appcfg.prev_cfg->c.c.pkt_mgr_TTF_emergency_drop_sec );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_gentle_backpressure_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_gentle_backpressure_stride );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_aggressive_persist_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_aggressive_persist_stride );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_emergency_drop_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_emergency_drop_stride );
-					_g->appcfg.g_cfg_changed |= !( CFG().pkt_mgr_red_zone_stride == _g->appcfg.prev_cfg->c.c.pkt_mgr_red_zone_stride );
+					
+					_g->appcfg.g_cfg_changed |= !!( memcmp( &CFG().cfg_change_pck , &_g->appcfg.prev_cfg->c.c.cfg_change_pck , sizeof( _g->appcfg.prev_cfg->c.c.cfg_change_pck ) ) );
 				}
 			}
 	
@@ -702,7 +669,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	return NULL;
 }
 
-// TODO . aware of concurrency in config read and act on it
+// aware of concurrency in config read and act on it
 _THREAD_FXN void_p config_executer( pass_p src_g )
 {
 	INIT_BREAKABLE_FXN();
@@ -754,7 +721,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 		}
 		if ( _g->appcfg.g_cfg_changed )
 		{
-			_g->appcfg.g_cfg_changed = 0; // for now . TODO later
+			_g->appcfg.g_cfg_changed = 0;
 		}
 
 		if ( _g->appcfg.psv_cfg_changed )
@@ -854,18 +821,18 @@ void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg )
 {
 	INIT_BREAKABLE_FXN();
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 
 	AB * pb = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->bridges.ABs , (void**)&pb ) , 0 );
 	copy_bridge_cfg( &pb->cpy_cfg , new_ccfg );
 	apply_protocol_bridge_new_cfg_changes( _g , new_ccfg , new_ccfg );
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 
 	BEGIN_RET
 	default:

@@ -241,14 +241,14 @@ _CALLBACK_FXN void bad_interrupt( int sig )
 	( void )sig;
 #ifdef ENABLE_VERBOSE_FAULT
 	#ifdef ENABLE_LOGGING
-		log_write( LOG_ERROR , "warn: %d" , sig );
+		log_write( LOG_ERROR , "%s" , signal_to_string( sig ) );
 	#else
-		warn( "warn: %d" , sig );
+		warn( "%s" , signal_to_string( sig ) );
 	#endif
 #endif
 }
 
-_CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
+_CALLBACK_FXN _PRIVATE_FXN void event_program_is_stabled_globals( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 
@@ -268,7 +268,7 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
 	}
 	if ( bstart_tcp_thread ) // after program is stabled ny initial config then tcp proc started
 	{
-		#ifdef ENABLE_TCP_OUT_PROC
+	#ifdef ENABLE_TCP_OUT_PROC
 		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
 		if ( !_g->bridges.tcps_trd.bcreated )
 		{
@@ -279,11 +279,11 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
 			}
 		}
 		pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
-		#endif
+	#endif
 	}
 	M_BREAK_STAT( d_error , 1 );
 
-	BEGIN_RET // TODO . complete reverse on error
+	BEGIN_RET
 	case 1:
 	{
 		if ( d_error ) DIST_APP_FAILURE();
@@ -291,13 +291,13 @@ _CALLBACK_FXN _PRIVATE_FXN void program_is_stabled_globals( void_p src_g )
 	M_V_END_RET
 }
 
-_CALLBACK_FXN _PRIVATE_FXN void pre_config_init_helper( void_p src_g ) /*call by main thread*/
+_CALLBACK_FXN _PRIVATE_FXN void state_pre_config_init_helper( void_p src_g ) /*call by main thread*/
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
 	MM_BREAK_IF( pthread_mutex_init(&_g->bridges.tcps_trd.mtx , NULL) , errCreation , 0 , "mutex_init()" );
-	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( program_is_stabled_globals ) , _g , tcp_thread_trigger ) , 0 );
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( event_program_is_stabled_globals ) , _g , tcp_thread_trigger ) , 0 );
 
 	M_BREAK_STAT( array_init( &_g->hdls.registered_thread , sizeof( pthread_t ) , 1 , GROW_STEP , 0 ) , 0 ); // keep started thread
 	M_BREAK_STAT( array_init( &_g->hdls.sticky_thread , sizeof( pthread_t ) , 1 , GROW_STEP , 0 ) , 0 ); // keep started thread
@@ -358,7 +358,7 @@ _PRIVATE_FXN void pre_main_init_helper_component( void )
 {
 	INIT_BREAKABLE_FXN();
 
-	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( pre_config_init_helper ) , _g ) , 0 );
+	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pre_cfg , SUB_VOID , SUB_FXN( state_pre_config_init_helper ) , _g ) , 0 );
 	
 	M_BREAK_STAT( distributor_init_withOrder_lock( &_g->distributors.bcast_quit , 1 ) , 0 );
 
@@ -480,8 +480,6 @@ _CALLBACK_FXN void tcp_disconnected( pass_p src_AB_tcp , long v )
 #endif
 }
 
-// TODO . close connection after change in config
-
 /// <summary>
 /// this function stablish every udp that need to be stablished
 /// this callback call multitimes
@@ -528,8 +526,6 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 			#endif
 			}
 			pb->udps[ iudp ].udp_connection_established = 0;
-			//_g->stat.udp_connection_count--;
-			// TODO
 		}
 
 		NM_BREAK_IF( ( pb->udps[ iudp ].udp_sockfd = socket( AF_INET , SOCK_DGRAM , 0 ) ) == FXN_SOCKET_ERR , errSocket , 1 , "create sock error" );
@@ -542,7 +538,6 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 		int flags = fcntl( pb->udps[ iudp ].udp_sockfd , F_GETFL );
 		fcntl( pb->udps[ iudp ].udp_sockfd , F_SETFL , flags | O_NONBLOCK );
 
-		// TODO . make it protocol independent
 		struct sockaddr_in server_addr;
 		MEMSET( &server_addr , 0 , sizeof( server_addr ) );
 		server_addr.sin_family = AF_INET; // IPv4
@@ -607,13 +602,13 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		//if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
 		errString = NULL;
 		uchar buf[MIN_SYSERR_BUF_SZ] = {0};
-		d_error = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT TODO , &tcp->tcp_sockfd , &errString , ( buffer * )&buf );
+		d_error = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT() , &tcp->tcp_sockfd , &errString , ( buffer * )&buf );
 		if ( d_error != errOK )
 		{
 			if ( errString )
 			{
 			#ifdef ENABLE_LOGGING
-				log_write( LOG_ERROR , "%d %s %s" , __LINE__ , errString , buf );
+				COOLDOWN_LOGGING_EXP( log_write( LOG_ERROR , "%d %s %s" , __LINE__ , errString , buf ) );
 			#endif
 			}
 			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
@@ -667,7 +662,7 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		if ( errString )
 		{
 		#ifdef ENABLE_LOGGING
-			log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+			COOLDOWN_LOGGING_EXP( log_write( LOG_ERROR , "%d %s" , __LINE__ , errString ) );
 		#endif
 		}
 		//DIST_BRIDGE_FAILURE();
@@ -724,7 +719,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 							if
 							(
 								!pb->tcps[ itcp ].tcp_is_about_to_connect &&
-								( time( NULL ) - pb->tcps[ itcp ].last_access ) > 60 TODO
+								( time( NULL ) - pb->tcps[ itcp ].last_access ) > CFG().tcp_connection_idle_timeout_sec
 							)
 							{
 								pb->tcps[ itcp ].last_access = time( NULL );
@@ -829,7 +824,7 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 /// <summary>
 /// single point for thread wait
 /// </summary>
-void mng_basic_thread_sleep( G * _g , int priority ) TODO 
+void mng_basic_thread_sleep( G * _g , etrd_priority priority )
 {
 	struct timespec ts;
 	MEMSET_ZERO( &ts , 1 );
@@ -1090,52 +1085,52 @@ void init_bypass_stdout( G * _g )
 }
 #endif
 
-_THREAD_FXN void_p sync_thread( pass_p src_g ) // pause app until moment other app exist
-{
-	//INIT_BREAKABLE_FXN();
-
-	//G * _g = ( G * )src_g;
-	// distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_sync_thread , (long)__FUNCTION__ , _g );
-	//__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
-	////if ( _g->sync.lock_in_progress ) return NULL;
-
-	//struct timespec now , next_round_time;
-	//clock_gettime( CLOCK_REALTIME , &now );
-
-	////pthread_mutex_lock( &_g->sync.mutex );
-	//round_up_to_next_interval( &now , CFG().synchronization_min_wait , CFG().synchronization_max_roundup , &next_round_time );
-	////_g->sync.lock_in_progress = 1;
-	////pthread_mutex_unlock( &_g->sync.mutex );
-
-	////next_round_time.tv_sec += 5; // bridge start later
-
-	//format_clock_time( &next_round_time , __custom_message , sizeof( __custom_message ) );
-	//_DIRECT_ECHO( "Will wake at %s" , __custom_message );
-
-	//////pthread_mutex_lock(&_g->sync.mutex);
-	////// First thread sets the global target time
-	//////if (next_round_time.tv_sec == 0) {
-	//////	next_round_time = target;
-	//////}
-	//////pthread_mutex_unlock(&_g->sync.mutex);
-
-	//// Sleep until that global target time
-	//clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
-	//reset_nonuse_stat();
-
-	////pthread_mutex_lock( &_g->sync.mutex );
-	////_g->sync.lock_in_progress = 0;
-	////_g->sync.reset_static_after_lock = 1;
-	////pthread_cond_signal( &_g->sync.cond );
-	//////pthread_cond_broadcast( &_g->sync.cond );
-	////pthread_mutex_unlock( &_g->sync.mutex );
-
-	////clock_gettime( CLOCK_REALTIME , &now );
-	////_DIRECT_ECHO( "waked up" );
-	//_DIRECT_ECHO( "" );
-
-	return NULL;
-}
+//_THREAD_FXN void_p sync_thread( pass_p src_g ) // pause app until moment other app exist
+//{
+//	//INIT_BREAKABLE_FXN();
+//
+//	//G * _g = ( G * )src_g;
+//	// distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)pthread_self() , trdn_sync_thread , (long)__FUNCTION__ , _g );
+//	//__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t trd_id = pthread_self();
+//	////if ( _g->sync.lock_in_progress ) return NULL;
+//
+//	//struct timespec now , next_round_time;
+//	//clock_gettime( CLOCK_REALTIME , &now );
+//
+//	////pthread_mutex_lock( &_g->sync.mutex );
+//	//round_up_to_next_interval( &now ,  ,  , &next_round_time );
+//	////_g->sync.lock_in_progress = 1;
+//	////pthread_mutex_unlock( &_g->sync.mutex );
+//
+//	////next_round_time.tv_sec += 5; // bridge start later
+//
+//	//format_clock_time( &next_round_time , __custom_message , sizeof( __custom_message ) );
+//	//_DIRECT_ECHO( "Will wake at %s" , __custom_message );
+//
+//	//////pthread_mutex_lock(&_g->sync.mutex);
+//	////// First thread sets the global target time
+//	//////if (next_round_time.tv_sec == 0) {
+//	//////	next_round_time = target;
+//	//////}
+//	//////pthread_mutex_unlock(&_g->sync.mutex);
+//
+//	//// Sleep until that global target time
+//	//clock_nanosleep( CLOCK_REALTIME , TIMER_ABSTIME , &next_round_time , NULL );
+//	//reset_nonuse_stat();
+//
+//	////pthread_mutex_lock( &_g->sync.mutex );
+//	////_g->sync.lock_in_progress = 0;
+//	////_g->sync.reset_static_after_lock = 1;
+//	////pthread_cond_signal( &_g->sync.cond );
+//	//////pthread_cond_broadcast( &_g->sync.cond );
+//	////pthread_mutex_unlock( &_g->sync.mutex );
+//
+//	////clock_gettime( CLOCK_REALTIME , &now );
+//	////_DIRECT_ECHO( "waked up" );
+//	//_DIRECT_ECHO( "" );
+//
+//	return NULL;
+//}
 
 _THREAD_FXN void_p input_thread( pass_p src_g )
 {
@@ -1262,7 +1257,7 @@ _CALLBACK_FXN PASSED_CSTR ov_fault_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	G * _g = ( G * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof(pcell->storage.tmpbuf) , _g->stat.aggregate_stat.app_fault_count + (__int64u)_inner_status_error , 2 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof(pcell->storage.tmpbuf) , _g->stat.aggregate_stat.app_fault_count + (__int64u)_inner_status_error , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1296,7 +1291,7 @@ _CALLBACK_FXN PASSED_CSTR pb_fault_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.pb_fault_count , 2 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.pb_fault_count , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1304,7 +1299,7 @@ _CALLBACK_FXN PASSED_CSTR pb_fst_cash_lost_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( __int64u )pb->comm.preq.raw_xudp_cache.err_full , 2 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( __int64u )pb->comm.preq.raw_xudp_cache.err_full , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1344,7 +1339,7 @@ _CALLBACK_FXN PASSED_CSTR pb_UDP_get_count_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.udp.total_udp_get_count , 2 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.udp.total_udp_get_count , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1352,7 +1347,7 @@ _CALLBACK_FXN PASSED_CSTR pb_UDP_get_byte_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.udp.total_udp_get_byte , 2 , "B" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.udp.total_udp_get_byte , DOUBLE_PRECISION() , "B" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1360,7 +1355,7 @@ _CALLBACK_FXN PASSED_CSTR pb_TCP_put_count_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.tcp.total_tcp_put_count , 2 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.tcp.total_tcp_put_count , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1368,7 +1363,7 @@ _CALLBACK_FXN PASSED_CSTR pb_TCP_put_byte_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.tcp.total_tcp_put_byte , 2 , "B" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->stat.round_zero_set.tcp.total_tcp_put_byte , DOUBLE_PRECISION() , "B" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1377,7 +1372,7 @@ _CALLBACK_FXN PASSED_CSTR pb_5s_udp_pps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_5_sec_count ) , 4 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_5_sec_count ) , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1385,7 +1380,7 @@ _CALLBACK_FXN PASSED_CSTR pb_5s_udp_bps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_5_sec_bytes ) , 4 , "B" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_5_sec_bytes ) , DOUBLE_PRECISION() , "B" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1393,7 +1388,7 @@ _CALLBACK_FXN PASSED_CSTR pb_10s_udp_pps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_10_sec_count ) , 4 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_10_sec_count ) , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1401,7 +1396,7 @@ _CALLBACK_FXN PASSED_CSTR pb_10s_udp_bps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_10_sec_bytes ) , 4 , "B" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_10_sec_bytes ) , DOUBLE_PRECISION() , "B" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1409,7 +1404,7 @@ _CALLBACK_FXN PASSED_CSTR pb_40s_udp_pps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_40_sec_count ) , 4 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_40_sec_count ) , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1417,7 +1412,7 @@ _CALLBACK_FXN PASSED_CSTR pb_40s_udp_bps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_40_sec_bytes ) , 4 , "B" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.udp_stat_40_sec_bytes ) , DOUBLE_PRECISION() , "B" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1425,7 +1420,7 @@ _CALLBACK_FXN PASSED_CSTR pb_5s_tcp_pps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_5_sec_count ) , 4 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_5_sec_count ) , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1433,7 +1428,7 @@ _CALLBACK_FXN PASSED_CSTR pb_5s_tcp_bps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_5_sec_bytes ) , 4 , "B" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_5_sec_bytes ) , DOUBLE_PRECISION() , "B" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1441,7 +1436,7 @@ _CALLBACK_FXN PASSED_CSTR pb_10s_tcp_pps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_10_sec_count ) , 4 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_10_sec_count ) , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1449,7 +1444,7 @@ _CALLBACK_FXN PASSED_CSTR pb_10s_tcp_bps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_10_sec_bytes ) , 4 , "B" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_10_sec_bytes ) , DOUBLE_PRECISION() , "B" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1457,7 +1452,7 @@ _CALLBACK_FXN PASSED_CSTR pb_40s_tcp_pps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_40_sec_count ) , 4 , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_40_sec_count ) , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1465,7 +1460,7 @@ _CALLBACK_FXN PASSED_CSTR pb_40s_tcp_bps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_40_sec_bytes ) , 4 , "B" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( ubigint )cbuf_m_mean_all( &pb->stat.round_init_set.tcp_stat_40_sec_bytes ) , DOUBLE_PRECISION() , "B" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 #endif

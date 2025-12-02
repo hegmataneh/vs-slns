@@ -56,7 +56,6 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 
 		if ( strsistr( pkeys , keys_count , STR_RoundRobin ) >= 0 )
 		{
-			// TODO . i can make helper to reduce this path length 
 			dict_o_init( shrtcut->dc_token_ring , true );
 		}
 		dict_free( &dc_enum_grp_type );
@@ -109,8 +108,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 				MEMSET_ZERO_O( tring );
 				token_ring_p_init( tring );
 
-				dict_o_put( shrtcut->dc_token_ring , igrp , tring ); // TODO . each values from dic should freed
-				// TODO . release this ring finally
+				dict_o_put( shrtcut->dc_token_ring , igrp , tring );
 			}
 
 			void_p pring = dict_o_get( shrtcut->dc_token_ring , igrp ); // get grp ring
@@ -129,8 +127,6 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 #ifdef ENABLE_USE_DBG_TAG
 	MARK_LINE();
 #endif
-
-	// TODO . call destroy or destructor of any dictionaries and collections
 }
 
 #ifdef ENABLE_USE_DBG_TAG
@@ -216,10 +212,6 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 			{
 				break;
 			}
-
-			// TODO . if connection lost i should do something here. but i dont know what should i do for now
-
-			// TODO . result must be seperated from each other to make right statistic
 
 			if ( distributor_publish_buffer_size( shrtcut->bcast_xudp_pkt , buffer , sz + pkt->metadata.payload_offset , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;

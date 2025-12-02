@@ -115,7 +115,7 @@ typedef struct App_Data
 _THREAD_FXN void_p stdout_bypass_thread( pass_p src_g );
 #endif
 
-_THREAD_FXN void_p sync_thread( pass_p src_g ); // pause app until moment other app exist
+//_THREAD_FXN void_p sync_thread( pass_p src_g ); // pause app until moment other app exist
 _THREAD_FXN void_p input_thread( pass_p src_g );
 _THREAD_FXN void_p connect_udps_proc( pass_p src_pb );
 _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_pb );
@@ -139,7 +139,7 @@ void apply_protocol_bridge_new_cfg_changes( G * _g , brg_cfg_t * prev_pcfg , brg
 void remove_protocol_bridge( G * _g , brg_cfg_t * pcfg );
 void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg );
 
-void mng_basic_thread_sleep( G * _g , int priority );
+void mng_basic_thread_sleep( G * _g , etrd_priority priority );
 
 _CALLBACK_FXN void quit_interrupt( int sig );
 _CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg );

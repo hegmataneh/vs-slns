@@ -31,8 +31,6 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_pth_t * shrtcut
 	struct bpf_program fp;
 	bpf_u_int32 net = 0 , mask = 0;
 
-	// TODO . handle multiple interface
-
 #ifdef ENABLE_PCAP_LOOP_PREQ
 	int clusterd_cnt;
 	strings interface_filter = NULL;
@@ -85,8 +83,6 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_pth_t * shrtcut
 #endif
 
 	BEGIN_RET
-	// TODO . FREE_DOUBLE_PTR( interface_filter , clusterd_cnt );
-	// FREE_DOUBLE_PTR( port_filter , clusterd_cnt );
 	case 4:
 	{
 		pcap_breakloop( *shrtcut->pcp_handle ); // in case we're inside pcap_loop

@@ -26,9 +26,9 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat_bridges( void_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 
 #ifdef HAS_STATISTICSS
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( init_bridges_statistics ) , _g , bridge_overview ) , 0 );
@@ -67,7 +67,7 @@ _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
 		if ( mms_array_get_s( &_g->bridges.ABs , idx , ( void ** )&pb ) == errOK )
 		{
 			CIRCUIT_BREAKER long break_cuit = 0;
-			for ( pb->comm.preq.stop_sending = true ; !pb->comm.preq.send_stoped && break_cuit < 1000 ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ ); // order to stop. then after stop continue to clean up
+			for ( pb->comm.preq.stop_sending = true ; !pb->comm.preq.send_stoped && break_cuit < INFINITE_LOOP_GUARD() ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ ); // order to stop. then after stop continue to clean up
 
 			for ( CIRCUIT_BREAKER long break_cuit_1 = 0 ; break_cuit_1 < 10 ; break_cuit_1++ ) /*make a gap to insure there is no sender on tcp*/
 			{
@@ -103,9 +103,9 @@ _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
 			}
 		}
 	}
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void bridge_insure_input_bus_stoping( pass_p src_pb , long v )
@@ -114,11 +114,11 @@ _PRIVATE_FXN _CALLBACK_FXN void bridge_insure_input_bus_stoping( pass_p src_pb ,
 	if ( pb )
 	{
 		CIRCUIT_BREAKER long break_cuit = 0;
-		for ( pb->comm.preq.stop_receiving = true ; !pb->comm.preq.receive_stoped && break_cuit < 1000  ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ ); // order to stop. then after stop continue to clean up
+		for ( pb->comm.preq.stop_receiving = true ; !pb->comm.preq.receive_stoped && break_cuit < INFINITE_LOOP_GUARD() ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ ); // order to stop. then after stop continue to clean up
 	}
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_after_nomore_udp( pass_p src_pb , long v )
@@ -132,9 +132,9 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_after_nomore_udp( pass_p src_pb , long v
 		sub_destroy( &pb->comm.preq.bcast_pcap_udp_pkt );
 		sub_destroy( &pb->comm.preq.bcast_xudp_pkt );
 	}
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 }
 
 _CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
@@ -190,9 +190,9 @@ _CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
 		}
 	}
 	mms_array_free( &_g->bridges.ABs );
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 }
 
 _CALLBACK_FXN void pb_every_ticking_refresh( pass_p src_pb )
@@ -472,9 +472,9 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 {
 	INIT_BREAKABLE_FXN();
 
-	#ifdef ENABLE_USE_DBG_TAG
-		MARK_LINE();
-	#endif
+	//#ifdef ENABLE_USE_DBG_TAG
+	//	MARK_LINE();
+	//#endif
 
 	// UDP
 	if ( pb->cpy_cfg.m.m.maintained.in_count > 0 )
@@ -491,9 +491,9 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 		}
 	}
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 
 	// TCP
 	pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
@@ -554,18 +554,18 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 	}
 	pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 
 	// TODO . if Ab goes away then unregister quit intrupt
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( bridge_insure_input_bus_stoping ) , pb , bridge_insure_input_bus_stoped ) , 0 ); // in several level bridge make cleanup
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_after_nomore_udp ) , pb , getting_new_udp_stoped ) , 0 ); // in several level bridge make cleanup
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_bridges ) , _g , clean_globals_shared_var ) , 0 ); // in several level bridge make cleanup
 	
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 
 #ifdef HAS_STATISTICSS
 #ifdef ENABLE_THROUGHPUT_MEASURE
@@ -587,17 +587,17 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 #endif
 #endif
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 
 	M_BREAK_STAT( init_udps_defragmentator( &pb->comm.preq.defraged_udps ) , 0 ); // defragmentor
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+//#ifdef ENABLE_USE_DBG_TAG
+//	MARK_LINE();
+//#endif
 
-	BEGIN_RET // TODO . complete reverse on error
+	BEGIN_RET
 	case 1:
 	{
 		DIST_BRIDGE_FAILURE();
@@ -714,8 +714,8 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 
 			M_BREAK_IF( !( pb->comm.acts.p_one2one_krnl2krnl_SF = CALLOC_ONE( pb->comm.acts.p_one2one_krnl2krnl_SF ) ) , errMemoryLow , 1 );
 
-			//// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 TODO  , &_g->cmd.burst_waiting_2 ) , 1 );
+			// each packet most release as soon as possible to prevent lost
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
 		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
@@ -744,8 +744,8 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			M_BREAK_IF( !( pb->comm.acts.p_one2one_pcap2krnl_SF = MALLOC_ONE( pb->comm.acts.p_one2one_pcap2krnl_SF ) ) , errMemoryLow , 1 );
 			MEMSET_ZERO_O( pb->comm.acts.p_one2one_pcap2krnl_SF );
 
-			//// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824  TODO , &_g->cmd.burst_waiting_2 ) , 1 );
+			// each packet most release as soon as possible to prevent lost
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
 		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
@@ -774,8 +774,8 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 
 			M_BREAK_IF( !( pb->comm.acts.p_one2many_krnl2krnl_SF = CALLOC_ONE( pb->comm.acts.p_one2many_krnl2krnl_SF ) ) , errMemoryLow , 1 );
 
-			//// TODO . this size come from config and each packet size and release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+			// each packet most release as soon as possible to prevent lost
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
 		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
@@ -803,15 +803,16 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			M_BREAK_IF( !( pb->comm.acts.p_one2many_pcap2krnl_SF = MALLOC_ONE( pb->comm.acts.p_one2many_pcap2krnl_SF ) ) , errMemoryLow , 1 );
 			MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
 
-		#ifdef ENABLE_USE_DBG_TAG
-			MARK_LINE();
-		#endif
+		//#ifdef ENABLE_USE_DBG_TAG
+		//	MARK_LINE();
+		//#endif
 
-			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+			// each packet most release as soon as possible to prevent lost
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
-		#ifdef ENABLE_USE_DBG_TAG
-			MARK_LINE();
-		#endif
+		//#ifdef ENABLE_USE_DBG_TAG
+		//	MARK_LINE();
+		//#endif
 
 			#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
@@ -824,9 +825,9 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			}
 			#endif
 
-		#ifdef ENABLE_USE_DBG_TAG
-			MARK_LINE();
-		#endif
+		//#ifdef ENABLE_USE_DBG_TAG
+		//	MARK_LINE();
+		//#endif
 
 			//MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		}
@@ -840,8 +841,8 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			//M_BREAK_IF( !( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize = MALLOC_ONE( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize ) ) , errMemoryLow , 1 );
 			//MEMSET_ZERO_O( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize );
 			
-			////// TODO . buff size came from config
-			//M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+			// each packet most release as soon as possible to prevent lost
+			//M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 			
 		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			//if ( !pb->comm.preq.thread_is_created )
@@ -871,7 +872,8 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 		//	M_BREAK_IF( !( pb->comm.acts.p_one2many_pcap2krnl_SF = MALLOC_ONE( pb->comm.acts.p_one2many_pcap2krnl_SF ) ) , errMemoryLow , 1 );
 		//	MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
 
-		//	M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , 1073741824 , &_g->cmd.burst_waiting_2 ) , 1 );
+		// each packet most release as soon as possible to prevent lost
+		//	M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
 	#ifdef ENABLE_BRIDGE_THREAD_CREATION
 		//	if ( !pb->comm.preq.thread_is_created )
@@ -890,7 +892,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 
 	#endif
 
-	BEGIN_RET // TODO . complete reverse on error
+	BEGIN_RET
 	case 1:
 	{
 		DIST_BRIDGE_FAILURE();
