@@ -236,4 +236,6 @@ enum thread_used
 
 	#define ENABLE_MEMMAP_SYNC_FOR_EACH_WRITE
 
+	#define ENABLE_ON_PCAP_TCP_OUT
+
 #endif

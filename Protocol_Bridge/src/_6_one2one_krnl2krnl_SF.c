@@ -49,9 +49,9 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 		SUB_FXN( fast_ring_2_huge_ring ) , &pb->tcps[ 0 ] );
 
 
-	char buffer[ BUFFER_SIZE ] = {0}; // Define a buffer to store received data
+	char bufferr[ BUFFER_SIZE ] = {0}; // Define a buffer to store received data
 
-	xudp_hdr * pkt = ( xudp_hdr * )buffer; // plain cup for packet
+	xudp_hdr * pkt = ( xudp_hdr * )bufferr; // plain cup for packet
 	pkt->metadata.version = TCP_XPKT_V1;
 	pkt->metadata.sent = false;
 	pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
@@ -229,7 +229,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 						while ( 1 ) // drain it
 						{
 							if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
-							bytes_received = recvfrom( pb->udps[ iudp ].udp_sockfd , buffer + pkt->metadata.payload_offset /*hdr + pkt*/ , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
+							bytes_received = recvfrom( pb->udps[ iudp ].udp_sockfd , bufferr + pkt->metadata.payload_offset /*hdr + pkt*/ , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
 
 							if ( bytes_received < 0 )
 							{
@@ -254,28 +254,32 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 
 							if ( bytes_received <= 0 )
 							{
-								#ifdef ENABLE_GATHER_STATIC
+							#ifdef ENABLE_GATHER_STATIC
 								pb->stat.round_zero_set.continuously_unsuccessful_receive_error++;
 								pb->stat.round_zero_set.total_unsuccessful_receive_error++;
-								#endif
+							#endif
 								continue;
 							}
-							#ifdef ENABLE_GATHER_STATIC
+						#ifdef ENABLE_GATHER_STATIC
 							pb->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
-							#endif
+						#endif
 							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
 							// TODO . we should determind that each udp send to which tcp
 
+							pkt->metadata.payload_sz = (size_t)bytes_received;
+
 							#ifdef SEND_DIRECTLY_ARRIVE_UDP
-								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , buffer + pkt->metadata.payload_offset , (int)bytes_received , 0 , 0 );
+								IMMORTAL_LPCSTR errString = NULL;
+								uchar buf[ MIN_SYSERR_BUF_SZ ] = { 0 };
+								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , bufferr + pkt->metadata.payload_offset , pkt->metadata.payload_sz , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf );
 							#else
-								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , buffer , (size_t)( bytes_received + pkt->metadata.payload_offset ) , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
+								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , bufferr , (size_t)( bytes_received + pkt->metadata.payload_offset ) , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 									continue;
 							#endif
 
-							#ifndef statistics
-							#ifdef ENABLE_GATHER_STATIC
+#ifndef statistics
+#ifdef ENABLE_GATHER_STATIC
 							gettimeofday( &pb->stat.round_zero_set.t_end , NULL );
 
 							pb->stat.round_zero_set.udp.total_udp_get_count++;
@@ -283,8 +287,8 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 							pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_count++;
 							pb->stat.round_zero_set.udp_1_sec.calc_throughput_udp_get_bytes += (__int64u)bytes_received;
 							pb->stat.round_zero_set.udp_get_data_alive_indicator++;
-							#endif
-							#endif
+#endif
+#endif
 						}
 					}
 				}

@@ -39,7 +39,7 @@ _GLOBAL_VAR _STRONG_ATTR void M_showMsg( LPCSTR msg )
 	if ( _g ) strcpy( _g->stat.nc_h.message_text , msg );
 #endif
 #ifdef ENABLE_LOGGING
-	log_write( LOG_ERROR , msg );
+	log_write( LOG_ERROR , "%s" , msg );
 #endif
 }
 
@@ -932,48 +932,16 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 		LPSTR prt_flt = *port_filter_addr;
 
 		int n = 0;
-		// Start with "udp and ("
-		n += sprintf( prt_flt + n , "udp and (" );
-
-		// TODO . implement multiple source and dest ip
-
-		if ( distinct_ports.size == 1 && STR_SAME( distinct_ports.strs[ 0 ] , "-" ) )
+		// TODO . implement multimple inputs for pcap		
+		if ( strlen( abs->udps[ 0 ].__udp_cfg_pak->data.core.UDP_origin_ip ) && STR_DIFF( abs->udps[ 0 ].__udp_cfg_pak->data.core.UDP_origin_ip , "-" ) )
 		{
-			n += sprintf( prt_flt + n , "src host %s and dst host %s" , abs->udps[ 0 ].__udp_cfg_pak->data.core.UDP_origin_ip , abs->udps[ 0 ].__udp_cfg_pak->data.core.UDP_destination_ip );
+			n += sprintf( prt_flt + n , "src host %s" , abs->udps[ 0 ].__udp_cfg_pak->data.core.UDP_origin_ip );
 		}
-		else
+		if ( strlen( abs->udps[ 0 ].__udp_cfg_pak->data.core.UDP_destination_ip ) && STR_DIFF( abs->udps[ 0 ].__udp_cfg_pak->data.core.UDP_destination_ip , "-" ) )
 		{
-			for ( int iprt = 0 ; iprt < distinct_ports.size ; iprt++ )
-			{
-				if ( iprt > 0 )
-				{
-					n += sprintf( prt_flt + n , " or " );
-				}
-
-				// TODO . later i should check config file that no duplicate port find in it
-				for ( int islk = 0 ; islk < abs->udps_count ; islk++ )
-				{
-					if ( iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_interface , *interface_filter[iint] )
-						&& iSTR_SAME( abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports , distinct_ports.strs[iprt] ) )
-					{
-						if ( strchr( abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports , '-' ) != NULL )
-						{
-							// it's a range
-							n += sprintf( prt_flt + n , "dst portrange %s" , abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports );
-						}
-						else
-						{
-							// it's a single port
-							n += sprintf( prt_flt + n , "dst port %s" , abs->udps[ islk ].__udp_cfg_pak->data.core.UDP_origin_ports );
-						}
-						break;
-					}
-				}
-			}
+			n += sprintf( prt_flt + n , " and dst host %s" , abs->udps[ 0 ].__udp_cfg_pak->data.core.UDP_destination_ip );
 		}
-
-		// close parenthesis
-		n += sprintf( prt_flt + n , ")" );
+		n += sprintf( prt_flt + n , "%s%s" , n ? " and" : "" , " ip[9] = 17" );
 	}
 
 	BEGIN_RET
@@ -1295,11 +1263,19 @@ _CALLBACK_FXN PASSED_CSTR pb_fault_2_str( pass_p src_pcell )
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
-_CALLBACK_FXN PASSED_CSTR pb_fst_cash_lost_2_str( pass_p src_pcell )
+_CALLBACK_FXN PASSED_CSTR pb_ipv4_missed_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , ( __int64u )pb->comm.preq.raw_xudp_cache.err_full , DOUBLE_PRECISION() , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.raw_xudp_cache.err_full , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_L1Cache_lost_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.part_no_matched , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 

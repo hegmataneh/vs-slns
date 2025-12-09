@@ -169,7 +169,9 @@ _CALLBACK_FXN PASSED_CSTR ov_thread_cnt_2_str( pass_p src_pcell );
 
 _CALLBACK_FXN PASSED_CSTR pb_time_elapse_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_fault_2_str( pass_p src_pcell );
-_CALLBACK_FXN PASSED_CSTR pb_fst_cash_lost_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_ipv4_missed_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_L1Cache_lost_2_str( pass_p src_pcell );
+
 _CALLBACK_FXN PASSED_CSTR pb_UDP_conn_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_TCP_conn_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_UDP_retry_2_str( pass_p src_pcell );

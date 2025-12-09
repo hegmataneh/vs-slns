@@ -58,13 +58,13 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 	uint16_t frag_off_field = ntohs( *( uint16_t * )( packet + 6 ) );
 	int more = ( frag_off_field & 0x2000 ) ? 1 : 0; // MF bit
 	uint16_t frag_offset = ( frag_off_field & 0x1FFF ) * 8; // offset in bytes
-	if ( frag_offset > ETHERNET_MTU ) return errCanceled;
+	//if ( frag_offset > ETHERNET_MTU ) return errCanceled;
 
 	/* Extract key fields for reassembly. */
 	uint32_t src = *( uint32_t * )( packet + 12 ); // src ip
 	uint32_t dst = *( uint32_t * )( packet + 16 ); // dst ip
 	uint8_t proto = packet[ 9 ]; // proto used
-	if ( proto != 17 ) return errCanceled;
+	if ( proto != 17 ) return errCanceled; /*17 means udp in ipv4 layer*/
 
 /*layer 4 Transport (UDP)*/
 	/* Pointer to payload (L4 header start). */
@@ -87,7 +87,6 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		udp_payload_buf = packet + pkt_hdr_len_B;
 	}
 	
-
 	dfrg_udp_metadata udp_spec/* = {0}*/; // just think about execution speed. because here we are at getter side of rign so we should get as much as possible
 	udp_spec.mark_memory = MARKER_MEM; // to check memory validity
 	udp_spec.hdr.srcIP = src;
@@ -134,9 +133,30 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 			#endif
 			#define CCH pb->comm.preq.defraged_udps.ids[ udp_spec.hdr.udp_pkt_id ]
 
-			if ( CCH.dirty && ( CCH.srcIP != udp_spec.hdr.srcIP || CCH.dstIP != udp_spec.hdr.dstIP ) )
+			// it is possible that second part received first after first part
+			// some times in test one udp packet received continuously so i should be prepare for that
+			if ( CCH.dirty )
 			{
-				MEMSET_ZERO_O( &CCH ); // maybe second part arrived first
+				if ( ( CCH.srcIP != udp_spec.hdr.srcIP || CCH.dstIP != udp_spec.hdr.dstIP ) )
+				{
+					if ( !CCH.done )
+					{
+						pb->comm.preq.defraged_udps.part_no_matched++;
+					}
+					MEMSET_ZERO_O( &CCH ); // maybe second part arrived first
+				}
+				else if ( CCH.done )
+				{
+					MEMSET_ZERO_O( &CCH ); // maybe second part arrived first
+				}
+				else if ( CCH.last_pos >= MAXIMUM_FRAGMENT_MADE )
+				{
+					if ( !CCH.done )
+					{
+						pb->comm.preq.defraged_udps.part_no_matched++;
+					}
+					MEMSET_ZERO_O( &CCH ); // maybe second part arrived first
+				}
 			}
 
 			CCH.data_length_B = udp_spec.data_length_B;
@@ -161,7 +181,7 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 	if ( frag_offset )
 	{
 		frag_offset -= sizeof(struct udphdr);
-		if ( !frag_offset || frag_offset > ETHERNET_MTU ) return errGeneral;
+		if ( !frag_offset /* || frag_offset > ETHERNET_MTU*/ ) return errGeneral;
 		uint16_t seg_payload_len_B = frag_len_B /* - sizeof(struct udphdr)*/;
 
 		udp_spec.frag_offset = frag_offset;
@@ -175,10 +195,31 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload_buf , udp_spec.data_progress_B , udp_spec.data_progress_B , &pyld_addr , true ); // for first one allocate more space then in read defrag by copyting them in their place
 		if ( d_error == errOK )
 		{
-			if ( CCH.dirty && ( CCH.srcIP != udp_spec.hdr.srcIP || CCH.dstIP != udp_spec.hdr.dstIP ) )
+			if ( CCH.dirty )
 			{
-				MEMSET_ZERO_O( &CCH ); // maybe second part arrived first
+				if ( ( CCH.srcIP != udp_spec.hdr.srcIP || CCH.dstIP != udp_spec.hdr.dstIP ) )
+				{
+					if ( !CCH.done )
+					{
+						pb->comm.preq.defraged_udps.part_no_matched++;
+					}
+					MEMSET_ZERO_O( &CCH ); // maybe second part arrived first
+				}
+				else if ( CCH.done )
+				{
+					MEMSET_ZERO_O( &CCH ); // maybe second part arrived first
+				}
+				else if ( CCH.last_pos >= MAXIMUM_FRAGMENT_MADE - 1 )
+				{
+					if ( !CCH.done )
+					{
+						pb->comm.preq.defraged_udps.part_no_matched++;
+					}
+					MEMSET_ZERO_O( &CCH ); // maybe second part arrived first
+				}
 			}
+
+			//int iiiii = CCH.last_pos;
 
 			//CCH.data_length_B = my_hdr.data_length_B;
 			CCH.data_progress_B += udp_spec.data_progress_B;
@@ -189,6 +230,10 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 			CCH.ring_addr[ CCH.last_pos + 1 ][ 1 ] = pyld_addr;
 
 			CCH.last_pos++; // extra segment from pos 1+
+			if ( CCH.last_pos >= MAXIMUM_FRAGMENT_MADE )
+			{
+				CCH.last_pos = CCH.last_pos % MAXIMUM_FRAGMENT_MADE;
+			}
 			if ( CCH.data_length_B && CCH.data_progress_B == CCH.data_length_B )
 			{
 				sem_post( &pb->comm.preq.defraged_udps.gateway ); // some udp packet complete

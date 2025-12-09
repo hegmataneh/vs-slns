@@ -5,8 +5,8 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 
-#define LOCAL_IP   "10.202.18.88"
-#define LOCAL_PORT 10202
+#define LOCAL_IP   "192.168.4.2"
+#define LOCAL_PORT 6000
 #define BUF_SIZE   20480
 
 int main( void )
@@ -35,7 +35,8 @@ int main( void )
 	memset( &local_addr , 0 , sizeof( local_addr ) );
 	local_addr.sin_family = AF_INET;
 	local_addr.sin_port = htons( LOCAL_PORT );
-	local_addr.sin_addr.s_addr = inet_addr( LOCAL_IP );
+	//local_addr.sin_addr.s_addr = inet_addr( LOCAL_IP );
+	local_addr.sin_addr.s_addr = INADDR_ANY;
 
 	// Bind to IP and port
 	if ( bind( sockfd , ( struct sockaddr * )&local_addr , sizeof( local_addr ) ) < 0 )
@@ -45,7 +46,7 @@ int main( void )
 		return 1;
 	}
 
-	printf( "Listening for UDP packets on %s:%d ...\n" , LOCAL_IP , LOCAL_PORT );
+	//printf( "Listening for UDP packets on %s:%d ...\n" , LOCAL_IP , LOCAL_PORT );
 
 	// Loop to read packets iteratively
 	while ( 1 )

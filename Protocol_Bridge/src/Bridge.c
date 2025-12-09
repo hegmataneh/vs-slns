@@ -282,10 +282,10 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			pb->stat.pb_fault_cell->storage.bt.pass_data = pb; pb->stat.pb_fault_cell->conversion_fxn = pb_fault_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fault_cell ) , 0 );
 
-			// fst cash lost
-			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "fst cash lost" ) , 0 );
+			// IPV4 missed
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 missed" ) , 0 );
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_lost ) , 0 );
-			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_fst_cash_lost_2_str;
+			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_ipv4_missed_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
 
 			//--->>>
@@ -303,6 +303,12 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_TCP_conn_cell ) , 0 );
 			pb->stat.pb_TCP_conn_cell->storage.bt.pass_data = pb; pb->stat.pb_TCP_conn_cell->conversion_fxn = pb_TCP_conn_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_TCP_conn_cell ) , 0 );
+
+			// L1Cache lost
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 orphaned" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_lost ) , 0 );
+			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_L1Cache_lost_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
 
 			//--->>>
 			irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
@@ -722,8 +728,8 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			{
 				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2one_krnl2krnl_SF->income_trd_id , NULL ,
 					proc_one2one_krnl_udp_store , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-				//MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2one_krnl2krnl_SF->outgoing_trd_id , NULL ,
-				//	proc_one2one_krnl_tcp_forward , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+				////MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2one_krnl2krnl_SF->outgoing_trd_id , NULL ,
+				////	proc_one2one_krnl_tcp_forward , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->comm.preq.thread_is_created = 1;
 			}
 		#endif
@@ -752,8 +758,10 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			{
 				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2one_pcap2krnl_SF->income_trd_id , NULL ,
 					proc_one2one_pcap2krnl_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2one_pcap2krnl_SF->outgoing_trd_id , NULL ,
-					proc_one2one_pcap2krnl_SF_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+				#ifdef ENABLE_ON_PCAP_TCP_OUT
+					MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2one_pcap2krnl_SF->outgoing_trd_id , NULL ,
+						proc_one2one_pcap2krnl_SF_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+				#endif
 				pb->comm.preq.thread_is_created = 1;
 			}
 		#endif
@@ -782,8 +790,8 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			{
 				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_krnl2krnl_SF->income_trd_id , NULL ,
 					proc_many2many_krnl_udp_store , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-			//	MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->outgoing_trd_id , NULL ,
-			//		proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+			////	MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->outgoing_trd_id , NULL ,
+			////		proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
 				pb->comm.preq.thread_is_created = 1;
 			}
 		#endif
@@ -819,8 +827,10 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			{
 				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->income_trd_id , NULL ,
 					proc_one2many_pcap2krnl_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->outgoing_trd_id , NULL ,
-					proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+				#ifdef ENABLE_ON_PCAP_TCP_OUT
+					MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->outgoing_trd_id , NULL ,
+						proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+				#endif
 				pb->comm.preq.thread_is_created = 1;
 			}
 			#endif
@@ -833,64 +843,64 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 		}
 	}
 
-	else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "many2one_pcap2krnl_S&F_serialize" ) )
-	{
-		if ( !pb->comm.acts.p_many2one_pcap2krnl_SF_serialize )
-		{
-			//init_ActiveBridge( _g , pb );
-			//M_BREAK_IF( !( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize = MALLOC_ONE( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize ) ) , errMemoryLow , 1 );
-			//MEMSET_ZERO_O( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize );
-			
-			// each packet most release as soon as possible to prevent lost
-			//M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
-			
-		#ifdef ENABLE_BRIDGE_THREAD_CREATION
-			//if ( !pb->comm.preq.thread_is_created )
-			//{
-			//	MM_BREAK_IF( pthread_create( &pb->comm.acts.p_many2one_pcap2krnl_SF_serialize->income_trd_id , NULL ,
-			//		proc_many2many_pcap_krnl_SF , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-			//	////MM_BREAK_IF( pthread_create( &pb->comm.acts.p_many2one_pcap2krnl_SF_serialize->outgoing_trd_id , NULL ,
-			//	////	 , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-			//	pb->comm.preq.thread_is_created = 1;
-			//}
-		#endif
-			
-			//MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
-		}
-	}
+	//else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "many2one_pcap2krnl_S&F_serialize" ) )
+	//{
+	//	if ( !pb->comm.acts.p_many2one_pcap2krnl_SF_serialize )
+	//	{
+	//		//init_ActiveBridge( _g , pb );
+	//		//M_BREAK_IF( !( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize = MALLOC_ONE( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize ) ) , errMemoryLow , 1 );
+	//		//MEMSET_ZERO_O( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize );
+	//		
+	//		// each packet most release as soon as possible to prevent lost
+	//		//M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
+	//		
+	//	#ifdef ENABLE_BRIDGE_THREAD_CREATION
+	//		//if ( !pb->comm.preq.thread_is_created )
+	//		//{
+	//		//	MM_BREAK_IF( pthread_create( &pb->comm.acts.p_many2one_pcap2krnl_SF_serialize->income_trd_id , NULL ,
+	//		//		proc_many2many_pcap_krnl_SF , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+	//		//	////MM_BREAK_IF( pthread_create( &pb->comm.acts.p_many2one_pcap2krnl_SF_serialize->outgoing_trd_id , NULL ,
+	//		//	////	 , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+	//		//	pb->comm.preq.thread_is_created = 1;
+	//		//}
+	//	#endif
+	//		
+	//		//MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
+	//	}
+	//}
 
 	#endif
 
-	#ifndef many2many
+	//#ifndef many2many
 
-	else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "many2many_pcap2krnl_SF" ) )
-	{
-		//if ( !pb->comm.acts.p_one2many_pcap2krnl_SF )
-		//{
-		//	init_ActiveBridge( _g , pb );
+	//else if ( iSTR_SAME( pb->cpy_cfg.m.m.id.thread_handler_act , "many2many_pcap2krnl_SF" ) )
+	//{
+	//	//if ( !pb->comm.acts.p_one2many_pcap2krnl_SF )
+	//	//{
+	//	//	init_ActiveBridge( _g , pb );
 
-		//	M_BREAK_IF( !( pb->comm.acts.p_one2many_pcap2krnl_SF = MALLOC_ONE( pb->comm.acts.p_one2many_pcap2krnl_SF ) ) , errMemoryLow , 1 );
-		//	MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
+	//	//	M_BREAK_IF( !( pb->comm.acts.p_one2many_pcap2krnl_SF = MALLOC_ONE( pb->comm.acts.p_one2many_pcap2krnl_SF ) ) , errMemoryLow , 1 );
+	//	//	MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
 
-		// each packet most release as soon as possible to prevent lost
-		//	M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
+	//	// each packet most release as soon as possible to prevent lost
+	//	//	M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
-	#ifdef ENABLE_BRIDGE_THREAD_CREATION
-		//	if ( !pb->comm.preq.thread_is_created )
-		//	{
-		//		MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->income_trd_id , NULL ,
-		//			proc_one2many_pcap2krnl_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-		//		MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->outgoing_trd_id , NULL ,
-		//			proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
-		//		pb->comm.preq.thread_is_created = 1;
-		//	}
-	#endif
+	//#ifdef ENABLE_BRIDGE_THREAD_CREATION
+	//	//	if ( !pb->comm.preq.thread_is_created )
+	//	//	{
+	//	//		MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->income_trd_id , NULL ,
+	//	//			proc_one2many_pcap2krnl_SF_udp_pcap , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+	//	//		MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->outgoing_trd_id , NULL ,
+	//	//			proc_one2many_tcp_out , pb ) != PTHREAD_CREATE_OK , errCreation , 0 , "thread creation failed" );
+	//	//		pb->comm.preq.thread_is_created = 1;
+	//	//	}
+	//#endif
 
-		//	MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
-		//}
-	}
+	//	//	MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
+	//	//}
+	//}
 
-	#endif
+	//#endif
 
 	BEGIN_RET
 	case 1:

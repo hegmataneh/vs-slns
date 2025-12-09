@@ -999,7 +999,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 		IMMORTAL_LPCSTR errString = NULL;
 		uchar buf[MIN_SYSERR_BUF_SZ] = {0};
 		err_sent = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf ); // send is too heavy
-		if ( errString )
+		if ( errString != errOK )
 		{
 			struct in_addr addr = {0};
 			addr.s_addr = pkt1->metadata.udp_hdr.dstIP;  // must already be in network byte order
@@ -1009,6 +1009,10 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 		#ifdef ENABLE_LOGGING
 			log_write( LOG_ERROR , "%d %s %s %s %s" , __LINE__ , errString , buf , pkt1->TCP_name , str );
 		#endif
+		}
+		else
+		{
+			err_sent = tcp_send_all( fd , "\n" , 1 , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf); // send is too heavy
 		}
 		switch ( err_sent )
 		{
@@ -1093,11 +1097,15 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 							IMMORTAL_LPCSTR errString = NULL;
 							uchar buf[MIN_SYSERR_BUF_SZ] = {0};
 							err_sent = tcp_send_all( pb->tcps[ itcp ].this->tcp_sockfd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf ); // send is to heavy
-							if ( errString )
+							if ( errString != errOK )
 							{
 							#ifdef ENABLE_LOGGING
 								log_write( LOG_ERROR , "%d %s %s %s" , __LINE__ , errString , buf , pkt1->TCP_name );
 							#endif
+							}
+							else
+							{
+								err_sent = tcp_send_all( pb->tcps[ itcp ].this->tcp_sockfd , "\n" , 1 , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf ); // send is too heavy
 							}
 							switch ( err_sent )
 							{

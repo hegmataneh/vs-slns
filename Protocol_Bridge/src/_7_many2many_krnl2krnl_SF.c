@@ -174,9 +174,9 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 	MARK_LINE();
 #endif
 
-	char buffer[ BUFFER_SIZE ] = { 0 }; // Define a buffer to store received data
+	char bufferr[ BUFFER_SIZE ] = { 0 }; // Define a buffer to store received data
 
-	xudp_hdr * pkt = ( xudp_hdr * )buffer; // plain cup for packet
+	xudp_hdr * pkt = ( xudp_hdr * )bufferr; // plain cup for packet
 	pkt->metadata.version = TCP_XPKT_V1;
 	pkt->metadata.sent = false;
 	pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
@@ -334,7 +334,7 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 						while ( 1 ) // drain it
 						{
 							if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
-							bytes_received = recvfrom( pb->udps[ iudp ].udp_sockfd , buffer + pkt->metadata.payload_offset /*hdr + pkt*/ , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
+							bytes_received = recvfrom( pb->udps[ iudp ].udp_sockfd , bufferr + pkt->metadata.payload_offset /*hdr + pkt*/ , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
 
 							if ( bytes_received < 0 )
 							{
@@ -370,12 +370,14 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 							#endif
 							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
-							// TODO . we should determind that each udp send to which tcp
+							pkt->metadata.payload_sz = (size_t)bytes_received;
 
 							#ifdef SEND_DIRECTLY_ARRIVE_UDP
-								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , buffer + pkt->metadata.payload_offset , ( int )bytes_received , 0 , 0 );
+								IMMORTAL_LPCSTR errString = NULL;
+								uchar buf[ MIN_SYSERR_BUF_SZ ] = { 0 };
+								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , bufferr + pkt->metadata.payload_offset , pkt->metadata.payload_sz , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf );
 							#else
-								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , buffer , (size_t)( bytes_received + pkt->metadata.payload_offset ) , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
+								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , bufferr , (size_t)( bytes_received + pkt->metadata.payload_offset ) , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 									continue;
 							#endif
 
