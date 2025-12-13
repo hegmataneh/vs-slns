@@ -7,7 +7,7 @@
 typedef struct udp_single_part // aligned for boost up
 {
 	/*volatile*/ size_t ring_addr[MAXIMUM_FRAGMENT_MADE][2]; /*hdr addr + data addr*/
-	uint8_t last_pos; // last udp part pos . this var use to fill usp part hdr
+	uint8_t last_pos; // last udp part pos . this var use to fill udp part hdr
 	uint8_t dirty; // if there is packet with same udp id already exist
 	uint16_t data_length_B;
 	uint32_t srcIP , dstIP; // Composite Key
@@ -19,7 +19,9 @@ typedef struct defragmented_udp_pcaket
 {
 	udp_part ids[ 65536 ]; // limited buffer for storing header of udps and replace old one from top with new one arrived
 	sem_t gateway;
-	ulong part_no_matched;
+	ulong part_no_matched; // statistics
+	ulong buffer_overload_error; // statistics . there is offset value in udp packet that point to out of bound ranjes
+	ulong mixed_up_udp; // statistics . some part of udp arrived not in order
 } defraged_udps_t;
 
 typedef struct gather_defragmentated_udp_metadata // aligned for boost up

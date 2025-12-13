@@ -288,6 +288,7 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_ipv4_missed_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
 
+
 			//--->>>
 			irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 			M_BREAK_STAT( nnc_set_static_int( ptbl , ( size_t )irow , ( size_t )icol++ , irow + 1 ) , 0 );
@@ -306,9 +307,10 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 
 			// L1Cache lost
 			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 orphaned" ) , 0 );
-			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_lost ) , 0 );
-			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_L1Cache_lost_2_str;
-			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_lost_ipv4_fragment ) , 0 );
+			pb->stat.pb_lost_ipv4_fragment->storage.bt.pass_data = pb; pb->stat.pb_lost_ipv4_fragment->conversion_fxn = pb_L1Cache_lost_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_lost_ipv4_fragment ) , 0 );
+
 
 			//--->>>
 			irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
@@ -325,6 +327,13 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_TCP_retry_conn_cell ) , 0 );
 			pb->stat.pb_TCP_retry_conn_cell->storage.bt.pass_data = pb; pb->stat.pb_TCP_retry_conn_cell->conversion_fxn = pb_TCP_retry_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_TCP_retry_conn_cell ) , 0 );
+
+			// L1Cache big ipv4
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 big" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_big ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_big->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_big->conversion_fxn = pb_L1Cache_buffer_overload_error_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_big ) , 0 );
+
 
 			//--->>>
 			irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
@@ -343,6 +352,13 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			pb->stat.pb_total_udp_get_byte_cell->storage.bt.pass_data = pb; pb->stat.pb_total_udp_get_byte_cell->conversion_fxn = pb_UDP_get_byte_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_total_udp_get_byte_cell ) , 0 );
 
+			// L1Cache mixedup
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 mixedup" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_mixedup ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_mixedup->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_mixedup->conversion_fxn = pb_L1Cache_mixed_up_udp_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_mixedup ) , 0 );
+
+
 			//--->>>
 			irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 			M_BREAK_STAT( nnc_set_static_int( ptbl , ( size_t )irow , ( size_t )icol++ , irow + 1 ) , 0 );
@@ -358,6 +374,7 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_total_tcp_put_byte_cell ) , 0 );
 			pb->stat.pb_total_tcp_put_byte_cell->storage.bt.pass_data = pb; pb->stat.pb_total_tcp_put_byte_cell->conversion_fxn = pb_TCP_put_byte_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_total_tcp_put_byte_cell ) , 0 );
+
 
 			#ifdef ENABLE_THROUGHPUT_MEASURE
 			//--->>>

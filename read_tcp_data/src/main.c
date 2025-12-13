@@ -372,7 +372,7 @@ int _connect_tcp( struct tcp_listener * src_tl )
 		IMMORTAL_LPCSTR errString = NULL;
 		uchar buf[MIN_SYSERR_BUF_SZ] = {0};
 		d_error = create_server_socket_with_timeout( src_tl->tlcfg.m.m.id.TCP_listen_ip , src_tl->tlcfg.m.m.id.TCP_listen_port ,
-			BAD_NETWORK_HANDSHAKE_TIMEOUT , &src_tl->tcp_client_connection_sockfd , &errString , ( buffer * )&buf );
+			DEFAULT_BAD_NETWORK_HANDSHAKE_TIMEOUT , &src_tl->tcp_client_connection_sockfd , &errString , ( buffer * )&buf );
 		if ( d_error <= 0 )
 		{
 			_ERR_COUNTER[ -d_error ]++;
@@ -1583,9 +1583,21 @@ void print_cell( WINDOW * win , int y , int x , int width , const char * text )
 #define MAIN_STAT()  _g->stat
 #define MAIN_WIN  MAIN_STAT().main_win
 
-#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit ) ( NUMBER_IN_SHORT_FORM() ? \
-		format_pps( baaf , sizeof(baaf) , val , decimal_precision , unit ) :\
-		__snprintf( baaf , sizeof(baaf) , "%llu" , val ) )
+#define _FORMAT_SHRTFRM_SNPRINTF_BY_TYPE( buf , val , decimal_precision , unit_s , prefix_string ) \
+    ({_Generic((val), \
+        int:        __snprintf( buf , sizeof(buf) , "%s%d%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+        long:       __snprintf( buf , sizeof(buf) , "%s%ld%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+        long long:  __snprintf( buf , sizeof(buf) , "%s%lld%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+        unsigned long long: __snprintf( buf , sizeof(buf) , "%s%llu%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+        double:     __snprintf( buf , sizeof(buf) , "%s%.2f%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+        default:    __snprintf( buf , sizeof(buf) , "%s%.2f%s%s" , ""prefix_string"" , (double)val , *unit_s ? " " : "", unit_s ) /* fallback */ \
+	); })
+
+#define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit_s , prefix_string ) \
+		( NUMBER_IN_SHORT_FORM() ? /*make cell string in short form or long*/ \
+		format_pps_double( baaf , sizeof(baaf) , (double)val , decimal_precision , ""unit_s"" , ""prefix_string"" ) :\
+		_FORMAT_SHRTFRM_SNPRINTF_BY_TYPE( baaf , val , decimal_precision , ""unit_s"" , ""prefix_string"" )/*;*/ \
+		)
 
 // Drawing the full table
 void draw_table( struct App_Data * _g )
@@ -1637,7 +1649,7 @@ void draw_table( struct App_Data * _g )
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "input/sys failure" );
 	snprintf( buf , sizeof( buf ) , "v%d Σv%d %s" , MAIN_STAT().round_zero_set.continuously_unsuccessful_receive_error , 
-		MAIN_STAT().round_zero_set.total_unsuccessful_receive_error , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.syscal_err_count , 2 , "" ) );
+		MAIN_STAT().round_zero_set.total_unsuccessful_receive_error , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.syscal_err_count , 2 , "" , "" ));
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1694,21 +1706,21 @@ void draw_table( struct App_Data * _g )
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp get" );
-	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_get_count , 2 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_get_count , 2 , "" , "") );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "tcp get byte" );
-	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_get_byte , 2 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.total_tcp_get_byte , 2 , "B" , "") );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "contnu unsuces slct tcp" );
-	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.continuously_unsuccessful_select_on_open_port_count , 2 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp.continuously_unsuccessful_select_on_open_port_count , 2 , "" , "") );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1717,14 +1729,14 @@ void draw_table( struct App_Data * _g )
 	//// 1 sec
 	//mvwprintw( MAIN_WIN , y , start_x , "|" );
 	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s tcp pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_1_sec.tcp_get_count_throughput , 4 , "" ) );
+	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_1_sec.tcp_get_count_throughput , 4 , "" , "") );
 	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	////
 	//mvwprintw( MAIN_WIN , y , start_x , "|" );
 	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "1s tcp bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_1_sec.tcp_get_byte_throughput , 4 , "B" ) );
+	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_1_sec.tcp_get_byte_throughput , 4 , "B" , "") );
 	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1732,14 +1744,14 @@ void draw_table( struct App_Data * _g )
 	// 10 sec
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp pps" );
-	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_10_sec.tcp_get_count_throughput / 10 , 4 , "" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_10_sec.tcp_get_count_throughput / 10 , 4 , "" , "") );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	//
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "10s tcp bps" );
-	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_10_sec.tcp_get_byte_throughput / 10 , 4 , "B" ) );
+	snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_10_sec.tcp_get_byte_throughput / 10 , 4 , "B" , "") );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1747,14 +1759,14 @@ void draw_table( struct App_Data * _g )
 	//// 40 sec
 	//mvwprintw( MAIN_WIN , y , start_x , "|" );
 	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp pps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_40_sec.tcp_get_count_throughput / 40 , 4 , "" ) );
+	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_40_sec.tcp_get_count_throughput / 40 , 4 , "" , "") );
 	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
 	////
 	//mvwprintw( MAIN_WIN , y , start_x , "|" );
 	//print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "40s tcp bps" );
-	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_40_sec.tcp_get_byte_throughput / 40 , 4 , "B" ) );
+	//snprintf( buf , sizeof( buf ) , "%s" , _FORMAT_SHRTFRM( buf2 , sizeof( buf2 ) , MAIN_STAT().round_zero_set.tcp_40_sec.tcp_get_byte_throughput / 40 , 4 , "B" , "") );
 	//mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	//print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	//mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1767,7 +1779,7 @@ void draw_table( struct App_Data * _g )
 		if ( _ERR_COUNTER[ i ] > 0 )
 		{
 			mvwprintw( MAIN_WIN , y , start_x , "|" );
-			print_cell( MAIN_WIN , y , start_x + 1 , cell_w , internalErrorStr( -i ) );
+			print_cell( MAIN_WIN , y , start_x + 1 , cell_w , internalErrorStr( -i , true ) );
 			snprintf( buf , sizeof( buf ) , "%lu" , _ERR_COUNTER[ i ] );
 			mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 			print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );

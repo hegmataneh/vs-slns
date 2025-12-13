@@ -122,17 +122,22 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		udp_spec.data_length_B = payload_len_B;
 		udp_spec.data_progress_B = seg_payload_len_B; // use this field at defrag step and it is sign that say udp received completly
 
+		#ifdef CCH
+		#undef CCH
+		#endif
+		#define CCH pb->comm.preq.defraged_udps.ids[ udp_spec.hdr.udp_pkt_id ]
+
+		if ( CCH.last_pos != 0 )
+		{
+			pb->comm.preq.defraged_udps.mixed_up_udp++;
+		}
+
 		size_t hdr_addr , pyld_addr; // size in memory
 		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , &hdr_addr , false ); // first write header to buff
 		if ( d_error != errOK ) return d_error;
 		d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload_buf , udp_spec.data_progress_B , udp_spec.data_length_B , &pyld_addr , true ); // for first one allocate more space then in read defrag by copyting them in their place
 		if ( d_error == errOK )
 		{
-			#ifdef CCH
-			#undef CCH
-			#endif
-			#define CCH pb->comm.preq.defraged_udps.ids[ udp_spec.hdr.udp_pkt_id ]
-
 			// it is possible that second part received first after first part
 			// some times in test one udp packet received continuously so i should be prepare for that
 			if ( CCH.dirty )
@@ -180,9 +185,19 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 	/* Case 3: fragmented => other part of fragmented udp */
 	if ( frag_offset )
 	{
+		if ( frag_offset <= sizeof( struct udphdr ) )
+		{
+			return errGeneral;
+		}
+
 		frag_offset -= sizeof(struct udphdr);
-		if ( !frag_offset /* || frag_offset > ETHERNET_MTU*/ ) return errGeneral;
 		uint16_t seg_payload_len_B = frag_len_B /* - sizeof(struct udphdr)*/;
+
+		if ( CCH.last_pos * ETHERNET_MTU + seg_payload_len_B > BUFFER_SIZE )
+		{
+			pb->comm.preq.defraged_udps.buffer_overload_error++;
+			return errGeneral;
+		}
 
 		udp_spec.frag_offset = frag_offset;
 		udp_spec.hdr.udp_pkt_id = udp_pkt_id;
@@ -219,8 +234,6 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 				}
 			}
 
-			//int iiiii = CCH.last_pos;
-
 			//CCH.data_length_B = my_hdr.data_length_B;
 			CCH.data_progress_B += udp_spec.data_progress_B;
 			CCH.srcIP = udp_spec.hdr.srcIP;
@@ -229,7 +242,7 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 			CCH.ring_addr[ CCH.last_pos + 1 ][ 0 ] = hdr_addr; // So, the ring handles translation to memory
 			CCH.ring_addr[ CCH.last_pos + 1 ][ 1 ] = pyld_addr;
 
-			CCH.last_pos++; // extra segment from pos 1+
+			CCH.last_pos++; // extra segment from pos >=1
 			if ( CCH.last_pos >= MAXIMUM_FRAGMENT_MADE )
 			{
 				CCH.last_pos = CCH.last_pos % MAXIMUM_FRAGMENT_MADE;
@@ -253,7 +266,7 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 	G * _g = TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g );
 	
 	status d_error;
-	dfrg_udp_metadata tmp_hdr;
+	dfrg_udp_metadata tmp_hdr; // top udp packet part in head of buffer
 	size_t hdr_sz = 0;
 	if ( ( d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , &tmp_hdr , sizeof( tmp_hdr ) , &hdr_sz , (long)CFG().time_out_sec , true ) ) != errOK )
 	{
@@ -293,6 +306,10 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 	// we know whick udp packet code to pop up
 
 	WARNING( tmp_hdr.data_progress_B ); // it is not possible not no receive any payload
+
+	uint16_t tmp_data_length_B = CCH.data_length_B; // 14040922 . just for debug reason
+	uint16_t tmp_data_progress_B = CCH.data_progress_B; // 14040922 . just for debug reason
+	uint8_t tmp_last_pos = CCH.last_pos; // 14040922 . just for debug reason
 
 	while( CCH.data_length_B && CCH.data_progress_B < CCH.data_length_B )
 	{
@@ -347,6 +364,7 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 	}
 
 	CCH.done = 1; // to just later access ignored and do nothing
+	CCH.last_pos = 0; // 14040922 . just to be insure next get packet placed on correct position
 
 	cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , NULL , 0 , NULL , 1 , false ); // just ignore first occurance of fregmented part
 	#undef CCH
