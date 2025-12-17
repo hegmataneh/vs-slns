@@ -178,6 +178,7 @@ _GLOBAL_VAR long long _send_packet_by_tcp_from_file = 0;
 _GLOBAL_VAR long long _defraged_udp = 0;
 _GLOBAL_VAR long long _defraged_udp_sz = 0;
 _GLOBAL_VAR _EXTERN int _sem_in_fast_cache;
+_GLOBAL_VAR long long _L1Cache_ipv4_entrance;
 _GLOBAL_VAR long long _open_gate_cnt;
 _GLOBAL_VAR long long _close_gate_cnt;
 _GLOBAL_VAR long long _half_segment_send_directly = 0;
@@ -617,6 +618,13 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_pkt_in_L1Cache_cell( pass_p src_pcell )
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
+_CALLBACK_FXN PASSED_CSTR auto_refresh_L1Cache_ipv4_entrance_cell( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	//ci_sgmgr_t * harbor_memory = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _L1Cache_ipv4_entrance , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
 
 #endif
 
@@ -831,9 +839,14 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	int icol_col3 = 5;
 	irow = 0; icol = icol_col3;
 
-	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_FAST " cur pkt cnt" ) , 0 ); pcell = NULL;
+	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_FAST " cur ipv4 cnt" ) , 0 ); pcell = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
 	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.harbor_memory; pcell->conversion_fxn = auto_refresh_pkt_in_L1Cache_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 ); irow++; icol = icol_col3;
+
+	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_FAST " ttl ipv4 cnt" ) , 0 ); pcell = NULL;
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.harbor_memory; pcell->conversion_fxn = auto_refresh_L1Cache_ipv4_entrance_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 ); irow++; icol = icol_col3;
 
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "evac coef" ) , 0 ); pcell = NULL;
@@ -1324,6 +1337,33 @@ _PRIVATE_FXN _CALLBACK_FXN status filed_itm( buffer data , size_t len , pass_p s
 	return d_error;
 }
 
+_CALLBACK_FXN status remap_storage_data( pass_p src_g , buffer buf , size_t sz ) // call from thread discharge_persistent
+{
+	G * _g = ( G * )src_g;
+	status d_error = errCanceled;
+	xudp_hdr * pkt1 = ( xudp_hdr * )buf;
+
+	if ( pkt1->metadata.is_remapped )
+	{
+		return errDoneAlready;
+	}
+
+#ifdef ENABLE_PERSISTENT_CACHE
+	pkt1->metadata.is_remapped = true; // first it should set to mapped but if failed then remove this flag
+	d_error = distributor_publish_buffer_size_data( &_g->hdls.prst_csh.bcast_reroute_nopeer_pkt , buf , sz , ( long )pkt1->TCP_name , src_g );
+#endif
+
+	if ( d_error == errOK )
+	{
+	}
+	else
+	{
+		pkt1->metadata.is_remapped = false;
+	}
+
+	return d_error;
+}
+
 _CALLBACK_FXN status discharge_persistent_storage_data( pass_p src_g , buffer buf , size_t sz )
 {
 	G * _g = ( G * )src_g;
@@ -1336,12 +1376,34 @@ _CALLBACK_FXN status discharge_persistent_storage_data( pass_p src_g , buffer bu
 		return errOK;
 	}
 	status d_error = process_segment_itm( buf , sz , src_g , NULL );
-#ifdef ENABLE_USE_DBG_TAG
-	if ( d_error == errOK )
+
+	switch( d_error )
 	{
-		_send_packet_by_tcp_from_file++;
+		case errOK:
+		{
+		#ifdef ENABLE_USE_DBG_TAG
+			_send_packet_by_tcp_from_file++;
+		#endif
+			break;
+		}
+		case errPeerClosed: // second try to send from memmap stack
+		case errNoPeer:
+		{
+			// if it mapped then no more map happened
+			switch ( remap_storage_data( src_g , buf , sz ) )
+			{
+				case errOK:
+				{
+					return errMapped;
+				}
+				case errDoneAlready:
+				{
+					return errButContinue;
+				}
+			}
+		}
 	}
-#endif
+
 	// donot check error because tcp loss make error
 	return d_error;
 }

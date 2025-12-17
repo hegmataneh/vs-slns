@@ -174,6 +174,7 @@ _CALLBACK_FXN PASSED_CSTR pb_L1Cache_lost_2_str( pass_p src_pcell );
 
 _CALLBACK_FXN PASSED_CSTR pb_L1Cache_buffer_overload_error_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_L1Cache_mixed_up_udp_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_L1Cache_packet_no_aggregate_str( pass_p src_pcell );
 
 _CALLBACK_FXN PASSED_CSTR pb_UDP_conn_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_TCP_conn_2_str( pass_p src_pcell );

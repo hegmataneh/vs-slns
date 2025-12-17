@@ -34,7 +34,11 @@ typedef struct /*ready_2_send_packet_v1*/
 
 			union
 			{
-				bool filed; // send to file
+				struct
+				{
+					bool filed; // send to file
+					bool is_remapped; // mapped into exclusive file
+				};
 				size_t pad1;
 			};
 

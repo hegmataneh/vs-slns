@@ -93,6 +93,7 @@ typedef struct s_bridge_stat
 
 	nnc_cell_content * pb_fst_cash_IPV4_mixedup;
 	nnc_cell_content * pb_fst_cash_IPV4_big;
+	nnc_cell_content * pb_fst_cash_IPV4_packet_no_aggregate;
 
 	nnc_cell_content * pb_lost_ipv4_fragment;
 	nnc_cell_content * pb_UDP_conn_cell;

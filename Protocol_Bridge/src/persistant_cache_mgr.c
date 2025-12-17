@@ -18,6 +18,8 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr( pass_p src_g , lo
 	sem_destroy( &_g->hdls.gateway.pagestack_gateway_open_sem );
 	pg_stk_shutdown( &_g->hdls.prst_csh.page_stack );
 	sub_destroy( &_g->hdls.prst_csh.bcast_store_data );
+	sub_destroy( &_g->hdls.prst_csh.bcast_reroute_nopeer_pkt );
+
 	sub_destroy( &_g->hdls.prst_csh.bcast_pagestacked_pkts );
 
 #ifdef ENABLE_USE_DBG_TAG
@@ -50,8 +52,12 @@ _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p sr
 	G * _g = ( G * )src_g;
 
 	M_BREAK_STAT( distributor_init( &_g->hdls.prst_csh.bcast_store_data , 1 ) , 0 );
+	M_BREAK_STAT( distributor_init( &_g->hdls.prst_csh.bcast_reroute_nopeer_pkt , 1 ) , 0 );
+	
 	M_BREAK_STAT( distributor_init( &_g->hdls.prst_csh.bcast_pagestacked_pkts , 1 ) , 0 );
 	M_BREAK_STAT( distributor_subscribe( &_g->hdls.prst_csh.bcast_store_data , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE , SUB_FXN( persistant_cache_mngr_store_data ) , _g ) , 0 );
+
+	M_BREAK_STAT( distributor_subscribe( &_g->hdls.prst_csh.bcast_reroute_nopeer_pkt , SUB_DIRECT_MULTICAST_CALL_BUFFER_SIZE_LONG , SUB_FXN( persistant_cache_mngr_store_data_into_queue ) , _g ) , 0 );
 
 	// register here to get quit cmd
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_persistant_cache_mngr ) , _g , clean_persistant_cache_mgr ) , 0 ); // when file write goes down
@@ -112,7 +118,20 @@ _CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src
 	G * _g = ( G * )src_g;
 	xudp_hdr * pkt1 = ( xudp_hdr * )src_xudp_hdr;
 
-	status d_error = pg_stk_store( &_g->hdls.prst_csh.page_stack , src_xudp_hdr , sz );
+	status d_error = pg_stk_store_at_stack( &_g->hdls.prst_csh.page_stack , src_xudp_hdr , sz );
+	return d_error;
+#else
+	return errOK;
+#endif
+}
+
+_CALLBACK_FXN status persistant_cache_mngr_store_data_into_queue( pass_p src_g , buffer src_xudp_hdr , size_t sz , long ex_data ) // call from thread discharge_persistent
+{
+#ifdef ENABLE_PERSISTENT_CACHE
+	G * _g = ( G * )src_g;
+	xudp_hdr * pkt1 = ( xudp_hdr * )src_xudp_hdr;
+
+	status d_error = pg_stk_store_at_queue( &_g->hdls.prst_csh.page_stack , src_xudp_hdr , sz , ( LPCSTR )ex_data );
 	return d_error;
 #else
 	return errOK;
@@ -136,13 +155,33 @@ _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p 
 				default : return pgstk_not_send__stop_sending;
 			}
 		}
+		case errMapped:
+		{
+			switch ( _g->hdls.gateway.pagestack_gateway_open_val )
+			{
+				case gws_close: return pgstk_remapped__stop_sending;
+				case gws_open: return pgstk_remapped__continue_sending;
+				default: return pgstk_remapped__stop_sending;
+			}
+		}
 		case errTooManyAttempt:
 		{
-			return pgstk_not_send__continue_sending_with_delay;
+			return pgstk_not_send__continue_sending_onTooManyAttempt;
 		}
+		case errPeerClosed:
 		case errNoPeer:
 		{
 			return pgstk_not_send__not_any_peer;
+		}
+		case errButContinue: // if mapped item not send just delayed memmap and continue other memmaps
+		{
+			switch ( _g->hdls.gateway.pagestack_gateway_open_val )
+			{
+				default:
+				case gws_close: return pgstk_not_send__stop_sending_delayedMemmap;
+				case gws_open: return pgstk_not_send__continue_sending;
+			}
+			return pgstk_not_send__continue_sending;
 		}
 		default:
 		{

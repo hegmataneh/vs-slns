@@ -14,6 +14,9 @@
 status init_udps_defragmentator( defraged_udps_t * frg )
 {
 	sem_init( &frg->gateway , 0 , 0 );
+
+	//pthread_mutex_init( &frg->mtex , NULL ); // TEMP
+
 	return errOK;
 }
 
@@ -21,6 +24,8 @@ void finalize_udps_defragmentator( defraged_udps_t * frg )
 {
 	sem_destroy( &frg->gateway );
 }
+
+_GLOBAL_VAR _EXTERN long long _L1Cache_ipv4_entrance;
 
 // called by producer. so it has to be as fast as possible . super fast
 _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void_p src_packet ) // memory come from kernel memory that pcap used
@@ -66,6 +71,8 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 	uint8_t proto = packet[ 9 ]; // proto used
 	if ( proto != 17 ) return errCanceled; /*17 means udp in ipv4 layer*/
 
+	_L1Cache_ipv4_entrance++;
+
 /*layer 4 Transport (UDP)*/
 	/* Pointer to payload (L4 header start). */
 	buffer datagram = packet + pkt_hdr_len_B;
@@ -87,7 +94,12 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		udp_payload_buf = packet + pkt_hdr_len_B;
 	}
 	
-	dfrg_udp_metadata udp_spec/* = {0}*/; // just think about execution speed. because here we are at getter side of rign so we should get as much as possible
+	dfrg_udp_metadata udp_spec/* = {0}*/ ; // just think about execution speed. because here we are at getter side of rign so we should get as much as possible
+	//udp_spec.head_marker = GUARD_HEAD;
+	//udp_spec.tail_marker = GUARD_TAIL;
+
+	uint16_t udp_pkt_id = ntohs( *( uint16_t * )( packet + 4 ) ); // IP ID field -> upd pkt id
+	
 	udp_spec.mark_memory = MARKER_MEM; // to check memory validity
 	udp_spec.hdr.srcIP = src;
 	udp_spec.hdr.dstIP = dst;
@@ -104,13 +116,20 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		udp_spec.data_length_B = payload_len_B;
 		udp_spec.data_progress_B = payload_len_B;
 
+		//pthread_mutex_lock( &pb->comm.preq.defraged_udps.mtex );
 		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , NULL , false );
-		if ( d_error != errOK ) return d_error;
-		return cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload_buf , udp_spec.data_progress_B , udp_spec.data_length_B , NULL , true );
+		if ( d_error != errOK )
+		{
+			//pthread_mutex_unlock( &pb->comm.preq.defraged_udps.mtex );
+			return d_error;
+		}
+		d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload_buf , udp_spec.data_progress_B , udp_spec.data_length_B , NULL , true );
+		//pthread_mutex_unlock( &pb->comm.preq.defraged_udps.mtex );
+		pb->comm.preq.defraged_udps.ids[ udp_pkt_id ].dirty = 1;
+		pb->comm.preq.defraged_udps.ids[ udp_pkt_id ].filled = 1;
+		return d_error;
 	}
 
-	uint16_t udp_pkt_id = ntohs( *( uint16_t * )( packet + 4 ) ); // IP ID field -> upd pkt id
-	
 	/* Case 2: fragmented => first part of fragmented udp */
 	if ( !frag_offset && more )
 	{
@@ -133,9 +152,15 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		}
 
 		size_t hdr_addr , pyld_addr; // size in memory
+		//pthread_mutex_lock( &pb->comm.preq.defraged_udps.mtex );
 		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , &hdr_addr , false ); // first write header to buff
-		if ( d_error != errOK ) return d_error;
+		if ( d_error != errOK )
+		{
+			//pthread_mutex_unlock( &pb->comm.preq.defraged_udps.mtex );
+			return d_error;
+		}
 		d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload_buf , udp_spec.data_progress_B , udp_spec.data_length_B , &pyld_addr , true ); // for first one allocate more space then in read defrag by copyting them in their place
+		//pthread_mutex_unlock( &pb->comm.preq.defraged_udps.mtex );
 		if ( d_error == errOK )
 		{
 			// it is possible that second part received first after first part
@@ -165,17 +190,18 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 			}
 
 			CCH.data_length_B = udp_spec.data_length_B;
-			CCH.data_progress_B += (uint16_t)udp_spec.data_progress_B;
 			CCH.srcIP = udp_spec.hdr.srcIP;
 			CCH.dstIP = udp_spec.hdr.dstIP;
 			CCH.dirty = 1;
 			// i prefer that first element keep first part of the udp so it has length and etc ( CCH.ring_addr[ 0 ] )
 			CCH.ring_addr[ 0 ][ 0 ] = hdr_addr; // So, the ring handles translation to memory
 			CCH.ring_addr[ 0 ][ 1 ] = pyld_addr;
+			CCH.data_progress_B += (uint16_t)udp_spec.data_progress_B;
 
 			// CCH.last_pos++; main always in last_pos-> 0 . main does not matter because copy to output
-			if ( CCH.data_length_B && CCH.data_progress_B == CCH.data_length_B )
+			if ( CCH.data_length_B && CCH.data_progress_B >= CCH.data_length_B )
 			{
+				CCH.filled = 1;
 				sem_post( &pb->comm.preq.defraged_udps.gateway ); // some udp packet complete
 			}
 		}
@@ -205,9 +231,15 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		udp_spec.data_progress_B = seg_payload_len_B; // be zero it means this is partial data udp
 
 		size_t hdr_addr , pyld_addr;
+		//pthread_mutex_lock( &pb->comm.preq.defraged_udps.mtex );
 		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , &hdr_addr , false );
-		if ( d_error != errOK ) return d_error;
+		if ( d_error != errOK )
+		{
+			//pthread_mutex_unlock( &pb->comm.preq.defraged_udps.mtex );
+			return d_error;
+		}
 		d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , udp_payload_buf , udp_spec.data_progress_B , udp_spec.data_progress_B , &pyld_addr , true ); // for first one allocate more space then in read defrag by copyting them in their place
+		//pthread_mutex_unlock( &pb->comm.preq.defraged_udps.mtex );
 		if ( d_error == errOK )
 		{
 			if ( CCH.dirty )
@@ -235,20 +267,21 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 			}
 
 			//CCH.data_length_B = my_hdr.data_length_B;
-			CCH.data_progress_B += udp_spec.data_progress_B;
 			CCH.srcIP = udp_spec.hdr.srcIP;
 			CCH.dstIP = udp_spec.hdr.dstIP;
 			CCH.dirty = 1;
 			CCH.ring_addr[ CCH.last_pos + 1 ][ 0 ] = hdr_addr; // So, the ring handles translation to memory
 			CCH.ring_addr[ CCH.last_pos + 1 ][ 1 ] = pyld_addr;
+			CCH.data_progress_B += udp_spec.data_progress_B;
 
 			CCH.last_pos++; // extra segment from pos >=1
 			if ( CCH.last_pos >= MAXIMUM_FRAGMENT_MADE )
 			{
 				CCH.last_pos = CCH.last_pos % MAXIMUM_FRAGMENT_MADE;
 			}
-			if ( CCH.data_length_B && CCH.data_progress_B == CCH.data_length_B )
+			if ( CCH.data_length_B && CCH.data_progress_B >= CCH.data_length_B )
 			{
+				CCH.filled = 1;
 				sem_post( &pb->comm.preq.defraged_udps.gateway ); // some udp packet complete
 			}
 
@@ -292,7 +325,7 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 		goto _ignore;
 	}
 
-	if ( tmp_hdr.data_length_B && tmp_hdr.data_length_B == tmp_hdr.data_progress_B ) // it is completed
+	if ( tmp_hdr.data_length_B && tmp_hdr.data_progress_B == tmp_hdr.data_length_B ) // it is completed
 	{
 		if ( out_hdr ) MEMCPY( out_hdr , &tmp_hdr.hdr );
 		d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , out_buf , 0/*no exp*/ , out_len_B , (long)CFG().time_out_sec , false ); // most of the packet get here na dis normal
@@ -333,8 +366,13 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 			break;
 		}
 	}
-	if ( !CCH.data_length_B || CCH.data_progress_B < CCH.data_length_B )
+	if ( !CCH.data_length_B || CCH.data_progress_B < CCH.data_length_B || !CCH.filled )
 	{
+		if ( !CCH.done )
+		{
+			pb->comm.preq.defraged_udps.packet_no_aggregate++;
+		}
+		
 		goto _ignore;
 	}
 
@@ -343,6 +381,7 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , OUTx size_
 	// we have assumption that cycle of udp packet id take too long time and it is possible to process udp before next equl id ruined it
 	// now time for dirty stuff and do ugly thing with ring buffer . just for performance
 
+	//pthread_mutex_lock( &pb->comm.preq.defraged_udps.mtex );
 	for ( uint8_t ipos = 0 ; ipos <= CCH.last_pos ; ipos++ )
 	{
 		dfrg_udp_metadata segm;

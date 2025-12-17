@@ -375,6 +375,12 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			pb->stat.pb_total_tcp_put_byte_cell->storage.bt.pass_data = pb; pb->stat.pb_total_tcp_put_byte_cell->conversion_fxn = pb_TCP_put_byte_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_total_tcp_put_byte_cell ) , 0 );
 
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 partial" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_L1Cache_packet_no_aggregate_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			
+
 
 			#ifdef ENABLE_THROUGHPUT_MEASURE
 			//--->>>
