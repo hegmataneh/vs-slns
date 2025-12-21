@@ -6,33 +6,51 @@
 
 typedef struct udp_single_part // aligned for boost up
 {
-	/*volatile*/ size_t ring_addr[MAXIMUM_FRAGMENT_MADE][2]; /*hdr addr + data addr*/
-	uint8_t last_pos; // last udp part pos . this var use to fill udp part hdr
-	uint8_t dirty; // if there is packet with same udp id already exist
+	size_t ring_addr[MAXIMUM_FRAGMENT_MADE][2]; /*hdr addr + data addr , progress length , last_pos*/
+	
+	uint8_t last_pos;		// last udp part pos . this var use to fill udp part hdr
+	char pad1[3];
+		
 	uint16_t data_length_B;
-	uint32_t srcIP , dstIP; // Composite Key
-	/*volatile*/ uint16_t data_progress_B; // update imadiatly . no cache, direct memory access
-	uint8_t filled; // use when progress exact with length
-	uint8_t done; // udp process and sent done
+	uint16_t data_progress_B;	// update imadiatly . no cache, direct memory access
+		
+	union
+	{
+		struct timeval tm; // time of first arrival
+		uint64_t dirty;
+	};
+	//uint32_t srcIP;		// Composite Key
+	//uint32_t dstIP;		// Composite Key
+	//uint8_t dirty;	// if there is packet with same udp id already exist		
+	//uint8_t filled;	// use when progress exact with length
+	//uint8_t done;		// udp process and sent done
+
 } udp_part; // each recieved udp packet id
+
+#define UDP_UDS_COUNT 65536
+#define WORD_BITS 64
 
 typedef struct defragmented_udp_pcaket
 {
-	udp_part ids[ 65536 ]; // limited buffer for storing header of udps and replace old one from top with new one arrived
+	udp_part ids[ UDP_UDS_COUNT ]; // limited buffer for storing header of udps and replace old one from top with new one arrived
+	_Atomic uint64_t locks[ UDP_UDS_COUNT / WORD_BITS ];
+
 	sem_t gateway;
+	ulong ipv4_precheck_error;
+	ulong kernel_error;
+	ulong L1Cache_ipv4_entrance;
+
 	ulong part_no_matched; // statistics
 	ulong buffer_overload_error; // statistics . there is offset value in udp packet that point to out of bound ranjes
 	ulong mixed_up_udp; // statistics . some part of udp arrived not in order
 	ulong packet_no_aggregate; // there is udp packet not completed
 
-	//pthread_mutex_t mtex; // TEMP
+	
 
 } defraged_udps_t;
 
 typedef struct gather_defragmentated_udp_metadata // aligned for boost up
 {
-	//uint64_t head_marker;
-
 	rdy_udp_hdr_t hdr;
 
 	//struct
@@ -43,8 +61,6 @@ typedef struct gather_defragmentated_udp_metadata // aligned for boost up
 		uint16_t data_length_B; // total length . just for main
 		uint16_t data_progress_B; // main and extra
 	//};
-
-	//uint64_t tail_marker;
 
 } dfrg_udp_metadata;
 

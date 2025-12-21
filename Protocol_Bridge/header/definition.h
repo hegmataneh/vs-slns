@@ -198,44 +198,50 @@ enum thread_used
 
 #ifndef control_app_segment_in_deep
 
-	#define HAS_STATISTICSS
+	#define HAS_STATISTICSS /*be defined 14040930*/
 
-	#define ENABLE_COMMUNICATION
+	#define ENABLE_COMMUNICATION /*be defined 14040930*/
 
-	#define ENABLE_PERSISTENT_CACHE
+	#define ENABLE_PERSISTENT_CACHE /*be defined 14040930*/
 
-	#define ENABLE_FILLED_TCP_SEGMENT_PROC
+	#define ENABLE_FILLED_TCP_SEGMENT_PROC /*be defined 14040930*/
 
-	#define ENABLE_CLEAN_UNUSED_SEGMENT
+	#define ENABLE_CLEAN_UNUSED_SEGMENT /*be defined 14040930*/
 
-	#define ENABLE_ABSOLETE_OLD_SEGMENT
+	#define ENABLE_ABSOLETE_OLD_SEGMENT /*be defined 14040930*/
 
-	#define ENABLE_GATHER_STATIC
+	#define ENABLE_GATHER_STATIC /*be defined 14040930*/
 
 	// /*comment by default*/ #define SEND_DIRECTLY_ARRIVE_UDP /*comment by default*/
 
-	#define ENABLE_VERBOSE_FAULT
+	#define ENABLE_VERBOSE_FAULT /*be defined 14040930*/
 
-	#define ENABLE_THROUGHPUT_MEASURE
+	#define ENABLE_THROUGHPUT_MEASURE /*be defined 14040930*/
 
-	#define ENABLE_HALFFILL_SEGMENT
+	#define ENABLE_HALFFILL_SEGMENT /*be defined 14040930*/
 
 	#define ENABLE_LOCK_ON_CONFIG // TODO
 
-	#define ENABLE_BRIDGE_THREAD_CREATION
+	#define ENABLE_BRIDGE_THREAD_CREATION /*be defined 14040930*/
 
-	#define ENABLE_TCP_OUT_PROC
+	#define ENABLE_TCP_OUT_PROC /*be defined 14040930*/
 
 	#define ENABLE_PCAP_LOOP_PREQ /*pcap and prerequisit that needed*/
 
 	//#define ENABLE_BYPASS_STDOUT // be comment
 
-	#define ENABLE_KEEPALIVE_CHAOTIC
+	#define ENABLE_KEEPALIVE_CHAOTIC /*be defined 14040930*/
 
 	#define ENABLE_LOG_THREADS /*always defined*/
 
-	#define ENABLE_MEMMAP_SYNC_FOR_EACH_WRITE
+	#define ENABLE_MEMMAP_SYNC_FOR_EACH_WRITE /*be defined 14040930*/
 
-	#define ENABLE_ON_PCAP_TCP_OUT
+	#define ENABLE_ON_PCAP_TCP_OUT /*be defined 14040930*/
+
+	#define ENABLE_STAT_THREAD_PROC /*be defined 14040930*/
+
+	#define ENALBE_LOCK_IN_UDP_DEFRAGMENTATOR /*be defined 14040930*/
+
+	#define ENABLE_REMAP_UNSEDABLE_PACKET /*be defined 14040930*/
 
 #endif

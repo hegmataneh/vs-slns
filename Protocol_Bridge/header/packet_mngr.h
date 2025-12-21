@@ -5,10 +5,14 @@
 typedef struct udp_packet_header
 {
 	struct timeval tm;
-	uint32_t srcIP , dstIP; // use as udp id
-	uint16_t udp_pkt_id;
-	bool logged_2_mem;
-	bool log_double_checked;
+	union
+	{
+		uint16_t udp_pkt_id;
+		long pad1;
+	};
+	//uint32_t srcIP , dstIP; // use as udp id
+	//bool logged_2_mem;
+	//bool log_double_checked;
 } rdy_udp_hdr_t;
 
 typedef struct /*ready_2_send_packet_v1*/
@@ -59,14 +63,6 @@ typedef struct /*ready_2_send_packet_v1*/
 #define TCP_XPKT_V1 MSB_MARKERS[3] /*version also check memory correctness as much as possible*/
 #define TCP_XPKT_V2 MSB_MARKERS[2]
 // ...
-
-//// log
-//typedef struct packet_mgr_write_ahead_log
-//{
-//	uint32_t srcIP , dstIP;
-//	struct timeval tm;
-//	uint16_t udp_pkt_id;
-//} pkt_wal_t;
 
 #if defined Uses_packet_mngr_prerequisite || !defined __COMPILING
 

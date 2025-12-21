@@ -74,7 +74,11 @@ typedef struct AB_communication // threads use to recv and send data
 			};
 			uchar pad2[ CACHE_LINE_SIZE ];
 		};
-		int thread_is_created;
+		union
+		{
+			int thread_is_created;
+			uchar pad3[ CACHE_LINE_SIZE ];
+		};
 		//int bridg_prerequisite_stabled; // because udp port may start after thread started . if all the condition is ready to bridge thread start
 
 		struct

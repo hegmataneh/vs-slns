@@ -80,7 +80,10 @@ _CALLBACK_FXN _PRIVATE_FXN void event_statistics_is_stabled( void_p src_g )
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
+
+#ifdef ENABLE_STAT_THREAD_PROC
 	MM_BREAK_IF( pthread_create( &_g->trds.tid_stats , NULL , stats_thread , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "failed stats_thread" );
+#endif
 
 	BEGIN_RET
 	default:

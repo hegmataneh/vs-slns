@@ -212,8 +212,8 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 
 			pkt->metadata.payload_sz = sz;
-			pkt->metadata.udp_hdr.log_double_checked = false;
-			pkt->metadata.udp_hdr.logged_2_mem = false;
+			//pkt->metadata.udp_hdr.log_double_checked = false;
+			//pkt->metadata.udp_hdr.logged_2_mem = false;
 			//clock_gettime( CLOCK_MONOTONIC_COARSE , &pkt->flags.rec_t );
 
 			if ( pb->comm.preq.stop_sending )

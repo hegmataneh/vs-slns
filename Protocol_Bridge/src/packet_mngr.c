@@ -178,7 +178,7 @@ _GLOBAL_VAR long long _send_packet_by_tcp_from_file = 0;
 _GLOBAL_VAR long long _defraged_udp = 0;
 _GLOBAL_VAR long long _defraged_udp_sz = 0;
 _GLOBAL_VAR _EXTERN int _sem_in_fast_cache;
-_GLOBAL_VAR long long _L1Cache_ipv4_entrance;
+//_GLOBAL_VAR long long _L1Cache_ipv4_entrance;
 _GLOBAL_VAR long long _open_gate_cnt;
 _GLOBAL_VAR long long _close_gate_cnt;
 _GLOBAL_VAR long long _half_segment_send_directly = 0;
@@ -618,13 +618,13 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_pkt_in_L1Cache_cell( pass_p src_pcell )
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
-_CALLBACK_FXN PASSED_CSTR auto_refresh_L1Cache_ipv4_entrance_cell( pass_p src_pcell )
-{
-	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
-	//ci_sgmgr_t * harbor_memory = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _L1Cache_ipv4_entrance , DOUBLE_PRECISION() , "" , "" );
-	return ( PASSED_CSTR )pcell->storage.tmpbuf;
-}
+//_CALLBACK_FXN PASSED_CSTR auto_refresh_L1Cache_ipv4_entrance_cell( pass_p src_pcell )
+//{
+//	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+//	//ci_sgmgr_t * harbor_memory = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
+//	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , _L1Cache_ipv4_entrance , DOUBLE_PRECISION() , "" , "" );
+//	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+//}
 
 #endif
 
@@ -844,10 +844,10 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.harbor_memory; pcell->conversion_fxn = auto_refresh_pkt_in_L1Cache_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 ); irow++; icol = icol_col3;
 
-	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_FAST " ttl ipv4 cnt" ) , 0 ); pcell = NULL;
-	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
-	pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.harbor_memory; pcell->conversion_fxn = auto_refresh_L1Cache_ipv4_entrance_cell;
-	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 ); irow++; icol = icol_col3;
+	//M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , MEM_FAST " ttl ipv4 cnt" ) , 0 ); pcell = NULL;
+	//M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	//pcell->storage.bt.pass_data = &_g->hdls.pkt_mgr.harbor_memory; pcell->conversion_fxn = auto_refresh_L1Cache_ipv4_entrance_cell;
+	//M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 ); irow++; icol = icol_col3;
 
 	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "evac coef" ) , 0 ); pcell = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
@@ -1014,13 +1014,13 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 		err_sent = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf ); // send is too heavy
 		if ( errString != errOK )
 		{
-			struct in_addr addr = {0};
-			addr.s_addr = pkt1->metadata.udp_hdr.dstIP;  // must already be in network byte order
-			char str[ INET_ADDRSTRLEN ] = {0};
-			inet_ntop( AF_INET , &addr , str , INET_ADDRSTRLEN );
+			//struct in_addr addr = {0};
+			//addr.s_addr = pkt1->metadata.udp_hdr.dstIP;  // must already be in network byte order
+			//char str[ INET_ADDRSTRLEN ] = {0};
+			//inet_ntop( AF_INET , &addr , str , INET_ADDRSTRLEN );
 
 		#ifdef ENABLE_LOGGING
-			log_write( LOG_ERROR , "%d %s %s %s %s" , __LINE__ , errString , buf , pkt1->TCP_name , str );
+			//log_write( LOG_ERROR , "%d %s %s %s %s" , __LINE__ , errString , buf , pkt1->TCP_name , str );
 		#endif
 		}
 		else
@@ -1211,6 +1211,8 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	}
 	else
 	{
+		
+
 		// add log
 		//if ( !pkt1->metadata.udp_hdr.logged_2_mem )
 		//{
@@ -1389,6 +1391,7 @@ _CALLBACK_FXN status discharge_persistent_storage_data( pass_p src_g , buffer bu
 		case errPeerClosed: // second try to send from memmap stack
 		case errNoPeer:
 		{
+		#ifdef ENABLE_REMAP_UNSEDABLE_PACKET
 			// if it mapped then no more map happened
 			switch ( remap_storage_data( src_g , buf , sz ) )
 			{
@@ -1401,6 +1404,7 @@ _CALLBACK_FXN status discharge_persistent_storage_data( pass_p src_g , buffer bu
 					return errButContinue;
 				}
 			}
+		#endif
 		}
 	}
 
