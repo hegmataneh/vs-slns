@@ -1,3 +1,4 @@
+#define Uses_LOCK_LINE
 #define Uses_MARK_START_THREAD
 #define Uses_WARNING
 #define Uses_FREE_DOUBLE_PTR
@@ -54,7 +55,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_proc_pcap_udp_counter , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{

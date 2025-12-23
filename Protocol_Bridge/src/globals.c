@@ -153,7 +153,7 @@ _CALLBACK_FXN void thread_registration( pass_p src_p , long src_pthread_t , long
 	G * _g = ( G * )src_p;
 
 	/*register threads*/
-	pthread_mutex_lock( &_g->hdls.thread_close_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->hdls.thread_close_mtx ) );
 	array_add( &_g->hdls.registered_thread , ( void * )&src_pthread_t );
 	switch ( src_thread_used ) /*decide wheater thread can hult the system so ignorable*/
 	{
@@ -219,7 +219,7 @@ _CALLBACK_FXN void thread_registration( pass_p src_p , long src_pthread_t , long
 
 #ifdef ENABLE_LOG_THREADS
 	/*add thread to list to keep tracking it*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	thread_alive_indicator * pthread_ind = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.thread_list , (void**)&pthread_ind ) , 1 );
 	pthread_ind->thread_name = ( IMMORTAL_LPCSTR )immortal_fxn_name;
@@ -269,7 +269,7 @@ _CALLBACK_FXN _PRIVATE_FXN void event_program_is_stabled_globals( void_p src_g )
 	if ( bstart_tcp_thread ) // after program is stabled ny initial config then tcp proc started
 	{
 	#ifdef ENABLE_TCP_OUT_PROC
-		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
+		NO_LOCK_LINE( pthread_mutex_lock( &_g->bridges.tcps_trd.mtx ) );
 		if ( !_g->bridges.tcps_trd.bcreated )
 		{
 			d_error = pthread_create( &_g->bridges.tcps_trd.trd_tcp_connection , NULL , thread_tcp_connection_proc , _g ) != PTHREAD_CREATE_OK ? errCreation : errOK;
@@ -495,7 +495,7 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_connect_udps_proc , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{
@@ -681,7 +681,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_thread_tcp_connection_proc , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{
@@ -704,7 +704,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 
 		#ifdef ENABLE_COMMUNICATION
 
-		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
+		NO_LOCK_LINE( pthread_mutex_lock( &_g->bridges.tcps_trd.mtx ) );
 		for ( size_t ab_idx = 0 ; ab_idx < _g->bridges.ABs.count ; ab_idx++ )
 		{
 			AB * pb = NULL;
@@ -955,7 +955,7 @@ _REGULAR_FXN void compile_udps_config_for_pcap_filter
 #ifdef ENABLE_LOG_THREADS
 _CALLBACK_FXN void thread_goes_out_of_scope( void * ptr )
 {
-	pthread_mutex_lock( &_g->hdls.thread_close_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->hdls.thread_close_mtx ) );
 	pthread_t * ptrd = ( pthread_t * )ptr;
 	size_t sz = array_get_count( &_g->hdls.registered_thread );
 	pthread_t * ppthread_t = NULL;

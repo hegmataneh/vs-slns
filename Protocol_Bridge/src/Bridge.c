@@ -1,3 +1,4 @@
+#define Uses_LOCK_LINE
 #define Uses_pthread_mutex_timedlock_rel
 #define Uses_MARK_LINE
 #define Uses_proc_many2many_krnl_udp_store
@@ -525,7 +526,7 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 //#endif
 
 	// TCP
-	pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
+	BP_LOCK_LINE( pthread_mutex_lock( &_g->bridges.tcps_trd.mtx ) );
 	if ( pb->cpy_cfg.m.m.maintained.out_count > 0 )
 	{
 		if ( ( pb->tcps = CALLOC_AR( pb->tcps , pb->cpy_cfg.m.m.maintained.out_count ) ) )

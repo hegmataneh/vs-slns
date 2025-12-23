@@ -1,3 +1,4 @@
+#define Uses_LOCK_LINE
 #define Uses_MARK_START_THREAD
 #define Uses_sleep
 #define Uses_WARNING
@@ -49,7 +50,7 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_proc_one2one_pcap2krnl_SF_udp_pcap , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{
@@ -113,7 +114,7 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_tcp_out( pass_p src_pb )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_proc_one2one_pcap2krnl_SF_tcp_out , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{

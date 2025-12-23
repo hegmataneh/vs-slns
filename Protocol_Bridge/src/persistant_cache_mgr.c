@@ -1,3 +1,4 @@
+#define Uses_LOCK_LINE
 #define Uses_MARK_LINE
 #define Uses_sleep
 #define Uses_xudp_hdr
@@ -112,6 +113,9 @@ _PRIVATE_FXN void pre_main_init_persistant_cache_mngr_component( void )
 	M_V_END_RET
 }
 
+/*
+store in stack
+*/
 _CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src_xudp_hdr , size_t sz )
 {
 #ifdef ENABLE_PERSISTENT_CACHE
@@ -125,6 +129,9 @@ _CALLBACK_FXN status persistant_cache_mngr_store_data( pass_p src_g , buffer src
 #endif
 }
 
+/*
+store in queue
+*/
 _CALLBACK_FXN status persistant_cache_mngr_store_data_into_queue( pass_p src_g , buffer src_xudp_hdr , size_t sz , long ex_data ) // call from thread discharge_persistent
 {
 #ifdef ENABLE_PERSISTENT_CACHE
@@ -209,7 +216,7 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_discharge_persistant_cache_proc , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{

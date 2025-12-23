@@ -1,4 +1,5 @@
-﻿#define Uses_MARK_LINE
+﻿#define Uses_LOCK_LINE
+#define Uses_MARK_LINE
 #define Uses_INIT_BREAKABLE_FXN
 #define Uses_STRLEN
 #define Uses_sleep
@@ -275,14 +276,13 @@ _CALLBACK_FXN void init_main_statistics( pass_p src_g )
 	nnc_release_lock( &_g->stat.nc_h );
 }
 
-
 _CALLBACK_FXN PASSED_CSTR auto_refresh_thread_aliveness_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	G * _g = ( G * )pcell->storage.bt.pass_data;
 	
 	thread_alive_indicator * pthread_ind = NULL;
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	if ( mms_array_get_s( &_g->stat.nc_s_req.thread_list , (size_t)pcell->storage.bt.j , ( void ** )&pthread_ind ) == errOK ) /*try find one thread based on position*/
 	{
 		int t = 1 + 2;
@@ -372,7 +372,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_stats_thread , (long)__FUNCTION__ , _g );
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{

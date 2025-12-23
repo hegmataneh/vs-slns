@@ -965,7 +965,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	status err_sent = errCanceled;
 
 	status ret_lock = errCanceled;
-	LOCK_LINE( ( ret_lock = pthread_mutex_timedlock_rel( &_g->hdls.pkt_mgr.pm_lock , 1000 TODO ) ) );
+	PKT_MGR_LOCK_LINE( ( ret_lock = pthread_mutex_timedlock_rel( &_g->hdls.pkt_mgr.pm_lock , 1000 TODO ) ) );
 	if ( ret_lock == errTimeout )
 	{
 		return ret_lock;
@@ -1096,7 +1096,7 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	// slow method
 	if ( !pkt1->metadata.sent && !ab_tcp_p && _g->bridges.connected_tcp_out )
 	{
-		pthread_mutex_lock( &_g->bridges.tcps_trd.mtx );
+		PKT_MGR_LOCK_LINE( pthread_mutex_lock( &_g->bridges.tcps_trd.mtx ) );
 		for ( size_t iab = 0 ; iab < _g->bridges.ABs.count ; iab++ )
 		{
 			if ( mms_array_get_s( &_g->bridges.ABs , iab , ( void ** )&pb ) == errOK )
@@ -1211,8 +1211,6 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 	}
 	else
 	{
-		
-
 		// add log
 		//if ( !pkt1->metadata.udp_hdr.logged_2_mem )
 		//{
@@ -1318,6 +1316,9 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 
 _GLOBAL_VAR _EXTERN long long _evac_segment_paused;
 
+/*
+each packet come here to be sent
+*/
 _PRIVATE_FXN _CALLBACK_FXN status filed_itm( buffer data , size_t len , pass_p src_g , void * nested_callback )
 {
 	G * _g = ( G * )src_g;
@@ -1326,7 +1327,7 @@ _PRIVATE_FXN _CALLBACK_FXN status filed_itm( buffer data , size_t len , pass_p s
 	struct timeval tnow;
 	gettimeofday( &tnow , NULL );
 	double df_sec = timeval_diff_ms( &pkt1->metadata.udp_hdr.tm , &tnow ) / 1000;
-	if ( df_sec < CFG().in_memory_udp_hold_time_sec )
+	if ( df_sec < CFG().in_memory_udp_hold_time_sec ) // tolerate on new segment persitent
 	{
 		_evac_segment_paused++;
 		return errNoCountinue;
@@ -1366,6 +1367,9 @@ _CALLBACK_FXN status remap_storage_data( pass_p src_g , buffer buf , size_t sz )
 	return d_error;
 }
 
+/*
+try send in file data
+*/
 _CALLBACK_FXN status discharge_persistent_storage_data( pass_p src_g , buffer buf , size_t sz )
 {
 	G * _g = ( G * )src_g;
@@ -1423,7 +1427,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_process_filled_tcp_segment_proc , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{
@@ -1581,7 +1585,7 @@ _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_cleanup_unused_segment_proc , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{
@@ -1626,7 +1630,7 @@ _THREAD_FXN void_p evacuate_old_segment_proc( pass_p src_g )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , ( long )this_thread , trdn_evacuate_old_segment_proc , ( long )__FUNCTION__ , _g );
 
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{

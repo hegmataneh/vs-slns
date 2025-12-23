@@ -1,3 +1,4 @@
+#define Uses_LOCK_LINE
 #define Uses__MK_MSG
 #define Uses_MARK_START_THREAD
 #define Uses_strcasecmp
@@ -140,7 +141,7 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_version_checker , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{
@@ -228,7 +229,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_config_loader , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{
@@ -259,7 +260,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 		if ( GRACEFULLY_END_THREAD() ) break;
 		if ( _g->appcfg.g_cfg == NULL || _g->appcfg.version_changed )
 		{
-			pthread_mutex_lock( &_g->appcfg.cfg_mtx );
+			CFG_LOCK_LINE( pthread_mutex_lock( &_g->appcfg.cfg_mtx ) );
 			_g->appcfg.cfg_mtx_protector = true;
 
 			Gcfg temp_config = { 0 };
@@ -680,7 +681,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_config_executer , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{
@@ -726,7 +727,7 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 
 		if ( _g->appcfg.psv_cfg_changed )
 		{
-			pthread_mutex_lock( &_g->appcfg.cfg_mtx );
+			CFG_LOCK_LINE( pthread_mutex_lock( &_g->appcfg.cfg_mtx ) );
 
 			for ( int ioldcfg = 0 ; ioldcfg < _g->appcfg.old_bdj_psv_cfg_count ; ioldcfg++ )
 			{

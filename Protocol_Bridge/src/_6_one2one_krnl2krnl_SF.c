@@ -1,3 +1,4 @@
+#define Uses_LOCK_LINE
 #define Uses_MARK_LINE
 #define Uses_sleep
 #define Uses_many_tcp_out_thread_proc
@@ -26,7 +27,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , (long)this_thread , trdn_proc_one2one_krnl_udp_store , (long)__FUNCTION__ , _g );
 	
 	/*retrieve track alive indicator*/
-	pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx );
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
 	time_t * pthis_thread_alive_time = NULL;
 	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
 	{
