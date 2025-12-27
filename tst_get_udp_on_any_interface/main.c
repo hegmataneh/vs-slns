@@ -7,7 +7,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define PORT 1234
+#define PORT 10201
 #define BUFSZ 2048
 
 int main( void )
@@ -36,7 +36,8 @@ int main( void )
 	// 3) bind to all interfaces (0.0.0.0) on PORT
 	memset( &srv , 0 , sizeof( srv ) );
 	srv.sin_family = AF_INET;
-	srv.sin_addr.s_addr = htonl( INADDR_ANY ); // bind to any local address
+	//srv.sin_addr.s_addr = htonl( INADDR_ANY ); // bind to any local address
+	srv.sin_addr.s_addr = inet_addr( "192.168.2.1" ); // bind to any local address
 	srv.sin_port = htons( PORT );
 
 	if ( bind( sfd , ( struct sockaddr * )&srv , sizeof( srv ) ) < 0 )

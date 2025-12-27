@@ -70,7 +70,7 @@ typedef enum
 #define DIST_BRIDGE_FAILURE() DO_WHILE( distributor_publish_str( &_g->distributors.bcast_pb_lvl_failure , __FUNCTION__ , ( pass_p )pb ) ) /*distribute error*/
 #define DIST_APP_FAILURE() DO_WHILE( distributor_publish_str( &_g->distributors.bcast_app_lvl_failure , __FUNCTION__ , ( pass_p )_g ) ) /*distribute error in config reading*/
 
-typedef  char CONFIG_SECTION_ITEM_VALUE  [64];
+typedef  char CONFIG_SECTION_ITEM_VALUE  [DEFAULT_SFS_BUF_SZ];
 typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
 
 #define _FORMAT_SHRTFRM_SNPRINTF_BY_TYPE( buf , val , decimal_precision , unit_s , prefix_string ) \
