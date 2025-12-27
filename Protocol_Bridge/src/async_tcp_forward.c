@@ -197,7 +197,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 		// from ring pcap to stack general
 		//while ( cbuf_pked_pop( shrtcut->raw_xudp_cache , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
-		while( poped_defraged_packet( pb , buffer + pkt->metadata.payload_offset /*hdr + pkt*/ , &sz , &pkt->metadata.udp_hdr ) == errOK )
+		while( poped_defraged_packet( pb , buffer + pkt->metadata.payload_offset /*hdr + pkt*/ , sizeof( buffer ) - pkt->metadata.payload_offset , &sz , &pkt->metadata.udp_hdr ) == errOK )
 		{
 			#ifdef ENABLE_USE_DBG_TAG
 				_sem_in_fast_cache = cbuf_pked_unreliable_sem_count( &pb->comm.preq.raw_xudp_cache );
@@ -221,12 +221,16 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 				break;
 			}
 
+		#ifdef ENALBE_PASS_DEFRAGED_PACKET_INTO_L2
+
 			if ( distributor_publish_buffer_size( shrtcut->bcast_xudp_pkt , buffer , sz + pkt->metadata.payload_offset , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;
 
 			//fast_ring_2_huge_ring( tcp , buffer , sz + pkt->metadata.payload_offset );
 
 			pb->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
+			
+		#endif
 		}
 
 	#else

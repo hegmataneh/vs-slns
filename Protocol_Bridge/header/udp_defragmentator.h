@@ -6,11 +6,10 @@
 
 typedef struct udp_single_part // aligned for boost up
 {
-	size_t ring_addr[MAXIMUM_FRAGMENT_MADE][2]; /*hdr addr + data addr , progress length , last_pos*/
+	size_t ring_addr[MAXIMUM_FRAGMENT_MADE][2]; /*hdr addr + data addr*/
 	
 	uint8_t last_pos;		// last udp part pos . this var use to fill udp part hdr
 	char pad1[3];
-		
 	uint16_t data_length_B;
 	uint16_t data_progress_B;	// update imadiatly . no cache, direct memory access
 		
@@ -27,13 +26,19 @@ typedef struct udp_single_part // aligned for boost up
 
 } udp_part; // each recieved udp packet id
 
-#define UDP_UDS_COUNT 65536
+#define UDP_IDS_COUNT 65536
 #define WORD_BITS 64
+
+typedef struct pkt_lock_s
+{
+	_Atomic uint_fast8_t lock;
+	char pad[ 63 ];
+} pkt_lock_t;
 
 typedef struct defragmented_udp_pcaket
 {
-	udp_part ids[ UDP_UDS_COUNT ]; // limited buffer for storing header of udps and replace old one from top with new one arrived
-	_Atomic uint64_t locks[ UDP_UDS_COUNT / WORD_BITS ];
+	udp_part ids[ UDP_IDS_COUNT ]; // limited buffer for storing header of udps and replace old one from top with new one arrived
+	pkt_lock_t pktlcks[ UDP_IDS_COUNT ];
 
 	sem_t gateway;
 	ulong ipv4_precheck_error;
@@ -44,8 +49,6 @@ typedef struct defragmented_udp_pcaket
 	ulong buffer_overload_error; // statistics . there is offset value in udp packet that point to out of bound ranjes
 	ulong mixed_up_udp; // statistics . some part of udp arrived not in order
 	ulong packet_no_aggregate; // there is udp packet not completed
-
-	
 
 } defraged_udps_t;
 
@@ -69,7 +72,7 @@ void finalize_udps_defragmentator( defraged_udps_t * fgms );
 
 _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void_p src_packet );
 
-status poped_defraged_packet( void_p src_pb , OUTalc buffer out_buf , OUTx size_t * out_len_B , OUTalc rdy_udp_hdr_t * out_hdr );
+status poped_defraged_packet( void_p src_pb , OUTalc buffer out_buf , size_t out_buf_sz , OUTx size_t * out_len_B , OUTalc rdy_udp_hdr_t * out_hdr );
 
 #endif
 

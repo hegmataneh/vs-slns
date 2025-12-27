@@ -1295,6 +1295,8 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 #ifdef ENABLE_PERSISTENT_CACHE
 	// try to seperate requestor and actually archiver. so i drop it on ground and coursed stinky person grab it
 	d_error = distributor_publish_buffer_size( &_g->hdls.prst_csh.bcast_store_data , data , len , src_g );
+#else
+	d_error = errOK;
 #endif
 	
 	if ( d_error == errOK )
