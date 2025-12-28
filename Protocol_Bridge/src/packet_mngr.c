@@ -1,6 +1,8 @@
-﻿#define Uses_packet_mngr_prerequisite
+﻿//#define USE_SOURCE_IN_DDLCK /*be carefull*/
+
+
+#define Uses_packet_mngr_prerequisite
 #define Uses_create_unique_file
-#define Uses_MARK_LINE
 #define Uses_log10
 #define Uses_LOCK_LINE
 #define Uses_pthread_mutex_timedlock_rel
@@ -23,25 +25,14 @@ _GLOBAL_VAR _EXTERN G * _g;
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_packet_mngr( pass_p src_g , long v )
 {
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-
 	G * _g = ( G * )src_g;
 
 	cleanup_pkt_mgr( &_g->hdls.pkt_mgr );
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void waiting_until_no_more_unsaved_packet( pass_p src_g , long cur_order )
 {
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-
 	G * _g = ( G * )src_g;
 	_g->cmd.cleanup_state = cur_order;
 
@@ -58,9 +49,6 @@ _PRIVATE_FXN _CALLBACK_FXN void waiting_until_no_more_unsaved_packet( pass_p src
 		tnow = time( NULL );
 	}
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void state_pre_config_init_packet_mngr( void_p src_g )
@@ -203,6 +191,7 @@ _GLOBAL_VAR _EXTERN double _TTF;
 //_GLOBAL_VAR _EXTERN long long _filed_packet;
 _GLOBAL_VAR _EXTERN long long _evac_segment;
 _GLOBAL_VAR long long _try_evac_old_seg = 0;
+
 _GLOBAL_VAR _EXTERN long long _evac_segment_paused;
 
 _GLOBAL_VAR long long _inner_status_error = 0;
@@ -213,6 +202,8 @@ _GLOBAL_VAR long long _inner_status_error = 0;
 _GLOBAL_VAR _EXTERN size_t _sampling_sent_packet_stride;
 _GLOBAL_VAR _EXTERN size_t _last_n_peek_total_seg;
 _GLOBAL_VAR _EXTERN size_t _last_n_peek_filled_seg;
+
+_GLOBAL_VAR long long _remaped_packet = 0;
 
 #endif
 
@@ -524,6 +515,17 @@ _CALLBACK_FXN PASSED_CSTR auto_refresh_memmap_time_cell( pass_p src_pcell )
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
+_CALLBACK_FXN PASSED_CSTR auto_refresh_cum_remaped_cell( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	ci_sgmgr_t * harbor_memory = ( ci_sgmgr_t * )pcell->storage.bt.pass_data;
+	char buf3[ 64 ];
+	_FORMAT_SHRTFRM( buf3 , sizeof( buf3 ) , _remaped_packet , DOUBLE_PRECISION() , "" , "" );
+	sprintf( pcell->storage.tmpbuf , "%s" , buf3 );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+
 _CALLBACK_FXN PASSED_CSTR auto_refresh_gateway_open_cell( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
@@ -646,9 +648,9 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 
 	// col
 	M_BREAK_STAT( nnc_add_column( ptbl , ""  , "" , 0 ) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 10 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , MEM_HUGE , "" , 10 ) , 0 );
 	M_BREAK_STAT( nnc_add_column( ptbl , MEM_HUGE , "" , 10	) , 0 );
-	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 10 ) , 0 );
+	M_BREAK_STAT( nnc_add_column( ptbl , MEM_FILE , "" , 10 ) , 0 );
 	M_BREAK_STAT( nnc_add_column( ptbl , MEM_FILE , "" , 10 ) , 0 );
 	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 10 ) , 0 );
 	M_BREAK_STAT( nnc_add_column( ptbl , "" , "" , 10 ) , 0 );
@@ -831,8 +833,12 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 	pcell->storage.bt.pass_data = _g; pcell->conversion_fxn = auto_refresh_memmap_time_cell;
 	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 ); irow++; icol = icon_col2;
 
-	#endif
+	M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "cum remaped" ) , 0 ); pcell = NULL;
+	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pcell ) , 0 );
+	pcell->storage.bt.pass_data = _g; pcell->conversion_fxn = auto_refresh_cum_remaped_cell;
+	M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pcell ) , 0 ); irow++; icol = icon_col2;
 
+	#endif
 
 
 	#ifndef statistics
@@ -1070,6 +1076,11 @@ _PRIVATE_FXN _CALLBACK_FXN status process_segment_itm( buffer data , size_t len 
 					log_write( LOG_ERROR , "%d err:%s" , __LINE__ , internalErrorStr( err_sent , true ) );
 				#endif
 				}
+				break;
+			}
+			case errGeneral:
+			{
+				_inner_status_error++;
 				break;
 			}
 			default:
@@ -1316,8 +1327,6 @@ _PRIVATE_FXN _CALLBACK_FXN status process_faulty_itm( buffer data , size_t len ,
 	return d_error;
 }
 
-_GLOBAL_VAR _EXTERN long long _evac_segment_paused;
-
 /*
 each packet come here to be sent
 */
@@ -1360,12 +1369,10 @@ _CALLBACK_FXN status remap_storage_data( pass_p src_g , buffer buf , size_t sz )
 
 	if ( d_error == errOK )
 	{
+		_remaped_packet++;
+		return d_error;
 	}
-	else
-	{
-		pkt1->metadata.is_remapped = false;
-	}
-
+	pkt1->metadata.is_remapped = false;
 	return d_error;
 }
 
@@ -1571,9 +1578,6 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 		_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
 	}
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 
 	return NULL;
 }
@@ -1615,10 +1619,6 @@ _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g )
 		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	} while ( 1 );
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-
 	return NULL;
 }
 
@@ -1658,10 +1658,6 @@ _THREAD_FXN void_p evacuate_old_segment_proc( pass_p src_g )
 
 		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
 	} while ( 1 );
-
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 
 	return NULL;
 }

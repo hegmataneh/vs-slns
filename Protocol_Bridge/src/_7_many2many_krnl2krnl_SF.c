@@ -1,5 +1,4 @@
 ﻿#define Uses_LOCK_LINE
-#define Uses_MARK_LINE
 #define Uses_token_ring_p_t
 #define Uses_WARNING
 #define Uses_iSTR_SAME
@@ -165,15 +164,7 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 	//shrtcut.raw_xudp_cache = &pb->comm.preq.raw_xudp_cache;
 	shrtcut.bcast_xudp_pkt = &pb->comm.preq.bcast_xudp_pkt;
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-
 	init_many_tcp( pb , &shrtcut ); // here make broadcaster then when i send to brodcast itself manage round robin and replicate
-
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 
 	char bufferr[ BUFFER_SIZE ] = { 0 }; // Define a buffer to store received data
 

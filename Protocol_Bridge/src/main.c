@@ -1,5 +1,4 @@
 ﻿#define Uses_log_init
-#define Uses_MARK_LINE
 #define Uses_sleep
 #define Uses_strings_ar
 #define Uses_MEMSET_ZERO_O
@@ -54,11 +53,7 @@ _CALLBACK_FXN void * signal_thread( void * arg )
 	sigset_t * set = arg;
 	int sig;
 	sigwait( set , &sig ); // Wait for Ctrl+C (SIGINT)
-	
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-	
+		
 	printf( "\nSIGINT caught, stopping...\n" );
 	_g->cmd.cleanup_state = _begin_cleanup_item;
 	_g->cmd.block_sending_1 = true;
@@ -102,35 +97,15 @@ int main()
 
 	// this thread keep everything alive and just check every thing just be at right position and do not do action with very risky consequenses and exception raiser
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_watchdog , NULL , watchdog_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create watchdog thread" );
-
 	//pthread_create( &_g->trds.tid_input , NULL , input_thread , ( pass_p )_g );
-	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_version_checker , NULL , version_checker , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create version_checker thread" );
-	
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
-	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_loader , NULL , config_loader , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_loader thread" );
-	
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
-	
 	MM_BREAK_IF( pthread_create( &_g->trds.trd_config_executer , NULL , config_executer , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create config_executer thread" );
-
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
 
 	init_UI( _g );
 
-
 	pthread_join( _g->trds.trd_watchdog , NULL );
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 
 	//#ifdef Uses_MemLEAK
 	//FILE * fl = fopen( "leak.txt" , "w+" );

@@ -41,14 +41,18 @@ typedef struct defragmented_udp_pcaket
 	pkt_lock_t pktlcks[ UDP_IDS_COUNT ];
 
 	sem_t gateway;
-	ulong ipv4_precheck_error;
-	ulong kernel_error;
-	ulong L1Cache_ipv4_entrance;
 
-	ulong part_no_matched; // statistics
-	ulong buffer_overload_error; // statistics . there is offset value in udp packet that point to out of bound ranjes
-	ulong mixed_up_udp; // statistics . some part of udp arrived not in order
-	ulong packet_no_aggregate; // there is udp packet not completed
+	ulong ipv4_bad_structure; /*bad packet format*/
+	ulong kernel_error; /*allocation error*/
+	ulong bad_buffer_err; /*buffer not contain good data*/
+	ulong unordered_ipv4; /*some part of udp arrived not in order*/
+	ulong defragmentation_corrupted; /*packet cannot defraged*/
+
+	ulong L1Cache_ipv4s;
+
+	//ulong part_no_matched; // statistics
+	//ulong buffer_overload_error; // statistics . there is offset value in udp packet that point to out of bound ranjes
+	//ulong packet_no_aggregate; // there is udp packet not completed
 
 } defraged_udps_t;
 

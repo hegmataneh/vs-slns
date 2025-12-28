@@ -119,10 +119,6 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	distributor_publish_long( &_g->distributors.bcast_pb_udp_connected , 0 , ( pass_p )pb );
 	distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( quit_interrupt_dist_pcap_udp_counter ) , pb , stop_input_udp );
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-
 	if ( pthis_thread_alive_time )
 	{
 		*pthis_thread_alive_time = time( NULL );
@@ -131,9 +127,6 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 
 	// Capture indefinitely
 	MM_FMT_BREAK_IF( pcap_loop( pb->comm.acts.p_pcap_udp_counter->pcp_handle , -1 , handle_pcap_udp_counter , src_pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( pb->comm.acts.p_pcap_udp_counter->pcp_handle ) );
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 	BREAK_OK( 4 ); // clean every thing
 
 	BEGIN_RET

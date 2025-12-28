@@ -1,5 +1,4 @@
 ﻿#define Uses_LOCK_LINE
-#define Uses_MARK_LINE
 #define Uses_INIT_BREAKABLE_FXN
 #define Uses_STRLEN
 #define Uses_sleep
@@ -18,10 +17,6 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 {
 	G * _g = ( G * )src_g;
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-
 #ifdef HAS_STATISTICSS
 	nnc_destroy( &_g->stat.nc_h );
 
@@ -33,9 +28,7 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 #ifdef ENABLE_HALFFILL_SEGMENT
 	sub_destroy( &_g->hdls.pkt_mgr.bcast_release_halffill_segment );
 #endif
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void state_pre_config_init_statistics( void_p src_g )
@@ -395,10 +388,6 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 #endif
 
 	int tmp_debounce_release_segment = 0;
-
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 
 	while ( 1 )
 	{

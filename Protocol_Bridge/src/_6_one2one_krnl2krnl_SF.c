@@ -1,5 +1,4 @@
 #define Uses_LOCK_LINE
-#define Uses_MARK_LINE
 #define Uses_sleep
 #define Uses_many_tcp_out_thread_proc
 #define Uses__VERBOSE_ECHO

@@ -1,4 +1,3 @@
-#define Uses_MARK_LINE
 #define Uses_WARNING
 #define Uses_FREE_DOUBLE_PTR
 #define Uses_udphdr
@@ -68,20 +67,12 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_pth_t * shrtcut
 		distributor_publish_long( &_g->distributors.bcast_pb_udp_connected , 0 , ( pass_p )pb );
 	}
 
-	#ifdef ENABLE_USE_DBG_TAG
-		MARK_LINE();
-	#endif
-
 	// Capture indefinitely
 	MM_FMT_BREAK_IF( pcap_loop( *shrtcut->pcp_handle , -1 , handle_pcap_udp_receiver , ( pass_p )pb ) == -1 , errDevice , 3 , "pcap_loop failed: %s\n" , pcap_geterr( *shrtcut->pcp_handle ) );
 
 	pcap_close( *shrtcut->pcp_handle );
 #endif
 	
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-
 	BEGIN_RET
 	case 4:
 	{

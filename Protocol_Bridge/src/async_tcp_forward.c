@@ -1,5 +1,4 @@
-﻿#define Uses_MARK_LINE
-#define Uses_WARNING
+﻿#define Uses_WARNING
 #define Uses_iSTR_SAME
 #define Uses_packet_mngr
 #define Uses_dict_s_i_t
@@ -34,10 +33,6 @@ _CALLBACK_FXN _PRIVATE_FXN status fast_ring_2_huge_ring_global( pass_p data , bu
 _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 {
 	//G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._g;
-
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 
 	// enumorate group type
 	{
@@ -124,9 +119,6 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 		}
 	}
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 }
 
 #ifdef ENABLE_USE_DBG_TAG
@@ -146,10 +138,6 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 	init_many_tcp( pb , shrtcut );
 	
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-
 	xudp_hdr * pkt = ( xudp_hdr * )buffer; // plain cup for packet
 	pkt->metadata.version = TCP_XPKT_V1;
 	pkt->metadata.sent = false;
@@ -239,10 +227,6 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 	}
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-
 	BREAK_OK( 0 ); // to just ignore gcc warning
 
 	BEGIN_RET
@@ -254,8 +238,5 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 	M_V_END_RET
 	pb->comm.preq.stop_sending = pb->comm.preq.send_stoped = true;
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 	return NULL;
 }

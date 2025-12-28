@@ -142,9 +142,7 @@ _THREAD_FXN void_p proc_one2one_pcap2krnl_SF_tcp_out( pass_p src_pb )
 	}
 
 	many_tcp_out_thread_proc( pb , &shrtcut );
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
+
 	return NULL;
 }
 

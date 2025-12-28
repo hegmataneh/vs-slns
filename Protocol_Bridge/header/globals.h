@@ -164,17 +164,17 @@ _CALLBACK_FXN PASSED_CSTR ov_UDP_retry_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR ov_TCP_retry_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR ov_fault_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR ov_time_elapse_2_str( pass_p src_pcell );
-
 _CALLBACK_FXN PASSED_CSTR ov_thread_cnt_2_str( pass_p src_pcell );
-
 _CALLBACK_FXN PASSED_CSTR pb_time_elapse_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_fault_2_str( pass_p src_pcell );
-_CALLBACK_FXN PASSED_CSTR pb_ipv4_missed_2_str( pass_p src_pcell );
-_CALLBACK_FXN PASSED_CSTR pb_L1Cache_lost_2_str( pass_p src_pcell );
 
-_CALLBACK_FXN PASSED_CSTR pb_L1Cache_buffer_overload_error_str( pass_p src_pcell );
-_CALLBACK_FXN PASSED_CSTR pb_L1Cache_mixed_up_udp_str( pass_p src_pcell );
-_CALLBACK_FXN PASSED_CSTR pb_L1Cache_packet_no_aggregate_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_L1_ring_buff_full_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_ipv4_bad_structure_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_kernel_error_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_bad_buffer_err_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_unordered_ipv4_err_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_defragmentation_corrupted_2_str( pass_p src_pcell );
+
 
 _CALLBACK_FXN PASSED_CSTR pb_UDP_conn_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_TCP_conn_2_str( pass_p src_pcell );

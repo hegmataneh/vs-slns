@@ -1,5 +1,4 @@
 #define Uses_LOCK_LINE
-#define Uses_MARK_LINE
 #define Uses_sleep
 #define Uses_xudp_hdr
 #define Uses_persistant_cache_mgr
@@ -23,9 +22,6 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr( pass_p src_g , lo
 
 	sub_destroy( &_g->hdls.prst_csh.bcast_pagestacked_pkts );
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void try_stop_sending_from_cach_mgr( pass_p src_g , long v )
@@ -42,9 +38,6 @@ _PRIVATE_FXN _CALLBACK_FXN void try_stop_sending_from_cach_mgr( pass_p src_g , l
 		sem_post( &_g->hdls.gateway.pagestack_gateway_open_sem );
 	}
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p src_g )
@@ -80,9 +73,6 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_persistant_cache_mngr( void_p s
 	_g->hdls.gateway.pagestack_gateway_open_val = gws_close;
 	sem_init( &_g->hdls.gateway.pagestack_gateway_open_sem , 0 , 0 );
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 
 #ifdef ENABLE_PERSISTENT_CACHE
 	M_BREAK_STAT( pg_stk_init( &_g->hdls.prst_csh.page_stack , "./" , _g ) , 0 );
@@ -273,10 +263,6 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 	}
 	while( 1 );
 	_g->hdls.gateway.pagestack_gateway_open_val = gws_die;
-
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 
 	return NULL;
 }

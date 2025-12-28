@@ -211,10 +211,6 @@ _THREAD_FXN void_p version_checker( pass_p src_g )
 		case 1: if ( d_error ) DIST_APP_FAILURE();
 	M_V_END_RET
 
-#ifdef ENABLE_USE_DBG_TAG
-		MARK_LINE();
-#endif
-
 	return VOID_RET;
 }
 
@@ -663,10 +659,6 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 		pthread_mutex_unlock( &_g->appcfg.cfg_mtx );
 	}
 
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
-
 	return NULL;
 }
 
@@ -703,10 +695,6 @@ _THREAD_FXN void_p config_executer( pass_p src_g )
 		if ( GRACEFULLY_END_THREAD() ) break;
 		mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD );
 	}
-
-#ifdef ENABLE_USE_DBG_TAG
-	MARK_LINE();
-#endif
 
 	while ( 1 )
 	{
@@ -822,18 +810,10 @@ void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg )
 {
 	INIT_BREAKABLE_FXN();
 
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
-
 	AB * pb = NULL;
 	M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->bridges.ABs , (void**)&pb ) , 0 );
 	copy_bridge_cfg( &pb->cpy_cfg , new_ccfg );
 	apply_protocol_bridge_new_cfg_changes( _g , new_ccfg , new_ccfg );
-
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
 
 	BEGIN_RET
 	default:

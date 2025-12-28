@@ -1,6 +1,5 @@
 #define Uses_LOCK_LINE
 #define Uses_pthread_mutex_timedlock_rel
-#define Uses_MARK_LINE
 #define Uses_proc_many2many_krnl_udp_store
 #define Uses_sleep
 #define Uses_iSTR_SAME
@@ -26,10 +25,6 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_stat_bridges( void_p src_g )
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
-
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
 
 #ifdef HAS_STATISTICSS
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.init_static_table , SUB_VOID , SUB_FXN( init_bridges_statistics ) , _g , bridge_overview ) , 0 );
@@ -104,9 +99,6 @@ _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
 			}
 		}
 	}
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void bridge_insure_input_bus_stoping( pass_p src_pb , long v )
@@ -117,9 +109,6 @@ _PRIVATE_FXN _CALLBACK_FXN void bridge_insure_input_bus_stoping( pass_p src_pb ,
 		CIRCUIT_BREAKER long break_cuit = 0;
 		for ( pb->comm.preq.stop_receiving = true ; !pb->comm.preq.receive_stoped && break_cuit < INFINITE_LOOP_GUARD() ; mng_basic_thread_sleep( _g , HI_PRIORITY_THREAD ) , break_cuit++ ); // order to stop. then after stop continue to clean up
 	}
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_after_nomore_udp( pass_p src_pb , long v )
@@ -133,9 +122,6 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_after_nomore_udp( pass_p src_pb , long v
 		sub_destroy( &pb->comm.preq.bcast_pcap_udp_pkt );
 		sub_destroy( &pb->comm.preq.bcast_xudp_pkt );
 	}
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
 }
 
 _CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
@@ -191,9 +177,6 @@ _CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
 		}
 	}
 	mms_array_free( &_g->bridges.ABs );
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
 }
 
 _CALLBACK_FXN void pb_every_ticking_refresh( pass_p src_pb )
@@ -272,7 +255,7 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			M_BREAK_STAT( nnc_set_static_int( ptbl , ( size_t )irow , ( size_t )icol++ , irow + 1 ) , 0 );
 			//---<<<
 			// elapse time title
-			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "elapse" ) , 0 );
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "uptime" ) , 0 );
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_elapse_cell ) , 0 );
 			pb->stat.pb_elapse_cell->storage.bt.pass_data = pb; pb->stat.pb_elapse_cell->conversion_fxn = pb_time_elapse_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_elapse_cell ) , 0 );
@@ -282,12 +265,6 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fault_cell ) , 0 );
 			pb->stat.pb_fault_cell->storage.bt.pass_data = pb; pb->stat.pb_fault_cell->conversion_fxn = pb_fault_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fault_cell ) , 0 );
-
-			// IPV4 missed
-			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 missed" ) , 0 );
-			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_lost ) , 0 );
-			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_ipv4_missed_2_str;
-			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
 
 
 			//--->>>
@@ -306,12 +283,6 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			pb->stat.pb_TCP_conn_cell->storage.bt.pass_data = pb; pb->stat.pb_TCP_conn_cell->conversion_fxn = pb_TCP_conn_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_TCP_conn_cell ) , 0 );
 
-			// L1Cache lost
-			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 orphaned" ) , 0 );
-			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_lost_ipv4_fragment ) , 0 );
-			pb->stat.pb_lost_ipv4_fragment->storage.bt.pass_data = pb; pb->stat.pb_lost_ipv4_fragment->conversion_fxn = pb_L1Cache_lost_2_str;
-			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_lost_ipv4_fragment ) , 0 );
-
 
 			//--->>>
 			irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
@@ -328,12 +299,6 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_TCP_retry_conn_cell ) , 0 );
 			pb->stat.pb_TCP_retry_conn_cell->storage.bt.pass_data = pb; pb->stat.pb_TCP_retry_conn_cell->conversion_fxn = pb_TCP_retry_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_TCP_retry_conn_cell ) , 0 );
-
-			// L1Cache big ipv4
-			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 big" ) , 0 );
-			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_big ) , 0 );
-			pb->stat.pb_fst_cash_IPV4_big->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_big->conversion_fxn = pb_L1Cache_buffer_overload_error_str;
-			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_big ) , 0 );
 
 
 			//--->>>
@@ -353,12 +318,6 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			pb->stat.pb_total_udp_get_byte_cell->storage.bt.pass_data = pb; pb->stat.pb_total_udp_get_byte_cell->conversion_fxn = pb_UDP_get_byte_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_total_udp_get_byte_cell ) , 0 );
 
-			// L1Cache mixedup
-			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 mixedup" ) , 0 );
-			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_mixedup ) , 0 );
-			pb->stat.pb_fst_cash_IPV4_mixedup->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_mixedup->conversion_fxn = pb_L1Cache_mixed_up_udp_str;
-			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_mixedup ) , 0 );
-
 
 			//--->>>
 			irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
@@ -375,12 +334,6 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_total_tcp_put_byte_cell ) , 0 );
 			pb->stat.pb_total_tcp_put_byte_cell->storage.bt.pass_data = pb; pb->stat.pb_total_tcp_put_byte_cell->conversion_fxn = pb_TCP_put_byte_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_total_tcp_put_byte_cell ) , 0 );
-
-			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "IPV4 partial" ) , 0 );
-			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
-			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_L1Cache_packet_no_aggregate_str;
-			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
-			
 
 
 			#ifdef ENABLE_THROUGHPUT_MEASURE
@@ -481,6 +434,51 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_40s_tcp_bps ) , 0 );
 			#endif // ENABLE_THROUGHPUT_MEASURE
 
+			M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+			M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+			M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+			M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+
+			irow = 0;
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "L1 ring miss" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_lost ) , 0 );
+			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_L1_ring_buff_full_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "defrg bad struct" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_lost_ipv4_fragment ) , 0 );
+			pb->stat.pb_lost_ipv4_fragment->storage.bt.pass_data = pb; pb->stat.pb_lost_ipv4_fragment->conversion_fxn = pb_defrag_ipv4_bad_structure_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_lost_ipv4_fragment ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "defrg krnl err" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_big ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_big->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_big->conversion_fxn = pb_defrag_kernel_error_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_big ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "defrg bad buffer" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_mixedup ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_mixedup->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_mixedup->conversion_fxn = pb_defrag_bad_buffer_err_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_mixedup ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "defrg unordered pkt" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_unordered_ipv4_err_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "defrg corrupt" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_defragmentation_corrupted_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+
+
+
 			M_BREAK_STAT( distributor_subscribe( &_g->distributors.throttling_refresh_stat , SUB_VOID , SUB_FXN( pb_every_ticking_refresh ) , pb ) , 1 ); // refresh cells by central ticking
 
 		}
@@ -502,10 +500,6 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 {
 	INIT_BREAKABLE_FXN();
 
-	//#ifdef ENABLE_USE_DBG_TAG
-	//	MARK_LINE();
-	//#endif
-
 	// UDP
 	if ( pb->cpy_cfg.m.m.maintained.in_count > 0 )
 	{
@@ -520,10 +514,6 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 			M_BREAK_STAT( distributor_init( &pb->udps[ iudp ].bcast_change_state , 1 ) , 0 );
 		}
 	}
-
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
 
 	// TCP
 	BP_LOCK_LINE( pthread_mutex_lock( &_g->bridges.tcps_trd.mtx ) );
@@ -584,19 +574,11 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 	}
 	pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
 
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
-
 	// TODO . if Ab goes away then unregister quit intrupt
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( bridge_insure_input_bus_stoping ) , pb , bridge_insure_input_bus_stoped ) , 0 ); // in several level bridge make cleanup
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_after_nomore_udp ) , pb , getting_new_udp_stoped ) , 0 ); // in several level bridge make cleanup
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_bridges ) , _g , clean_globals_shared_var ) , 0 ); // in several level bridge make cleanup
 	
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
-
 #ifdef HAS_STATISTICSS
 #ifdef ENABLE_THROUGHPUT_MEASURE
 	M_BREAK_STAT( cbuf_m_init( &pb->stat.round_init_set.udp_stat_5_sec_count , 5 ) , 0 );
@@ -617,15 +599,7 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 #endif
 #endif
 
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
-
 	M_BREAK_STAT( init_udps_defragmentator( &pb->comm.preq.defraged_udps ) , 0 ); // defragmentor
-
-//#ifdef ENABLE_USE_DBG_TAG
-//	MARK_LINE();
-//#endif
 
 	BEGIN_RET
 	case 1:
@@ -835,18 +809,10 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			M_BREAK_IF( !( pb->comm.acts.p_one2many_pcap2krnl_SF = MALLOC_ONE( pb->comm.acts.p_one2many_pcap2krnl_SF ) ) , errMemoryLow , 1 );
 			MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
 
-		//#ifdef ENABLE_USE_DBG_TAG
-		//	MARK_LINE();
-		//#endif
-
 			// each packet most release as soon as possible to prevent lost
 			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
-		//#ifdef ENABLE_USE_DBG_TAG
-		//	MARK_LINE();
-		//#endif
-
-			#ifdef ENABLE_BRIDGE_THREAD_CREATION
+		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
 			{
 				MM_BREAK_IF( pthread_create( &pb->comm.acts.p_one2many_pcap2krnl_SF->income_trd_id , NULL ,
@@ -857,11 +823,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 				#endif
 				pb->comm.preq.thread_is_created = 1;
 			}
-			#endif
-
-		//#ifdef ENABLE_USE_DBG_TAG
-		//	MARK_LINE();
-		//#endif
+		#endif
 
 			//MM_BREAK_STAT( create_tcp_connectios( pb ) , 0 , "thread creation failed" );
 		}
