@@ -244,4 +244,6 @@ enum thread_used
 
 	#define ENABLE_REMAP_UNSEDABLE_PACKET /*be defined 14040930*/
 
+	#define ENALBE_PASS_DEFRAGED_PACKET_INTO_L2 /*be defined 1404100*/
+
 #endif
