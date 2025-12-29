@@ -4,10 +4,12 @@
 #endif
 
 #ifdef Uses_G
+	#define Uses_pub_evt_cord_t
 	#define Uses_globals
 #endif
 
 #ifdef Uses_packet_mngr_prerequisite
+	#define Uses_pub_evt_t
 	#define Uses_pkt_mgr_t
 	#define Uses_packet_mngr
 #endif
@@ -138,6 +140,7 @@
 #endif
 
 #ifdef Uses_packet_mngr
+	#define Uses_pub_evt_t
 	#define Uses_cbuf_metr
 	#define Uses_distributor_t
 	#define Uses_kv_table_t

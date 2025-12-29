@@ -87,6 +87,7 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 	array_free( &_g->hdls.registered_thread );
 	array_free( &_g->hdls.sticky_thread );
 
+	cleanup__pub_evt( &_g->distributors.bcast_long_jump_time );
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
@@ -174,6 +175,7 @@ _CALLBACK_FXN void thread_registration( pass_p src_p , long src_pthread_t , long
 		case trdn_proc_one2many_tcp_out:
 		case trdn_proc_one2one_krnl_udp_store:
 		case trdn_proc_many2many_krnl_udp_store:
+		case trdn_try_to_release_halffill_segment:
 		{
 			break;
 		}
@@ -196,6 +198,7 @@ _CALLBACK_FXN void thread_registration( pass_p src_p , long src_pthread_t , long
 		case trdn_proc_many2many_krnl_udp_store:
 		case trdn_connect_udps_proc:
 		case trdn_proc_one2one_krnl_udp_store:
+		case trdn_try_to_release_halffill_segment:
 		{
 			//CIRCUIT_BREAKER long break_cuit = 0;
 			for ( ; !_g->distributors.bafter_post_cfg_called /* && break_cuit < 1000*/ ; mng_basic_thread_sleep(_g , HI_PRIORITY_THREAD) /* , break_cuit++*/ );
@@ -286,7 +289,9 @@ _CALLBACK_FXN _PRIVATE_FXN void state_pre_config_init_helper( void_p src_g ) /*c
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
-	MM_BREAK_IF( pthread_mutex_init(&_g->bridges.tcps_trd.mtx , NULL) , errCreation , 0 , "mutex_init()" );
+	M_BREAK_STAT( init__pub_evt( &_g->distributors.bcast_long_jump_time , &_g->cmd.burst_waiting_2 ) , 0 );
+
+	MM_BREAK_IF( pthread_mutex_init( &_g->bridges.tcps_trd.mtx , NULL ) , errCreation , 0 , "mutex_init()" );
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( event_program_is_stabled_globals ) , _g , tcp_thread_trigger ) , 0 );
 
 	M_BREAK_STAT( array_init( &_g->hdls.registered_thread , sizeof( pthread_t ) , 1 , GROW_STEP , 0 ) , 0 ); // keep started thread

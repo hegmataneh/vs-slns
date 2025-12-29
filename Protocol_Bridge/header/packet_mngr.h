@@ -69,8 +69,9 @@ typedef struct /*ready_2_send_packet_v1*/
 typedef struct packet_mngr_prerequisite
 {
 #ifdef ENABLE_HALFFILL_SEGMENT
-	distributor_t bcast_release_halffill_segment; //throttling_release_halffill_segment; // check if condition is true then set halffill segemtn as fill
+	pub_evt_t * p_release_halffill_segment_event;
 #endif
+
 	kv_table_t map_tcp_socket; // keep mapping between tcp & id
 	ci_sgmgr_t harbor_memory; // second huge buffer for storing all otput pkts. this buffer can extend to maximum ram size
 	pthread_t trd_tcp_sender; // get filled segment and send them
@@ -103,6 +104,8 @@ _CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz
 
 _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g );
 
+_THREAD_FXN void_p try_to_release_halffill_segment( pass_p src_g );
+
 #ifdef ENABLE_HALFFILL_SEGMENT
 _CALLBACK_FXN void release_halffill_segment( pass_p src_g , long v );
 #endif
@@ -115,7 +118,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g );
 
 _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g );
 
-_THREAD_FXN void_p evacuate_old_segment_proc( pass_p src_g );
+_THREAD_FXN void_p evacuate_long_time_sediment_segment_proc( pass_p src_g );
 
 _CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g );
 

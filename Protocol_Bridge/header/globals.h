@@ -50,6 +50,9 @@ typedef struct global_distributor
 	SHARED_MEM distributor_t throttling_refresh_stat; // refresh stat intervally
 	SHARED_MEM distributor_t init_static_table; // table that is static with content . for now without AB
 #endif
+
+	pub_evt_cord_t bcast_long_jump_time;
+
 } g_dst;
 
 typedef enum
@@ -74,6 +77,7 @@ typedef struct global_handles
 				gateway_open_stat pagestack_gateway_open_val; // assist gateway status . also -1 means close persistent mngr
 				char pad1[CACHE_LINE_SIZE];
 			};
+
 		} gateway;
 	};
 

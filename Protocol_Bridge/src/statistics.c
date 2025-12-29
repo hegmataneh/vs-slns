@@ -25,9 +25,6 @@ _CALLBACK_FXN void cleanup_stat( pass_p src_g , long v )
 	pthread_mutex_destroy( &_g->stat.nc_s_req.thread_list_mtx );
 	mms_array_free( &_g->stat.nc_s_req.thread_list );
 #endif
-#ifdef ENABLE_HALFFILL_SEGMENT
-	sub_destroy( &_g->hdls.pkt_mgr.bcast_release_halffill_segment );
-#endif
 
 }
 
@@ -357,6 +354,9 @@ _CALLBACK_FXN void g_every_ticking_refresh( pass_p src_g )
 #endif
 }
 
+/*
+it must be always use lock free mechanism in this fxn because screen update also locked
+*/
 _THREAD_FXN void_p stats_thread( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
@@ -402,8 +402,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 	#ifdef ENABLE_HALFFILL_SEGMENT
 		if ( !( tmp_debounce_release_segment++ % 3 ) )
 		{
-			// distribute segment management pulse
-			distributor_publish_long( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , NP , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ ); // check if condition is true then set halffill segemtn as fill
+			publish__pub_evt( &_g->distributors.bcast_long_jump_time );
 		}
 	#endif
 

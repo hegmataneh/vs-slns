@@ -40,7 +40,7 @@ typedef enum
 
 #define REFRESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? (uint)CFG().refresh_interval_sec : REFRESH_INTERVAL_SEC_DEFUALT )
 
-#define GRACEFULLY_END_THREAD() ( _g->cmd.quit_first_level_thread_3 )
+#define GRACEFULLY_END_THREAD() ( _g->cmd.quit_first_level_thread_3 ) /*some times at the end with ctrl+c some component stuck so there is lossless and with loss version of close*/
 
 #define GRACEFULLY_END_NOLOSS_THREAD() ( _g->cmd.quit_noloss_data_thread_4 )
 
@@ -194,6 +194,7 @@ enum thread_used
 	trdn_proc_many2many_pcap_krnl_SF ,
 	trdn_proc_one2one_krnl_udp_store ,
 	trdn_proc_many2many_krnl_udp_store ,
+	trdn_try_to_release_halffill_segment
 };
 
 #ifndef control_app_segment_in_deep

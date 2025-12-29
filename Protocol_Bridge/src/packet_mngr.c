@@ -57,18 +57,17 @@ _CALLBACK_FXN _PRIVATE_FXN void state_pre_config_init_packet_mngr( void_p src_g 
 	G * _g = ( G * )src_g;
 
 #ifdef ENABLE_HALFFILL_SEGMENT
-	M_BREAK_STAT( distributor_init( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , 1 ) , 0 );
+	M_BREAK_STAT( subscribe__pub_evt( &_g->distributors.bcast_long_jump_time , &_g->hdls.pkt_mgr.p_release_halffill_segment_event ) , 0 );
 #endif
+
 	M_BREAK_STAT( dict_fst_create( &_g->hdls.pkt_mgr.map_tcp_socket , 512 TODO ) , 0 );
-#ifdef ENABLE_HALFFILL_SEGMENT
-	M_BREAK_STAT( distributor_subscribe( &_g->hdls.pkt_mgr.bcast_release_halffill_segment , SUB_LONG , SUB_FXN( release_halffill_segment ) , _g ) , 0 ); // each clock try to close open segemtn
-#endif
 
 	// register here to get quit cmd
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_packet_mngr ) , _g , clean_packet_mngr ) , 0 );
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( waiting_until_no_more_unsaved_packet ) , _g , wait_until_no_more_unsaved_packet ) , 0 );
 	
 #ifdef ENABLE_HALFFILL_SEGMENT
+	/*at the end of program to clean and store last packet in the buffer this callback try to do that*/
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( release_halffill_segment ) , _g , getting_new_udp_stoped ) , 0 ); // there is no more udp so close segment
 #endif
 
@@ -112,6 +111,12 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
 	MM_BREAK_IF( pthread_create( &_g->hdls.pkt_mgr.trd_tcp_sender , NULL , process_filled_tcp_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create tcp_sender thread" );
 #endif
 
+#ifdef ENABLE_HALFFILL_SEGMENT
+	/*thread for release half segment that idle too long*/
+	MM_BREAK_IF( pthread_create( &( pthread_t ) { 0 } , NULL , try_to_release_halffill_segment , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create too long idle segment thread" );
+#endif
+
+
 	//segmgr_init( &_g->hdls.pkt_mgr.sent_package_log , 3200000 , 100000 , True );
 	M_BREAK_STAT( distributor_subscribe( &_g->hdls.prst_csh.bcast_pagestacked_pkts , SUB_DIRECT_ONE_CALL_BUFFER_SIZE , SUB_FXN( discharge_persistent_storage_data ) , _g ) , 0 );
 	
@@ -120,7 +125,7 @@ _CALLBACK_FXN _PRIVATE_FXN void post_config_init_packet_mngr( void_p src_g )
 #endif
 
 #ifdef ENABLE_ABSOLETE_OLD_SEGMENT
-	MM_BREAK_IF( pthread_create( &( pthread_t ) { 0 } , NULL , evacuate_old_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create thread" );
+	MM_BREAK_IF( pthread_create( &( pthread_t ) { 0 } , NULL , evacuate_long_time_sediment_segment_proc , ( pass_p )_g ) != PTHREAD_CREATE_OK , errCreation , 0 , "Failed to create thread" );
 #endif
 
 #ifdef HAS_STATISTICSS
@@ -1582,6 +1587,7 @@ _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g )
 	return NULL;
 }
 
+/*cleanup long time idle segment that keep memory just occupied and unused*/
 _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
@@ -1622,8 +1628,8 @@ _THREAD_FXN void_p cleanup_unused_segment_proc( pass_p src_g )
 	return NULL;
 }
 
-#ifndef evacuate_old_filled_segment_to_hard
-_THREAD_FXN void_p evacuate_old_segment_proc( pass_p src_g )
+/*try to move in memory packet into file just to adapt with memory overfill condition*/
+_THREAD_FXN void_p evacuate_long_time_sediment_segment_proc( pass_p src_g )
 {
 	G * _g = ( G * )src_g;
 
@@ -1661,7 +1667,6 @@ _THREAD_FXN void_p evacuate_old_segment_proc( pass_p src_g )
 
 	return NULL;
 }
-#endif
 
 
 #ifndef release_active_unused_segment
@@ -1678,6 +1683,55 @@ _PRIVATE_FXN _CALLBACK_FXN bool release_halffill_segment_condition( const buffer
 	double df_sec = timeval_diff_ms( &pkt1->metadata.udp_hdr.tm , &tnow ) / 1000;
 	return df_sec > CFG().idle_active_harbor_mem_segment_timeout_sec;
 }
+
+_THREAD_FXN void_p try_to_release_halffill_segment( pass_p src_g )
+{
+	G * _g = ( G * )src_g;
+	status d_error;
+
+#ifdef ENABLE_LOG_THREADS
+	__attribute__( ( cleanup( thread_goes_out_of_scope ) ) ) pthread_t this_thread = pthread_self();
+	distributor_publish_x3long( &_g->distributors.bcast_thread_startup , ( long )this_thread , trdn_try_to_release_halffill_segment , ( long )__FUNCTION__ , _g );
+
+	/*retrieve track alive indicator*/
+	THREAD_LOCK_LINE( pthread_mutex_lock( &_g->stat.nc_s_req.thread_list_mtx ) );
+	time_t * pthis_thread_alive_time = NULL;
+	for ( size_t idx = 0 ; idx < _g->stat.nc_s_req.thread_list.count ; idx++ )
+	{
+		thread_alive_indicator * pthread_ind = NULL;
+		if ( mms_array_get_s( &_g->stat.nc_s_req.thread_list , idx , ( void ** )&pthread_ind ) == errOK && pthread_ind->thread_id == this_thread )
+		{
+			pthis_thread_alive_time = &pthread_ind->alive_time;
+		}
+	}
+	pthread_mutex_unlock( &_g->stat.nc_s_req.thread_list_mtx );
+#ifdef ENABLE_USE_DBG_TAG
+	MARK_START_THREAD();
+#endif
+#endif
+
+	do
+	{
+		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
+		if ( GRACEFULLY_END_THREAD() ) break;
+
+		switch ( ( d_error = any_event__pub_evt( &_g->distributors.bcast_long_jump_time , _g->hdls.pkt_mgr.p_release_halffill_segment_event , 5 /*TODO*/ , true ) ) )
+		{
+			case errOK:
+			{
+				/*because of mutual dependency between many component i chamge this mechanism from pub_sub to pub_event to detach thread flow from updating screen and working on segment*/
+				release_halffill_segment( src_g , NP );
+				break;
+			}
+		}
+
+		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+	} while ( 1 );
+
+	return NULL;
+}
+
+
 
 // check if condition is true then set halffill segemtn as fill
 _CALLBACK_FXN void release_halffill_segment( pass_p src_g , long v )
@@ -1829,7 +1883,7 @@ _CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g )
 
 #ifndef total_segments_slope
 	cbuf_m_advance( &_g->hdls.pkt_mgr.last_n_peek_total_seg_count , _g->hdls.pkt_mgr.harbor_memory.segment_total );
-	_last_n_peek_total_seg = ( size_t )MAX(cbuf_m_regression_slope_all(&_g->hdls.pkt_mgr.last_n_peek_total_seg_count) + 1 , 1);
+	_last_n_peek_total_seg = ( size_t )MAX( cbuf_m_regression_slope_all( &_g->hdls.pkt_mgr.last_n_peek_total_seg_count ) + 1 , 1 );
 #endif
 	
 #ifndef filled_segments_slope
@@ -1864,22 +1918,9 @@ _CALLBACK_FXN void sampling_filled_segment_count( pass_p src_g )
 
 void cleanup_pkt_mgr( pkt_mgr_t * pktmgr )
 {
-#ifdef ENABLE_USE_DBG_TAG
-	DBG_PT();
-#endif
-#ifdef ENABLE_HALFFILL_SEGMENT
-	sub_destroy( &pktmgr->bcast_release_halffill_segment );
-#endif
-#ifdef ENABLE_USE_DBG_TAG
-	DBG_PT();
-#endif
 	//dict_fst_destroy( &pktmgr->map_tcp_socket ); it cause shutdown haulted
 	segmgr_destroy( &pktmgr->harbor_memory );
-#ifdef ENABLE_USE_DBG_TAG
-	DBG_PT();
-#endif
 	pthread_mutex_destroy( &pktmgr->pm_lock );
-
 	cr_in_wnd_free( &pktmgr->longTermInputLoad );
 	//cr_in_wnd_free( &pktmgr->longTermTcpOutLoad );
 	//cr_in_wnd_free( &pktmgr->longTermFaultyOutLoad );
