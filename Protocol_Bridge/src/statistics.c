@@ -387,7 +387,7 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 	_g->distributors.throttling_refresh_stat.iteration_dir = tail_2_head; // first order issued then applied
 #endif
 
-	int tmp_debounce_release_segment = 0;
+	//int tmp_debounce_release_segment = 0;
 
 	while ( 1 )
 	{
@@ -399,12 +399,12 @@ _THREAD_FXN void_p stats_thread( pass_p src_g )
 		distributor_publish_void( &_g->distributors.throttling_refresh_stat , SUBSCRIBER_PROVIDED/*each subscriber set what it need*/ );
 	#endif
 
-	#ifdef ENABLE_HALFFILL_SEGMENT
-		if ( !( tmp_debounce_release_segment++ % 3 ) )
-		{
-			publish__pub_evt( &_g->distributors.bcast_long_jump_time );
-		}
-	#endif
+	//#ifdef ENABLE_HALFFILL_SEGMENT
+	//	if ( !( tmp_debounce_release_segment++ % 3 ) )
+	//	{
+	//		publish__pub_evt( &_g->distributors.bcast_long_jump_time );
+	//	}
+	//#endif
 
 		//pthread_mutex_lock( &_g->stat.lock_data.lock );
 		//werase( _g->stat.main_win );

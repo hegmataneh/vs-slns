@@ -48,8 +48,11 @@ typedef struct Global_Config_0
 			int in_memory_udp_hold_time_sec;
 			int unused_memory_block_hold_time_sec;
 			int instant_load_influence_window_time_sec;
-			int fragment_udp_retention_time_msec;
+			int udp_id_keeping_timeout_msec;
+			int each_udp_part_reassembly_timeout_msec;
 			int infinite_loop_guard;
+			int harbor_mem_segment_check_idle_active_each_n_sec;
+
 			// everything add here most be copy down there
 
 		} cfg_change_pck; /*config that are solid*/
@@ -90,8 +93,11 @@ typedef struct Global_Config_0
 			int in_memory_udp_hold_time_sec;
 			int unused_memory_block_hold_time_sec;
 			int instant_load_influence_window_time_sec;
-			int fragment_udp_retention_time_msec;
+			int udp_id_keeping_timeout_msec;
+			int each_udp_part_reassembly_timeout_msec;
 			int infinite_loop_guard;
+			int harbor_mem_segment_check_idle_active_each_n_sec;
+
 			// everything add here most be copy up here
 		};
 	};

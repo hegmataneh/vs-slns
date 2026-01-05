@@ -68,10 +68,6 @@ typedef struct /*ready_2_send_packet_v1*/
 
 typedef struct packet_mngr_prerequisite
 {
-#ifdef ENABLE_HALFFILL_SEGMENT
-	pub_evt_t * p_release_halffill_segment_event;
-#endif
-
 	kv_table_t map_tcp_socket; // keep mapping between tcp & id
 	ci_sgmgr_t harbor_memory; // second huge buffer for storing all otput pkts. this buffer can extend to maximum ram size
 	pthread_t trd_tcp_sender; // get filled segment and send them

@@ -438,11 +438,34 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 			M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 			M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+			M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+			M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+			M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
 
 			irow = 0;
 
+
 			irow++; icol = 5;
-			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "L1 ring miss" ) , 0 );
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "pcap arrive" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_lost ) , 0 );
+			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_L1_pcap_arrive_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "pcap buffed" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_lost ) , 0 );
+			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_L1_pcap_saved_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "pcap tried2defraged" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_lost ) , 0 );
+			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_L1_pcap_try2defraged_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
+
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "L1 buffed miss" ) , 0 );
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_lost ) , 0 );
 			pb->stat.pb_fst_cash_lost->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_lost->conversion_fxn = pb_L1_ring_buff_full_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_lost ) , 0 );
@@ -465,16 +488,60 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			pb->stat.pb_fst_cash_IPV4_mixedup->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_mixedup->conversion_fxn = pb_defrag_bad_buffer_err_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_mixedup ) , 0 );
 
+			//irow++; icol = 5;
+			//M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "defrg unordered pkt" ) , 0 );
+			//M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			//pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_unordered_ipv4_err_2_str;
+			//M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+
+			
+
 			irow++; icol = 5;
-			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "defrg unordered pkt" ) , 0 );
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "no defrg - id overlaped" ) , 0 );
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
-			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_unordered_ipv4_err_2_str;
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_no_dfrg_id_overlaped_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
 
 			irow++; icol = 5;
-			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "defrg corrupt" ) , 0 );
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "no defrg - is timeout" ) , 0 );
 			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
-			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_defragmentation_corrupted_2_str;
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_no_dfrg_id_timeout_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "no defrg - max part exced" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_no_dfrg_max_part_pos_exced_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "no defrg - pyld exced" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_no_dfrg_pylod_sz_exced_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "no defrg - sz zero" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_no_dfrg_data_length_zero_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "no defrg - less_pylod" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_no_dfrg_less_pylod_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "no defrg - eq_pylod" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_no_dfrg_eq_pylod_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+
+			irow++; icol = 5;
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "no defrg - more_pylod" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
+			pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->storage.bt.pass_data = pb; pb->stat.pb_fst_cash_IPV4_packet_no_aggregate->conversion_fxn = pb_defrag_no_dfrg_more_pylod_2_str;
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_fst_cash_IPV4_packet_no_aggregate ) , 0 );
 
 

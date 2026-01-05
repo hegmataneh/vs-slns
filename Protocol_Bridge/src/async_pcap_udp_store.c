@@ -17,7 +17,11 @@ _PRIVATE_FXN _CALLBACK_FXN void handle_pcap_udp_receiver( u_char * src_pb , cons
 	}
 	else
 	{
-		if ( distributor_publish_onedirectcall_3voidp( &pb->comm.preq.bcast_pcap_udp_pkt , ( void_p )src_pb , ( void_p )hdr , ( void_p )packet ) != errOK ) return; // dist udp packet
+		#ifdef ENABLE_FAST_PCAP_DISTRIBUTION
+			defragment_pcap_data( pb , ( void_p )hdr , ( void_p )packet );
+		#else
+			if ( distributor_publish_onedirectcall_3voidp( &pb->comm.preq.bcast_pcap_udp_pkt , ( void_p )src_pb , ( void_p )hdr , ( void_p )packet ) != errOK ) return; // dist udp packet
+		#endif
 	}
 }
 

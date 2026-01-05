@@ -342,8 +342,11 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I( in_memory_udp_hold_time_sec );																/**/\
 					CFG_ELEM_I( unused_memory_block_hold_time_sec );														/**/\
 					CFG_ELEM_I( instant_load_influence_window_time_sec );													/**/\
-					CFG_ELEM_I( fragment_udp_retention_time_msec );															/**/\
-					CFG_ELEM_I( infinite_loop_guard );																		/**/
+					CFG_ELEM_I( udp_id_keeping_timeout_msec );																/**/\
+					CFG_ELEM_I( each_udp_part_reassembly_timeout_msec );													/**/\
+					CFG_ELEM_I( infinite_loop_guard );																		/**/\
+					CFG_ELEM_I( harbor_mem_segment_check_idle_active_each_n_sec );
+					
 					
 
 					#undef CFG_ELEM_I

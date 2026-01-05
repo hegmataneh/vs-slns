@@ -247,4 +247,6 @@ enum thread_used
 
 	#define ENALBE_PASS_DEFRAGED_PACKET_INTO_L2 /*be defined 1404100*/
 
+	#define ENABLE_FAST_PCAP_DISTRIBUTION /*be defined 14041014*/
+
 #endif

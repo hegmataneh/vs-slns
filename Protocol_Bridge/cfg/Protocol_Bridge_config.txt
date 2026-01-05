@@ -35,7 +35,7 @@
 		"TTF_emergency_drop_backpressure_stride": 32,
 		"TTF_red_zone_stride": 128,
 		"wait_at_cleanup_until_unsaved_packet_stored_sec": 60,
-		"raw_udp_cache_sz_byte": 1073741824,
+		"raw_udp_cache_sz_byte": 5242880,
 		"network_handshake_pessimistic_timeout_sec": 10,
 		"tcp_connection_idle_timeout_sec": 60,
 		"harbor_mem_flood_detection_sample_count": 10,
@@ -43,14 +43,16 @@
 		"in_memory_udp_hold_time_sec": 30,
 		"unused_memory_block_hold_time_sec": 30,
 		"instant_load_influence_window_time_sec": 10,
-		"fragment_udp_retention_time_msec": 5,
-		"infinite_loop_guard": 1000
+		"udp_id_keeping_timeout_msec": 2000,
+		"each_udp_part_reassembly_timeout_msec": 500,
+		"infinite_loop_guard": 1000,
+		"harbor_mem_segment_check_idle_active_each_n_sec": 5
 	},
 	"PROTOCOL_BRIDGES":
 	{
-		"uptest_pcap1":
+		"uptest_pcap1_tcpReder":
 		{
-			"short_name": "192_168_3_1",
+			"short_name": "10202",
 			"out_type": "one2one",
 			"thread_handler_act": "one2one_pcap2krnl_SF",
 			"INPUTS":
@@ -59,10 +61,10 @@
 				{
 					"group": "-",
 					"group_type": "-",
-					"UDP_origin_ip": "192.168.3.2",
-					"UDP_destination_ip": "192.168.3.1",
+					"UDP_origin_ip": "192.168.1.2",
+					"UDP_destination_ip": "192.168.1.1",
 					"UDP_origin_ports": "-",
-					"UDP_origin_interface": "ens192",
+					"UDP_origin_interface": "ens160",
 					"enable": 1,
 					"reset_connection": 0
 				}
@@ -73,8 +75,8 @@
 				{
 					"group": "1",
 					"group_type": "one_out",
-					"TCP_destination_ip": "192.168.4.2",
-					"TCP_destination_ports": "7000",
+					"TCP_destination_ip": "192.168.6.2",
+					"TCP_destination_ports": "10102",
 					"TCP_destination_interface": "-",
 					"enable": 1,
 					"reset_connection": 0

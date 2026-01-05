@@ -51,8 +51,6 @@ typedef struct global_distributor
 	SHARED_MEM distributor_t init_static_table; // table that is static with content . for now without AB
 #endif
 
-	pub_evt_cord_t bcast_long_jump_time;
-
 } g_dst;
 
 typedef enum
@@ -143,7 +141,13 @@ void apply_protocol_bridge_new_cfg_changes( G * _g , brg_cfg_t * prev_pcfg , brg
 void remove_protocol_bridge( G * _g , brg_cfg_t * pcfg );
 void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg );
 
-void mng_basic_thread_sleep( G * _g , etrd_priority priority );
+void _mng_basic_thread_sleep( G * _g , etrd_priority priority , int custom_sleep_sec/*0 if use config*/ );
+
+#define mng_basic_thread_sleep( g , arg2 ) /*overrides*/\
+    ({_Generic((arg2), \
+        int: _mng_basic_thread_sleep( g , NORMAL_PRIORITY_THREAD , arg2 ) , \
+        default: _mng_basic_thread_sleep( g , arg2 , 0 ) \
+	); })
 
 _CALLBACK_FXN void quit_interrupt( int sig );
 _CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg );
@@ -172,12 +176,27 @@ _CALLBACK_FXN PASSED_CSTR ov_thread_cnt_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_time_elapse_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_fault_2_str( pass_p src_pcell );
 
+_CALLBACK_FXN PASSED_CSTR pb_L1_pcap_arrive_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_L1_pcap_saved_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_L1_pcap_try2defraged_2_str( pass_p src_pcell );
+
 _CALLBACK_FXN PASSED_CSTR pb_L1_ring_buff_full_2_str( pass_p src_pcell );
+
 _CALLBACK_FXN PASSED_CSTR pb_defrag_ipv4_bad_structure_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_defrag_kernel_error_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_defrag_bad_buffer_err_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_defrag_unordered_ipv4_err_2_str( pass_p src_pcell );
-_CALLBACK_FXN PASSED_CSTR pb_defrag_defragmentation_corrupted_2_str( pass_p src_pcell );
+
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_id_overlaped_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_id_timeout_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_max_part_pos_exced_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_pylod_sz_exced_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_data_length_zero_2_str( pass_p src_pcell );
+
+
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_less_pylod_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_eq_pylod_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_more_pylod_2_str( pass_p src_pcell );
 
 
 _CALLBACK_FXN PASSED_CSTR pb_UDP_conn_2_str( pass_p src_pcell );

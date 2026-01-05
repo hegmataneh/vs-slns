@@ -86,8 +86,6 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 
 	array_free( &_g->hdls.registered_thread );
 	array_free( &_g->hdls.sticky_thread );
-
-	cleanup__pub_evt( &_g->distributors.bcast_long_jump_time );
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
@@ -288,8 +286,6 @@ _CALLBACK_FXN _PRIVATE_FXN void state_pre_config_init_helper( void_p src_g ) /*c
 {
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
-
-	M_BREAK_STAT( init__pub_evt( &_g->distributors.bcast_long_jump_time , &_g->cmd.burst_waiting_2 ) , 0 );
 
 	MM_BREAK_IF( pthread_mutex_init( &_g->bridges.tcps_trd.mtx , NULL ) , errCreation , 0 , "mutex_init()" );
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_program_stabled , SUB_VOID , SUB_FXN( event_program_is_stabled_globals ) , _g , tcp_thread_trigger ) , 0 );
@@ -822,10 +818,9 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 /// <summary>
 /// single point for thread wait
 /// </summary>
-void mng_basic_thread_sleep( G * _g , etrd_priority priority )
+void _mng_basic_thread_sleep( G * _g , etrd_priority priority , int custom_sleep_sec/*0 if use config*/ )
 {
-	struct timespec ts;
-	MEMSET_ZERO( &ts , 1 );
+	struct timespec ts = {0};
 	switch ( priority )
 	{
 		case VLOW_PRIORITY_THREAD:
@@ -849,6 +844,10 @@ void mng_basic_thread_sleep( G * _g , etrd_priority priority )
 			ts.tv_nsec = HI_THREAD_DEFAULT_DELAY_NANOSEC();
 			break;
 		}
+	}
+	if ( custom_sleep_sec )
+	{
+		ts.tv_nsec = custom_sleep_sec * 1000000000L;
 	}
 	ts.tv_sec = ts.tv_nsec / 1000000000L;   // seconds
 	ts.tv_nsec = ts.tv_nsec % 1000000000L;  // nanoseconds
@@ -1263,13 +1262,37 @@ _CALLBACK_FXN PASSED_CSTR pb_fault_2_str( pass_p src_pcell )
 
 #ifndef defragmentor_section
 
+_CALLBACK_FXN PASSED_CSTR pb_L1_pcap_arrive_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.L1Cache_ipv4s , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+_CALLBACK_FXN PASSED_CSTR pb_L1_pcap_saved_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.L1Cache_cached_ipv4s , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_L1_pcap_try2defraged_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.L1Cache_tried_to_defraged_ipv4 , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
 _CALLBACK_FXN PASSED_CSTR pb_L1_ring_buff_full_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.raw_xudp_cache.err_full , DOUBLE_PRECISION() , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.raw_xudp_cache.loss_in_cbuf_pked , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
+
 
 _CALLBACK_FXN PASSED_CSTR pb_defrag_ipv4_bad_structure_2_str( pass_p src_pcell )
 {
@@ -1303,11 +1326,64 @@ _CALLBACK_FXN PASSED_CSTR pb_defrag_unordered_ipv4_err_2_str( pass_p src_pcell )
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
-_CALLBACK_FXN PASSED_CSTR pb_defrag_defragmentation_corrupted_2_str( pass_p src_pcell )
+
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_id_overlaped_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.defragmentation_corrupted , DOUBLE_PRECISION() , "" , "" );
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.no_dfrg_id_overlaped , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_id_timeout_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.no_dfrg_id_timeout , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_max_part_pos_exced_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.no_dfrg_max_part_pos_exced , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_pylod_sz_exced_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.no_dfrg_pylod_sz_exced , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_data_length_zero_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.no_dfrg_data_length_zero , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+
+
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_less_pylod_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.no_dfrg_less_pylod , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_eq_pylod_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.no_dfrg_eq_pylod , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+_CALLBACK_FXN PASSED_CSTR pb_defrag_no_dfrg_more_pylod_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , pb->comm.preq.defraged_udps.no_dfrg_more_pylod , DOUBLE_PRECISION() , "" , "" );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 

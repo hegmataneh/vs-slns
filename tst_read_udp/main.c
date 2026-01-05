@@ -1,13 +1,29 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+//#include <inttypes.h>
+#include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <pthread.h>
 
-#define LOCAL_IP   "10.202.18.88"
-#define LOCAL_PORT 6000
+#define LOCAL_IP   "192.168.1.1"
+#define LOCAL_PORT 10200
 #define BUF_SIZE   20480
+
+int _counter = 0;
+
+void * thread_handler( void * n )
+{
+	while ( 1 )
+	{
+		printf( "%d\n" , _counter );
+		sleep( 1 );
+	}
+
+	return NULL;
+}
 
 int main( void )
 {
@@ -16,6 +32,8 @@ int main( void )
 	socklen_t addr_len = sizeof( remote_addr );
 	char buffer[ BUF_SIZE ];
 	ssize_t recv_len;
+
+	pthread_create( &( pthread_t ) { 0 } , NULL , thread_handler , NULL );
 
 	// Create UDP socket
 	sockfd = socket( AF_INET , SOCK_DGRAM , 0 );
@@ -48,10 +66,12 @@ int main( void )
 
 	//printf( "Listening for UDP packets on %s:%d ...\n" , LOCAL_IP , LOCAL_PORT );
 
+	
+
 	// Loop to read packets iteratively
 	while ( 1 )
 	{
-		recv_len = recvfrom( sockfd , buffer , BUF_SIZE - 1 , 0 ,
+		recv_len = recvfrom( sockfd , buffer , 1 , 0 ,
 			( struct sockaddr * )&remote_addr , &addr_len );
 		if ( recv_len < 0 )
 		{
@@ -60,13 +80,15 @@ int main( void )
 			continue;
 		}
 
-		buffer[ recv_len ] = '\0';  // Null-terminate for safe printing
-		printf( "Received %zd bytes from %s:%d\n" ,
-			recv_len ,
-			inet_ntoa( remote_addr.sin_addr ) ,
-			ntohs( remote_addr.sin_port ) );
+		//buffer[ recv_len ] = '\0';  // Null-terminate for safe printing
+		//printf( "Received %zd bytes from %s:%d\n" ,
+		//	recv_len ,
+		//	inet_ntoa( remote_addr.sin_addr ) ,
+		//	ntohs( remote_addr.sin_port ) );
 
-		printf( "Data: %s\n" , buffer );
+		_counter++;
+
+		//printf( "Data: %s\n" , buffer );
 	}
 
 	close( sockfd );

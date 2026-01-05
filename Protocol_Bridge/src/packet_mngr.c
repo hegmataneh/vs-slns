@@ -56,10 +56,6 @@ _CALLBACK_FXN _PRIVATE_FXN void state_pre_config_init_packet_mngr( void_p src_g 
 	INIT_BREAKABLE_FXN();
 	G * _g = ( G * )src_g;
 
-#ifdef ENABLE_HALFFILL_SEGMENT
-	M_BREAK_STAT( subscribe__pub_evt( &_g->distributors.bcast_long_jump_time , &_g->hdls.pkt_mgr.p_release_halffill_segment_event ) , 0 );
-#endif
-
 	M_BREAK_STAT( dict_fst_create( &_g->hdls.pkt_mgr.map_tcp_socket , 512 TODO ) , 0 );
 
 	// register here to get quit cmd
@@ -1715,17 +1711,10 @@ _THREAD_FXN void_p try_to_release_halffill_segment( pass_p src_g )
 		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
 		if ( GRACEFULLY_END_THREAD() ) break;
 
-		switch ( ( d_error = any_event__pub_evt( &_g->distributors.bcast_long_jump_time , _g->hdls.pkt_mgr.p_release_halffill_segment_event , 5 /*TODO*/ , true ) ) )
-		{
-			case errOK:
-			{
-				/*because of mutual dependency between many component i chamge this mechanism from pub_sub to pub_event to detach thread flow from updating screen and working on segment*/
-				release_halffill_segment( src_g , NP );
-				break;
-			}
-		}
+		release_halffill_segment( src_g , NP );
 
-		mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+		mng_basic_thread_sleep( _g , CFG().harbor_mem_segment_check_idle_active_each_n_sec );
+
 	} while ( 1 );
 
 	return NULL;
