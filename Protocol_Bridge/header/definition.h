@@ -77,10 +77,10 @@ typedef  CONFIG_SECTION_ITEM_VALUE  CFG_ITM;
     ({_Generic((val), \
         int:        __snprintf( buf , sizeof(buf) , "%s%d%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
         long:       __snprintf( buf , sizeof(buf) , "%s%ld%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
-        long long:  __snprintf( buf , sizeof(buf) , "%s%lld%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+		long long:  __snprintf( buf , sizeof(buf) , "%s%lld%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
         unsigned long long: __snprintf( buf , sizeof(buf) , "%s%llu%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
-        double:     __snprintf( buf , sizeof(buf) , "%s%.2f%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
-        default:    __snprintf( buf , sizeof(buf) , "%s%.2f%s%s" , ""prefix_string"" , (double)val , *unit_s ? " " : "", unit_s ) /* fallback */ \
+        size_t: __snprintf( buf , sizeof(buf) , "%s%zu%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) , \
+		double:     __snprintf( buf , sizeof(buf) , "%s%.2f%s%s" , ""prefix_string"" , val , *unit_s ? " " : "", unit_s ) \
 	); })
 
 #define _FORMAT_SHRTFRM( baaf , NPP , val , decimal_precision , unit_s , prefix_string ) \

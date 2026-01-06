@@ -96,6 +96,17 @@ typedef struct packet_mngr_prerequisite
 
 } pkt_mgr_t;
 
+typedef enum
+{
+	prss_no_pressure ,
+	prss_gentle_pressure ,
+	prss_aggressive_pressure ,
+	prss_emergency_pressure ,
+	prss_red_zone_pressure ,
+	prss_skip_input
+} prss_e;
+
+
 _CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz );
 
 _THREAD_FXN void_p process_filled_tcp_segment_proc( pass_p src_g );

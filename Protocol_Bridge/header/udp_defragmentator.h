@@ -17,13 +17,10 @@ typedef struct udp_single_part // aligned for boost up
 	union
 	{
 		struct timeval tm; // time of first arrival
-		uint64_t dirty;
+		uint64_t dirty; // if there is packet with same udp id already exist. now it spec by time second field
 	};
 	//uint32_t srcIP;		// Composite Key
 	//uint32_t dstIP;		// Composite Key
-	//uint8_t dirty;	// if there is packet with same udp id already exist		
-	//uint8_t filled;	// use when progress exact with length
-	//uint8_t done;		// udp process and sent done
 
 } udp_part; // each recieved udp packet id
 

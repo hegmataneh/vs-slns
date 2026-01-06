@@ -26,14 +26,15 @@
 		"idle_active_harbor_mem_segment_timeout_sec": 10,
 		"harbor_mem_max_allowed_allocation": 10737418240,
 		"instantaneous_input_load_coefficient": 0.4,
-		"TTF_no_backpressure_threshold_sec": 300,
-		"TTF_gentle_backpressure_threshold_sec": 120,
-		"TTF_aggressive_backpressure_threshold_sec": 60,
-		"TTF_emergency_drop_backpressure_threshold_sec": 30,
+		"TTF_no_backpressure_threshold_sec": 377,
+		"TTF_gentle_backpressure_threshold_sec": 144,
+		"TTF_aggressive_backpressure_threshold_sec": 55,
+		"TTF_emergency_drop_backpressure_threshold_sec": 21,
+		"TTF_skip_input_threshold_sec": 8,
 		"TTF_gentle_backpressure_stride": 2,
-		"TTF_aggressive_backpressure_stride": 8,
-		"TTF_emergency_drop_backpressure_stride": 32,
-		"TTF_red_zone_stride": 128,
+		"TTF_aggressive_backpressure_stride": 5,
+		"TTF_emergency_drop_backpressure_stride": 21,
+		"TTF_red_zone_stride": 144,
 		"wait_at_cleanup_until_unsaved_packet_stored_sec": 60,
 		"raw_udp_cache_sz_byte": 5242880,
 		"network_handshake_pessimistic_timeout_sec": 10,
@@ -46,7 +47,8 @@
 		"udp_id_keeping_timeout_msec": 2000,
 		"each_udp_part_reassembly_timeout_msec": 500,
 		"infinite_loop_guard": 1000,
-		"harbor_mem_segment_check_idle_active_each_n_sec": 5
+		"harbor_mem_segment_check_idle_active_each_n_sec": 5,
+		"max_saved_file_size_threshold_MB": 400000
 	},
 	"PROTOCOL_BRIDGES":
 	{
@@ -76,7 +78,7 @@
 					"group": "1",
 					"group_type": "one_out",
 					"TCP_destination_ip": "192.168.6.2",
-					"TCP_destination_ports": "10102",
+					"TCP_destination_ports": "7000",
 					"TCP_destination_interface": "-",
 					"enable": 1,
 					"reset_connection": 0

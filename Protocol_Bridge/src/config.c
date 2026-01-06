@@ -329,6 +329,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I( TTF_gentle_backpressure_threshold_sec );													/**/\
 					CFG_ELEM_I( TTF_aggressive_backpressure_threshold_sec );												/**/\
 					CFG_ELEM_I( TTF_emergency_drop_backpressure_threshold_sec );											/**/\
+					CFG_ELEM_I( TTF_skip_input_threshold_sec );																/**/\
 					CFG_ELEM_I( TTF_gentle_backpressure_stride );															/**/\
 					CFG_ELEM_I( TTF_aggressive_backpressure_stride );														/**/\
 					CFG_ELEM_I( TTF_emergency_drop_backpressure_stride );													/**/\
@@ -345,8 +346,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I( udp_id_keeping_timeout_msec );																/**/\
 					CFG_ELEM_I( each_udp_part_reassembly_timeout_msec );													/**/\
 					CFG_ELEM_I( infinite_loop_guard );																		/**/\
-					CFG_ELEM_I( harbor_mem_segment_check_idle_active_each_n_sec );
-					
+					CFG_ELEM_I( harbor_mem_segment_check_idle_active_each_n_sec );											/**/\
+					CFG_ELEM_I( max_saved_file_size_threshold_MB );															/**/
 					
 
 					#undef CFG_ELEM_I

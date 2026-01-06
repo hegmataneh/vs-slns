@@ -35,6 +35,7 @@ typedef struct Global_Config_0
 			int TTF_gentle_backpressure_threshold_sec;
 			int TTF_aggressive_backpressure_threshold_sec;
 			int TTF_emergency_drop_backpressure_threshold_sec;
+			int TTF_skip_input_threshold_sec;
 			int TTF_gentle_backpressure_stride;
 			int TTF_aggressive_backpressure_stride;
 			int TTF_emergency_drop_backpressure_stride;
@@ -52,6 +53,7 @@ typedef struct Global_Config_0
 			int each_udp_part_reassembly_timeout_msec;
 			int infinite_loop_guard;
 			int harbor_mem_segment_check_idle_active_each_n_sec;
+			int max_saved_file_size_threshold_MB;
 
 			// everything add here most be copy down there
 
@@ -80,6 +82,7 @@ typedef struct Global_Config_0
 			int TTF_gentle_backpressure_threshold_sec;
 			int TTF_aggressive_backpressure_threshold_sec;
 			int TTF_emergency_drop_backpressure_threshold_sec;
+			int TTF_skip_input_threshold_sec;
 			int TTF_gentle_backpressure_stride;
 			int TTF_aggressive_backpressure_stride;
 			int TTF_emergency_drop_backpressure_stride;
@@ -97,6 +100,7 @@ typedef struct Global_Config_0
 			int each_udp_part_reassembly_timeout_msec;
 			int infinite_loop_guard;
 			int harbor_mem_segment_check_idle_active_each_n_sec;
+			int max_saved_file_size_threshold_MB;
 
 			// everything add here most be copy up here
 		};
