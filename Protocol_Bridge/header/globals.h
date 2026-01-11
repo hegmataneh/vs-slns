@@ -88,6 +88,8 @@ typedef struct global_handles
 
 } g_hdl;
 
+#define PACKET_MGR() _g->hdls.pkt_mgr
+
 typedef struct global_thread_handles
 {
 	pthread_t trd_watchdog;
@@ -141,13 +143,10 @@ void apply_protocol_bridge_new_cfg_changes( G * _g , brg_cfg_t * prev_pcfg , brg
 void remove_protocol_bridge( G * _g , brg_cfg_t * pcfg );
 void add_new_protocol_bridge( G * _g , brg_cfg_t * new_ccfg );
 
-void _mng_basic_thread_sleep( G * _g , etrd_priority priority , int custom_sleep_sec/*0 if use config*/ );
+void mng_basic_thread_sleep( G * _g , etrd_priority priority );
+void mng_basic_thread_sleep_sec( G * _g , int sleep_sec );
+void mng_basic_thread_sleep_nsec( G * _g , int64 sleep_sec );
 
-#define mng_basic_thread_sleep( g , arg2 ) /*overrides*/\
-    ({_Generic((arg2), \
-        int: _mng_basic_thread_sleep( g , NORMAL_PRIORITY_THREAD , arg2 ) , \
-        default: _mng_basic_thread_sleep( g , arg2 , 0 ) \
-	); })
 
 _CALLBACK_FXN void quit_interrupt( int sig );
 _CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg );

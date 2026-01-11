@@ -127,16 +127,25 @@ typedef struct AB_tcp_connection
 			sockfd tcp_sockfd;
 			int tcp_connection_established; // tcp connection established
 	
-			//int retry_to_connect_tcp; // do retry to connect again
-			int tcp_is_about_to_connect; // when tring to connect no more try should be attempt
+			union
+			{
+				struct
+				{
+					//int retry_to_connect_tcp; // do retry to connect again
+					int tcp_is_about_to_connect; // when tring to connect no more try should be attempt
+				};
+				long pad2;
+			};
 
-			time_t last_access; // last time any pkt sent
 			distributor_t bcast_change_state;
+			timespec last_send_ts; // last time any pkt sent
+			timespec last_action_ts; // action is more than just sending
 		};
 	};
 
 	tcp_cfg_pak_t * __tcp_cfg_pak; // link to passive cfg
 	struct ActiveBridge * owner_pb; // upper struct
+	cr_in_wnd_t brdg_rate_ctrl_loadOnOutBridge;
 
 } AB_tcp;
 

@@ -320,6 +320,7 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I64( low_priority_thread_cooldown_delay_nanosec );												/**/\
 					CFG_ELEM_I64( normal_priority_thread_cooldown_delay_nanosec );											/**/\
 					CFG_ELEM_I64( hi_priority_thread_cooldown_delay_nanosec );												/**/\
+					CFG_ELEM_I64( very_hi_priority_thread_cooldown_delay_nanosec );												/**/\
 					CFG_ELEM_I64( harbor_mem_segment_capacity );															/**/\
 					CFG_ELEM_I64( harbor_mem_segment_offsets_cnt_base );													/**/\
 					CFG_ELEM_I( idle_active_harbor_mem_segment_timeout_sec );												/**/\
@@ -493,6 +494,11 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 								IN_CFG_CORE_ELEM_STR( el_out , TCP_destination_ports );
 								IN_CFG_ELEM_I( el_out , enable );
 								IN_CFG_ELEM_I( el_out , reset_connection );
+
+								IN_CFG_ELEM_STR( el_out , post_action );
+								IN_CFG_ELEM_I( el_out , send_througput_limit_Bps );
+								IN_CFG_ELEM_I( el_out , send_gap_nsec );
+
 
 								#undef IN_CFG_ELEM_STR
 								#undef IN_CFG_ELEM_I

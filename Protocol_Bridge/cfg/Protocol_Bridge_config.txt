@@ -21,6 +21,7 @@
 		"low_priority_thread_cooldown_delay_nanosec": 5000000000,
 		"normal_priority_thread_cooldown_delay_nanosec": 1000000000,
 		"hi_priority_thread_cooldown_delay_nanosec": 1000000,
+		"very_hi_priority_thread_cooldown_delay_nanosec": 1000,
 		"harbor_mem_segment_capacity": 2097152,
 		"harbor_mem_segment_offsets_cnt_base": 10,
 		"idle_active_harbor_mem_segment_timeout_sec": 10,
@@ -63,10 +64,10 @@
 				{
 					"group": "-",
 					"group_type": "-",
-					"UDP_origin_ip": "192.168.1.2",
-					"UDP_destination_ip": "192.168.1.1",
+					"UDP_origin_ip": "172.17.0.59",
+					"UDP_destination_ip": "172.17.0.60",
 					"UDP_origin_ports": "-",
-					"UDP_origin_interface": "ens160",
+					"UDP_origin_interface": "enp0s3",
 					"enable": 1,
 					"reset_connection": 0
 				}
@@ -77,11 +78,14 @@
 				{
 					"group": "1",
 					"group_type": "one_out",
-					"TCP_destination_ip": "192.168.6.2",
-					"TCP_destination_ports": "7000",
+					"TCP_destination_ip": "192.168.56.61",
+					"TCP_destination_ports": "5000",
 					"TCP_destination_interface": "-",
 					"enable": 1,
-					"reset_connection": 0
+					"reset_connection": 0,
+					"post_action": "post enter",
+					"send_througput_limit_Bps": 100000,
+					"send_gap_nsec": 1000
 				}
 			},
 			"enable": 1,

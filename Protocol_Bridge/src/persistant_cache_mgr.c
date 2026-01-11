@@ -21,7 +21,6 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_persistant_cache_mngr( pass_p src_g , lo
 	sub_destroy( &_g->hdls.prst_csh.bcast_reroute_nopeer_pkt );
 
 	sub_destroy( &_g->hdls.prst_csh.bcast_pagestacked_pkts );
-
 }
 
 _PRIVATE_FXN _CALLBACK_FXN void try_stop_sending_from_cach_mgr( pass_p src_g , long v )
@@ -37,7 +36,6 @@ _PRIVATE_FXN _CALLBACK_FXN void try_stop_sending_from_cach_mgr( pass_p src_g , l
 	{
 		sem_post( &_g->hdls.gateway.pagestack_gateway_open_sem );
 	}
-
 }
 
 _CALLBACK_FXN _PRIVATE_FXN void pre_config_init_persistant_cache_mngr( void_p src_g )
@@ -180,6 +178,10 @@ _CALLBACK_FXN _PRIVATE_FXN pgstk_cmd persistant_cache_mngr_relay_packet( void_p 
 			}
 			return pgstk_not_send__continue_sending;
 		}
+		case errPortOccupied:
+		{
+			return pgstk_not_send__continue_sending_delayed2UncongestPort;
+		}
 		default:
 		{
 			switch ( _g->hdls.gateway.pagestack_gateway_open_val )
@@ -256,6 +258,11 @@ _THREAD_FXN void_p discharge_persistant_cache_proc( pass_p src_g )
 				{
 					distributor_publish_buffer_size( &_g->hdls.prst_csh.bcast_pagestacked_pkts , NULL , 0 , SUBSCRIBER_PROVIDED );
 					mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+					break;
+				}
+				case errPortOccupied:
+				{
+					mng_basic_thread_sleep( _g , VHI_PRIORITY_THREAD );
 					break;
 				}
 			}

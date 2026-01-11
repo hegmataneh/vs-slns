@@ -16,7 +16,8 @@ typedef enum
 	LOW_PRIORITY_THREAD = 1,
 	NORMAL_PRIORITY_THREAD = 2,
 	HI_PRIORITY_THREAD = 3,
-	VLOW_PRIORITY_THREAD = 4
+	VLOW_PRIORITY_THREAD = 4,
+	VHI_PRIORITY_THREAD = 5
 } etrd_priority;
 
 #define DEFAULT_BUF_SIZE 2048
@@ -31,6 +32,7 @@ typedef enum
 #define DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC 3000000000 /*3 sec*/
 #define DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC 1000000000 /*1 sec*/
 #define DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC 1000000 /*1 milsec*/
+#define DEFAULT_VERY_HI_BASIC_THREAD_DELAY_NANOSEC 1000
 
 #define DEFAULT_INFINITE_LOOP_GUARD 1000
 
@@ -55,6 +57,8 @@ typedef enum
 #define LOW_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().low_priority_thread_cooldown_delay_nanosec : DEFAULT_LOW_BASIC_THREAD_DELAY_NANOSEC )
 #define NORMAL_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().normal_priority_thread_cooldown_delay_nanosec : DEFAULT_NORMAL_BASIC_THREAD_DELAY_NANOSEC )
 #define HI_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().hi_priority_thread_cooldown_delay_nanosec : DEFAULT_HI_BASIC_THREAD_DELAY_NANOSEC )
+#define VERY_HI_THREAD_DEFAULT_DELAY_NANOSEC() ( _g->appcfg.g_cfg ? CFG().very_hi_priority_thread_cooldown_delay_nanosec : DEFAULT_VERY_HI_BASIC_THREAD_DELAY_NANOSEC )
+
 
 #define BAD_NETWORK_HANDSHAKE_TIMEOUT() ( _g->appcfg.g_cfg ? CFG().network_handshake_pessimistic_timeout_sec : DEFAULT_BAD_NETWORK_HANDSHAKE_TIMEOUT )
 
@@ -209,7 +213,7 @@ enum thread_used
 
 	#define ENABLE_CLEAN_UNUSED_SEGMENT /*be defined 14040930*/
 
-	#define ENABLE_ABSOLETE_OLD_SEGMENT /*be defined 14040930*/
+	#define ENABLE_STORE_OLD_FILLED_LOW_PROBABLE_SENDABLE_SEGMENT /*be defined 14040930*/
 
 	#define ENABLE_GATHER_STATIC /*be defined 14040930*/
 
@@ -219,7 +223,7 @@ enum thread_used
 
 	#define ENABLE_THROUGHPUT_MEASURE /*be defined 14040930*/
 
-	#define ENABLE_HALFFILL_SEGMENT /*be defined 14040930*/
+	#define ENABLE_RELEASE_HALFFILL_UNUSED_SEGMENT /*be defined 14040930*/
 
 	#define ENABLE_LOCK_ON_CONFIG // TODO
 

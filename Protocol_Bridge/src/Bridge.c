@@ -71,7 +71,7 @@ _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
 
 				for ( CIRCUIT_BREAKER long break_cuit_2 = 0 ; break_cuit_2 < 10 ; break_cuit_2++ )
 				{
-					if ( pthread_mutex_timedlock_rel( &_g->hdls.pkt_mgr.pm_lock , 1 ) != errOK ) continue;
+					if ( pthread_mutex_timedlock_rel( &PACKET_MGR().pm_lock , 1 ) != errOK ) continue;
 					
 					for ( size_t tcpidx = 0 ; tcpidx < pb->tcps_count ; tcpidx++ )
 					{
@@ -171,6 +171,8 @@ _CALLBACK_FXN void cleanup_bridges( pass_p src_g , long v )
 			cbuf_m_free( &pb->stat.round_init_set.tcp_stat_40_sec_count );
 			cbuf_m_free( &pb->stat.round_init_set.tcp_stat_40_sec_bytes );
 			#endif
+
+			// later clean udps and tcps
 
 			//DAC( pb->udps );
 			//DAC( pb->tcps );
@@ -592,6 +594,7 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 
 			for ( int itcp_piv = 0 ; itcp_piv < pb->tcps_count ; itcp_piv++ )
 			{
+				// some out has same config same as other out in other bridge . so one connection created and others are its alias
 				for ( size_t ab_idx = 0 ; ab_idx < _g->bridges.ABs.count ; ab_idx++ )
 				{
 					AB * pab = NULL;
@@ -619,12 +622,14 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 					}
 				}
 
+				// origin or first tcp out initialized
 				if ( !pb->tcps[ itcp_piv ].this )
 				{
 					pb->tcps[ itcp_piv ].this = &pb->tcps[ itcp_piv ];
 					pb->tcps[ itcp_piv ].main_instance = true;
 					pb->tcps[ itcp_piv ].tcp_sockfd = invalid_fd;
 					M_BREAK_STAT( distributor_init( &pb->tcps[ itcp_piv ].bcast_change_state , 1 ) , 0 );
+					M_BREAK_STAT( cr_in_wnd_init( &pb->tcps[ itcp_piv ].brdg_rate_ctrl_loadOnOutBridge , ( size_t )CFG().long_term_throughput_smoothing_samples ) , 0 );
 					subscriber_t * psubscriber = NULL;
 					if ( distributor_subscribe_out( &pb->tcps[ itcp_piv ].bcast_change_state , SUB_LONG , SUB_FXN( tcp_state_changed ) , _g , &psubscriber ) == errOK )
 					{
@@ -642,8 +647,8 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 	pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
 
 	// TODO . if Ab goes away then unregister quit intrupt
-	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( bridge_insure_input_bus_stoping ) , pb , bridge_insure_input_bus_stoped ) , 0 ); // in several level bridge make cleanup
-	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_after_nomore_udp ) , pb , getting_new_udp_stoped ) , 0 ); // in several level bridge make cleanup
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( bridge_insure_input_bus_stoping ) , pb , bridge_insure_input_bus_stoped ) , 0 ); // in several level bridge make cleanup   
+	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_after_nomore_udp ) , pb , getting_new_udp_stoped ) , 0 ); // in several level bridge maked cleaned up   
 	M_BREAK_STAT( distributor_subscribe_withOrder( &_g->distributors.bcast_quit , SUB_LONG , SUB_FXN( cleanup_bridges ) , _g , clean_globals_shared_var ) , 0 ); // in several level bridge make cleanup
 	
 #ifdef HAS_STATISTICSS

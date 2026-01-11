@@ -53,9 +53,9 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 
 	xudp_hdr * pkt = ( xudp_hdr * )bufferr; // plain cup for packet
 	pkt->metadata.version = TCP_XPKT_V1;
-	pkt->metadata.sent = false;
-	pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
-	pkt->metadata.retried = false;
+	//pkt->metadata.sent = false;
+	//pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
+	//pkt->metadata.retried = false;
 	
 	// TODO . correct multi tcp policy
 	strcpy( pkt->TCP_name , pb->tcps[ 0 ].__tcp_cfg_pak->name ); // actually write on buffer
@@ -64,7 +64,7 @@ _THREAD_FXN void_p proc_one2one_krnl_udp_store( void_p src_pb )
 	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );
 
 	// one tcp out so there is one place to set hash and uniq id is enough
-	M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
+	M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &PACKET_MGR().map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
 
 	//while ( !pb->comm.preq.bridg_prerequisite_stabled )
 	//{

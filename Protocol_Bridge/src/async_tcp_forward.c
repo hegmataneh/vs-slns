@@ -24,7 +24,7 @@ _CALLBACK_FXN _PRIVATE_FXN status fast_ring_2_huge_ring_global( pass_p data , bu
 	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
 
 	// there in multiple tcp so each packet should have its own hash and uniq id
-	dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id );
+	dict_forcibly_get_hash_id_bykey( &PACKET_MGR().map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id );
 
 	return fast_ring_2_huge_ring( data , buf , sz );
 }
@@ -140,9 +140,11 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 	
 	xudp_hdr * pkt = ( xudp_hdr * )buffer; // plain cup for packet
 	pkt->metadata.version = TCP_XPKT_V1;
-	pkt->metadata.sent = false;
-	pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
-	pkt->metadata.retried = false;
+	//pkt->state = ring2ram;
+	
+	//pkt->metadata.sent = false;
+	//pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
+	//pkt->metadata.retried = false;
 
 	pkt->metadata.TCP_name_size = ( uint8_t )sizeof( pb->tcps[ 0 ].__tcp_cfg_pak->name );
 	pkt->metadata.payload_offset = ( uint8_t )sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + ( uint8_t )sizeof( EOS )/*to read hdr name faster*/;
@@ -158,7 +160,7 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 	// to be insure we used correct tcp output
 	// / there is many tcp out so use one tcp name is wrong
-	//M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &_g->hdls.pkt_mgr.map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
+	//M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &PACKET_MGR().map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
 
 	while ( 1 )
 	{

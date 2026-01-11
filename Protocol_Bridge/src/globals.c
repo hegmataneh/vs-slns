@@ -707,13 +707,16 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 					{
 						if ( pb->tcps[ itcp ].tcp_connection_established && !_g->cmd.block_sending_1 )
 						{
+							timespec tnow;
+							clock_gettime( CLOCK_REALTIME , &tnow );
+
 							if
 							(
 								!pb->tcps[ itcp ].tcp_is_about_to_connect &&
-								( time( NULL ) - pb->tcps[ itcp ].last_access ) > CFG().tcp_connection_idle_timeout_sec
+								timespec_diff_ms( &pb->tcps[ itcp ].last_action_ts , &tnow ) > CFG().tcp_connection_idle_timeout_sec * 1000
 							)
 							{
-								pb->tcps[ itcp ].last_access = time( NULL );
+								clock_gettime( CLOCK_REALTIME , &pb->tcps[ itcp ].last_action_ts );
 								IMMORTAL_LPCSTR errString = NULL;
 								if ( is_socket_connected_peek( pb->tcps[ itcp ].tcp_sockfd , 0 , &errString ) <= 0 )
 								{
@@ -815,43 +818,55 @@ _THREAD_FXN void_p watchdog_executer( pass_p src_g )
 
 #ifndef usual_utils
 
+void mng_basic_thread_sleep_nsec( G * _g , int64 sleep_nsec )
+{
+	struct timespec ts = { .tv_sec = 0 , .tv_nsec = sleep_nsec };
+	ts.tv_sec = ts.tv_nsec / 1000000000L;   // seconds
+	ts.tv_nsec = ts.tv_nsec % 1000000000L;  // nanoseconds
+	thrd_sleep( &ts , NULL );
+}
+
+void mng_basic_thread_sleep_sec( G * _g , int sleep_sec )
+{
+	mng_basic_thread_sleep_nsec( _g , sleep_sec * 1000000000L );
+}
+
 /// <summary>
 /// single point for thread wait
 /// </summary>
-void _mng_basic_thread_sleep( G * _g , etrd_priority priority , int custom_sleep_sec/*0 if use config*/ )
+void mng_basic_thread_sleep( G * _g , etrd_priority priority )
 {
-	struct timespec ts = {0};
+	int64 sleep_nsec = 0;
 	switch ( priority )
 	{
 		case VLOW_PRIORITY_THREAD:
 		{
-			ts.tv_nsec = VLOW_THREAD_DEFAULT_DELAY_NANOSEC();
+			sleep_nsec = VLOW_THREAD_DEFAULT_DELAY_NANOSEC();
 			break;
 		}
 		case LOW_PRIORITY_THREAD:
 		{
-			ts.tv_nsec = LOW_THREAD_DEFAULT_DELAY_NANOSEC();
+			sleep_nsec = LOW_THREAD_DEFAULT_DELAY_NANOSEC();
 			break;
 		}
 		case NORMAL_PRIORITY_THREAD:
 		{
-			ts.tv_nsec = NORMAL_THREAD_DEFAULT_DELAY_NANOSEC();
+			sleep_nsec = NORMAL_THREAD_DEFAULT_DELAY_NANOSEC();
 			break;
 		}
 		default:
 		case HI_PRIORITY_THREAD:
 		{
-			ts.tv_nsec = HI_THREAD_DEFAULT_DELAY_NANOSEC();
+			sleep_nsec = HI_THREAD_DEFAULT_DELAY_NANOSEC();
+			break;
+		}
+		case VHI_PRIORITY_THREAD:
+		{
+			sleep_nsec = VERY_HI_THREAD_DEFAULT_DELAY_NANOSEC();
 			break;
 		}
 	}
-	if ( custom_sleep_sec )
-	{
-		ts.tv_nsec = custom_sleep_sec * 1000000000L;
-	}
-	ts.tv_sec = ts.tv_nsec / 1000000000L;   // seconds
-	ts.tv_nsec = ts.tv_nsec % 1000000000L;  // nanoseconds
-	thrd_sleep( &ts , NULL );
+	mng_basic_thread_sleep_nsec( _g , sleep_nsec );
 }
 
 /// <summary>

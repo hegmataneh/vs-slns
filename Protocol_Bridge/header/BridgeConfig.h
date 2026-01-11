@@ -13,6 +13,7 @@ typedef struct udp_conn_cfg_data
 	} core;
 	int enable;
 	int reset_connection;
+
 } udp_cfg_t;
 
 typedef struct tcp_conn_cfg_data
@@ -27,6 +28,10 @@ typedef struct tcp_conn_cfg_data
 	} core;
 	int enable;
 	int reset_connection;
+	CFG_ITM post_action;
+	int send_gap_nsec;
+	int send_througput_limit_Bps;
+
 } tcp_cfg_t;
 
 typedef struct bridge_cfg_input_part

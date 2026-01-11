@@ -84,6 +84,7 @@
 #endif
 
 #ifdef Uses_Bridge
+	#define Uses_timespec
 	#define Uses_ABstat
 	#define Uses_dfrg_udp
 	#define Uses_cbuf_pked
@@ -129,7 +130,6 @@
 	#define Uses_nnc_cell_content
 	#define Uses_distributor_t
 	#define Uses_definition
-	//#define Uses_WINDOW
 	#define Uses_cbuf_metr
 	#define Uses_globals
 	#define __INC_statistics

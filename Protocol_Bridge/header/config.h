@@ -26,6 +26,7 @@ typedef struct Global_Config_0
 			int64 low_priority_thread_cooldown_delay_nanosec;
 			int64 normal_priority_thread_cooldown_delay_nanosec;
 			int64 hi_priority_thread_cooldown_delay_nanosec;
+			int64 very_hi_priority_thread_cooldown_delay_nanosec;
 			int64 harbor_mem_segment_capacity;
 			int64 harbor_mem_segment_offsets_cnt_base;
 			int idle_active_harbor_mem_segment_timeout_sec;
@@ -73,6 +74,7 @@ typedef struct Global_Config_0
 			int64 low_priority_thread_cooldown_delay_nanosec;
 			int64 normal_priority_thread_cooldown_delay_nanosec;
 			int64 hi_priority_thread_cooldown_delay_nanosec;
+			int64 very_hi_priority_thread_cooldown_delay_nanosec;
 			int64 harbor_mem_segment_capacity;
 			int64 harbor_mem_segment_offsets_cnt_base;
 			int idle_active_harbor_mem_segment_timeout_sec;
