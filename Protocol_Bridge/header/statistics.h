@@ -103,8 +103,12 @@ typedef struct s_bridge_stat
 
 	nnc_cell_content * pb_total_udp_get_count_cell;
 	nnc_cell_content * pb_total_udp_get_byte_cell;
+	
 	nnc_cell_content * pb_total_tcp_put_count_cell;
 	nnc_cell_content * pb_total_tcp_put_byte_cell;
+
+	nnc_cell_content * pb_max_tcp_pps;
+	nnc_cell_content * pb_max_tcp_bps;
 
 #ifdef ENABLE_THROUGHPUT_MEASURE
 	nnc_cell_content * pb_5s_udp_pps;

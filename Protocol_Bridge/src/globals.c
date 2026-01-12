@@ -1416,7 +1416,7 @@ _CALLBACK_FXN PASSED_CSTR pb_TCP_conn_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%d(%s)" , pb->stat.round_zero_set.tcp_connection_count , al_alive( &pb->stat.tcp_port_err_indicator , true ) );
+	sprintf( pcell->storage.tmpbuf , "%d(!%s)" , pb->stat.round_zero_set.tcp_connection_count , al_alive( &pb->stat.tcp_port_err_indicator , true ) );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1469,6 +1469,23 @@ _CALLBACK_FXN PASSED_CSTR pb_TCP_put_byte_2_str( pass_p src_pcell )
 }
 
 #ifdef ENABLE_THROUGHPUT_MEASURE
+_CALLBACK_FXN PASSED_CSTR pb_max_tcp_pps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , cbuf_m_max( &pb->stat.round_init_set.tcp_stat_10_sec_count ) , DOUBLE_PRECISION() , "" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+_CALLBACK_FXN PASSED_CSTR pb_max_tcp_bps_2_str( pass_p src_pcell )
+{
+	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
+	AB * pb = ( AB * )pcell->storage.bt.pass_data;
+	_FORMAT_SHRTFRM( pcell->storage.tmpbuf , sizeof( pcell->storage.tmpbuf ) , cbuf_m_max( &pb->stat.round_init_set.tcp_stat_10_sec_bytes ) , DOUBLE_PRECISION() , "B" , "" );
+	return ( PASSED_CSTR )pcell->storage.tmpbuf;
+}
+
+
 _CALLBACK_FXN PASSED_CSTR pb_5s_udp_pps_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;

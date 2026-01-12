@@ -209,6 +209,10 @@ _CALLBACK_FXN PASSED_CSTR pb_TCP_put_count_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_TCP_put_byte_2_str( pass_p src_pcell );
 
 #ifdef ENABLE_THROUGHPUT_MEASURE
+
+_CALLBACK_FXN PASSED_CSTR pb_max_tcp_pps_2_str( pass_p src_pcell );
+_CALLBACK_FXN PASSED_CSTR pb_max_tcp_bps_2_str( pass_p src_pcell );
+
 _CALLBACK_FXN PASSED_CSTR pb_5s_udp_pps_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_5s_udp_bps_2_str( pass_p src_pcell );
 _CALLBACK_FXN PASSED_CSTR pb_10s_udp_pps_2_str( pass_p src_pcell );

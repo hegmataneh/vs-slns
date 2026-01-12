@@ -338,6 +338,24 @@ _CALLBACK_FXN void init_bridges_statistics( pass_p src_g )
 			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_total_tcp_put_byte_cell ) , 0 );
 
 
+
+			//--->>>
+			irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
+			M_BREAK_STAT( nnc_set_static_int( ptbl , ( size_t )irow , ( size_t )icol++ , irow + 1 ) , 0 );
+			//---<<<
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "max TCP pps" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_max_tcp_pps ) , 0 );
+			pb->stat.pb_max_tcp_pps->storage.bt.pass_data = pb; pb->stat.pb_max_tcp_pps->conversion_fxn = pb_max_tcp_pps_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_max_tcp_pps ) , 0 );
+
+			//
+			M_BREAK_STAT( nnc_set_static_text( ptbl , ( size_t )irow , ( size_t )icol++ , "max TCP Bps" ) , 0 );
+			M_BREAK_STAT( mms_array_get_one_available_unoccopied_item( &_g->stat.nc_s_req.field_keeper , ( void ** )&pb->stat.pb_max_tcp_bps ) , 0 );
+			pb->stat.pb_max_tcp_bps->storage.bt.pass_data = pb; pb->stat.pb_max_tcp_bps->conversion_fxn = pb_max_tcp_bps_2_str;
+			M_BREAK_STAT( nnc_set_outer_cell( ptbl , ( size_t )irow , ( size_t )icol++ , pb->stat.pb_max_tcp_bps ) , 0 );
+
+
+
 			#ifdef ENABLE_THROUGHPUT_MEASURE
 			//--->>>
 			irow++; icol = 0; M_BREAK_STAT( nnc_add_empty_row( ptbl , NULL ) , 0 );
