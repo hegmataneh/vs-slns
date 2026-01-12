@@ -84,6 +84,7 @@
 #endif
 
 #ifdef Uses_Bridge
+	#define Uses_alive_t
 	#define Uses_timespec
 	#define Uses_ABstat
 	#define Uses_dfrg_udp
@@ -127,6 +128,7 @@
 #endif
 
 #ifdef Uses_statistics
+	#define Uses_alive_t
 	#define Uses_nnc_cell_content
 	#define Uses_distributor_t
 	#define Uses_definition

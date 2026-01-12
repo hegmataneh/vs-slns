@@ -84,7 +84,8 @@
 					"enable": 1,
 					"reset_connection": 0,
 					"post_action": "post enter",
-					"send_througput_limit_Bps": 100000,
+					"send_throughput_window_sz": 10,
+					"send_throughput_limit_Bps": 1000000,
 					"send_gap_nsec": 1000
 				}
 			},

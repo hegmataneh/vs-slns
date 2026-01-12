@@ -30,7 +30,8 @@ typedef struct tcp_conn_cfg_data
 	int reset_connection;
 	CFG_ITM post_action;
 	int send_gap_nsec;
-	int send_througput_limit_Bps;
+	int send_throughput_window_sz;
+	int send_throughput_limit_Bps;
 
 } tcp_cfg_t;
 

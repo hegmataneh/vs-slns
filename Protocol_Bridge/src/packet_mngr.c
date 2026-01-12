@@ -1124,7 +1124,10 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 		
 		if ( ab_tcp_p )
 		{
-			ptcp = ( AB_tcp * )ab_tcp_p;
+			if ( ( ptcp = ( AB_tcp * )ab_tcp_p ) )
+			{
+				pb = ptcp->owner_pb;
+			}
 
 			if ( ptcp->__tcp_cfg_pak->data.send_gap_nsec > 0 ) // used when we need debounce in sending
 			{
@@ -1138,11 +1141,11 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 					goto _exit_pt;
 				}
 			}
-			if ( ptcp->__tcp_cfg_pak->data.send_througput_limit_Bps > 0 ) // used when we need limit in througput
+			if ( ptcp->__tcp_cfg_pak->data.send_throughput_limit_Bps > 0 ) // used when we need limit in througput
 			{
-				if ( cr_in_wnd_get_Bps( &ptcp->brdg_rate_ctrl_loadOnOutBridge ) > ptcp->__tcp_cfg_pak->data.send_througput_limit_Bps )
+				cr_in_wnd_add_packet( &ptcp->brdg_rate_ctrl_loadOnOutBridge , 0 );
+				if ( cr_in_wnd_get_Bps( &ptcp->brdg_rate_ctrl_loadOnOutBridge ) > ptcp->__tcp_cfg_pak->data.send_throughput_limit_Bps )
 				{
-					cr_in_wnd_add_packet( &ptcp->brdg_rate_ctrl_loadOnOutBridge , 0 );
 					////cr_in_wnd_add_packet( &PACKET_MGR().ram_ctrl_loadOnOutBridge , 0 ); // when calced it aligned to current time automatically
 					err_sent = errPortOccupied;
 					goto _exit_pt;
@@ -1181,9 +1184,6 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 					clock_gettime( CLOCK_REALTIME , &ptcp->this->last_send_ts ); // last send time use in debuncing between sending
 					ptcp->this->last_action_ts = ptcp->this->last_send_ts; // last action time on tcp connection use in rety to reconnect broken tcp
 
-					// 
-					pb = ptcp->owner_pb;
-
 					// post action
 					if ( iSTR_SAME( ptcp->__tcp_cfg_pak->data.post_action , "post enter" ) )
 					{
@@ -1221,7 +1221,6 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 						//ptcp->retry_to_connect_tcp = 1;
 						ptcp->this->tcp_connection_established = 0;
 					}
-					pb = ptcp->owner_pb;
 				}
 
 				if ( !errString ) /*because before it logged*/
@@ -1234,11 +1233,19 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 			}
 			case errGeneral:
 			{
+				if ( pb )
+				{
+					al_alive( &pb->stat.tcp_port_err_indicator , false );
+				}
 				_inner_status_error++;
 				break;
 			}
 			default:
 			{
+				if ( pb )
+				{
+					al_alive( &pb->stat.tcp_port_err_indicator , false );
+				}
 				_inner_status_error++;
 				if ( !errString ) /*because before it logged*/
 				{
@@ -1300,18 +1307,17 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 										goto _exit_pt;
 									}
 								}
-								if ( ptcp->__tcp_cfg_pak->data.send_througput_limit_Bps > 0 ) // used when we need limit in througput
+								if ( ptcp->__tcp_cfg_pak->data.send_throughput_limit_Bps > 0 ) // used when we need limit in througput
 								{
-									if ( cr_in_wnd_get_Bps( &ptcp->brdg_rate_ctrl_loadOnOutBridge ) > ptcp->__tcp_cfg_pak->data.send_througput_limit_Bps )
+									if ( ptcp )
+									{
+										cr_in_wnd_add_packet( &ptcp->brdg_rate_ctrl_loadOnOutBridge , 0 );
+										////cr_in_wnd_add_packet( &PACKET_MGR().ram_ctrl_loadOnOutBridge , 0 );
+									}
+									if ( cr_in_wnd_get_Bps( &ptcp->brdg_rate_ctrl_loadOnOutBridge ) > ptcp->__tcp_cfg_pak->data.send_throughput_limit_Bps )
 									{
 										pthread_mutex_unlock( &_g->bridges.tcps_trd.mtx );
 										err_sent = errPortOccupied;
-										
-										if ( ptcp )
-										{
-											cr_in_wnd_add_packet( &ptcp->brdg_rate_ctrl_loadOnOutBridge , 0 );
-											////cr_in_wnd_add_packet( &PACKET_MGR().ram_ctrl_loadOnOutBridge , 0 );
-										}
 										goto _exit_pt;
 									}
 								}
@@ -1387,6 +1393,8 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 									}
 									default:
 									{
+										al_alive( &pb->stat.tcp_port_err_indicator , false );
+
 										_inner_status_error++;
 										if ( !errString ) /*because before it logged*/
 										{

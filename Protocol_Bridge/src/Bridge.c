@@ -608,7 +608,7 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 								{
 									if ( tcp_core_config_equlity( pab->tcps[ itcp_sec ].__tcp_cfg_pak , &pb->cpy_cfg.m.m.maintained.out[ itcp_piv ] ) )
 									{
-										pb->tcps[ itcp_piv ].this = &pab->tcps[ itcp_sec ];
+										pb->tcps[ itcp_piv ].this = &pab->tcps[ itcp_sec ]; // second tcp same as first one
 										pb->tcps[ itcp_piv ].main_instance = false;
 										break;
 									}
@@ -625,11 +625,15 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 				// origin or first tcp out initialized
 				if ( !pb->tcps[ itcp_piv ].this )
 				{
+					// i am original one
 					pb->tcps[ itcp_piv ].this = &pb->tcps[ itcp_piv ];
 					pb->tcps[ itcp_piv ].main_instance = true;
 					pb->tcps[ itcp_piv ].tcp_sockfd = invalid_fd;
+					pb->tcps[ itcp_piv ].owner_pb = pb;
+					pb->tcps[ itcp_piv ].__tcp_cfg_pak = &pb->cpy_cfg.m.m.maintained.out[ itcp_piv ];
 					M_BREAK_STAT( distributor_init( &pb->tcps[ itcp_piv ].bcast_change_state , 1 ) , 0 );
-					M_BREAK_STAT( cr_in_wnd_init( &pb->tcps[ itcp_piv ].brdg_rate_ctrl_loadOnOutBridge , ( size_t )CFG().long_term_throughput_smoothing_samples ) , 0 );
+					M_BREAK_STAT( cr_in_wnd_init( &pb->tcps[ itcp_piv ].brdg_rate_ctrl_loadOnOutBridge , ( size_t )pb->tcps[ itcp_piv ].__tcp_cfg_pak->data.send_throughput_window_sz ) , 0 );
+					al_init( &pb->stat.tcp_port_err_indicator );
 					subscriber_t * psubscriber = NULL;
 					if ( distributor_subscribe_out( &pb->tcps[ itcp_piv ].bcast_change_state , SUB_LONG , SUB_FXN( tcp_state_changed ) , _g , &psubscriber ) == errOK )
 					{

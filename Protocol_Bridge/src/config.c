@@ -496,7 +496,8 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 								IN_CFG_ELEM_I( el_out , reset_connection );
 
 								IN_CFG_ELEM_STR( el_out , post_action );
-								IN_CFG_ELEM_I( el_out , send_througput_limit_Bps );
+								IN_CFG_ELEM_I( el_out , send_throughput_window_sz );
+								IN_CFG_ELEM_I( el_out , send_throughput_limit_Bps );
 								IN_CFG_ELEM_I( el_out , send_gap_nsec );
 
 

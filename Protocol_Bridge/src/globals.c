@@ -1416,7 +1416,7 @@ _CALLBACK_FXN PASSED_CSTR pb_TCP_conn_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%d" , pb->stat.round_zero_set.tcp_connection_count );
+	sprintf( pcell->storage.tmpbuf , "%d(%s)" , pb->stat.round_zero_set.tcp_connection_count , al_alive( &pb->stat.tcp_port_err_indicator , true ) );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
