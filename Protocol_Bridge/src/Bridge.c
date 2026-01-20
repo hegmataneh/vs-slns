@@ -813,7 +813,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			M_BREAK_IF( !( pb->comm.acts.p_one2one_krnl2krnl_SF = CALLOC_ONE( pb->comm.acts.p_one2one_krnl2krnl_SF ) ) , errMemoryLow , 1 );
 
 			// each packet most release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().L1_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
 		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
@@ -843,7 +843,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			MEMSET_ZERO_O( pb->comm.acts.p_one2one_pcap2krnl_SF );
 
 			// each packet most release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().L1_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
 		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
@@ -875,7 +875,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			M_BREAK_IF( !( pb->comm.acts.p_one2many_krnl2krnl_SF = CALLOC_ONE( pb->comm.acts.p_one2many_krnl2krnl_SF ) ) , errMemoryLow , 1 );
 
 			// each packet most release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().L1_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
 		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
@@ -904,7 +904,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 			MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
 
 			// each packet most release as soon as possible to prevent lost
-			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
+			M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().L1_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
 		#ifdef ENABLE_BRIDGE_THREAD_CREATION
 			if ( !pb->comm.preq.thread_is_created )
@@ -932,7 +932,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 	//		//MEMSET_ZERO_O( pb->comm.acts.p_many2one_pcap2krnl_SF_serialize );
 	//		
 	//		// each packet most release as soon as possible to prevent lost
-	//		//M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
+	//		//M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().L1_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 	//		
 	//	#ifdef ENABLE_BRIDGE_THREAD_CREATION
 	//		//if ( !pb->comm.preq.thread_is_created )
@@ -963,7 +963,7 @@ _REGULAR_FXN void apply_new_protocol_bridge_config( G * _g , AB * pb , brg_cfg_t
 	//	//	MEMSET_ZERO_O( pb->comm.acts.p_one2many_pcap2krnl_SF );
 
 	//	// each packet most release as soon as possible to prevent lost
-	//	//	M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().raw_udp_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
+	//	//	M_BREAK_STAT( cbuf_pked_init( &pb->comm.preq.raw_xudp_cache , ( size_t )CFG().L1_cache_sz_byte , &_g->cmd.burst_waiting_2 ) , 1 );
 
 	//#ifdef ENABLE_BRIDGE_THREAD_CREATION
 	//	//	if ( !pb->comm.preq.thread_is_created )

@@ -27,7 +27,6 @@ void finalize_udps_defragmentator( defraged_udps_t * frg )
 	sem_destroy( &frg->gateway );
 }
 
-//_GLOBAL_VAR _EXTERN long long _L1Cache_ipv4_entrance;
 //extern void * __file_map;
 //extern int last_pos;
 
@@ -211,7 +210,7 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		DEFRAGED_UDPS().ids[ udp_spec.hdr.udp_pkt_id ].tm = udp_spec.hdr.tm;
 		//my_hdr.frag_offset = 0;
 		udp_spec.data_progress_B = udp_spec.data_length_B = udp_dg_len_B - sizeof(struct udphdr);
-		DEFRAGED_UDPS().ids[ udp_spec.hdr.udp_pkt_id ].fragment_delay_msec = CFG().each_udp_part_reassembly_timeout_msec;
+		DEFRAGED_UDPS().ids[ udp_spec.hdr.udp_pkt_id ].fragment_delay_msec = CFG().ipv4_reassembly_timeout_msec;
 
 		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , NULL , false );
 		if ( d_error != errOK )
@@ -267,7 +266,7 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		{
 			// it is possible that second part received first after first part
 			// some times in test one udp packet received continuously so i should be prepare for that
-			if ( timeval_diff_ms( &udp_spec.hdr.tm , &CCH.tm ) > CFG().udp_id_keeping_timeout_msec )
+			if ( timeval_diff_ms( &udp_spec.hdr.tm , &CCH.tm ) > CFG().udp_id_valid_until_timeout_msec )
 			{
 				DEFRAGED_UDPS().no_dfrg_id_timeout++;
 				MEMSET_ZERO_O( &CCH );
@@ -290,7 +289,7 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 			CCH.tm = udp_spec.hdr.tm;
 		}
 
-		CCH.fragment_delay_msec = MAX( 1 , ( uint16_t )ceil( 1.0 * ( SIZE_ETHERNET + sizeof( struct udphdr ) + udp_spec.data_length_B ) / ( ETHERNET_MTU - IP_header ) ) ) * CFG().each_udp_part_reassembly_timeout_msec; // ceil( (IP + UDP + payload) / (MTU - IP_header) )
+		CCH.fragment_delay_msec = MAX( 1 , ( uint16_t )ceil( 1.0 * ( SIZE_ETHERNET + sizeof( struct udphdr ) + udp_spec.data_length_B ) / ( ETHERNET_MTU - IP_header ) ) ) * CFG().ipv4_reassembly_timeout_msec; // ceil( (IP + UDP + payload) / (MTU - IP_header) )
 
 		size_t hdr_addr , pyld_addr; // size in memory
 		status d_error = cbuf_pked_push( &pb->comm.preq.raw_xudp_cache , ( buffer )&udp_spec , sizeof( udp_spec ) , sizeof( udp_spec ) , &hdr_addr , false ); // first write header to buff
@@ -363,7 +362,7 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 		{
 			// it is possible that second part received first after first part
 			// some times in test one udp packet received continuously so i should be prepare for that
-			if ( timeval_diff_ms( &udp_spec.hdr.tm , &CCH.tm ) > CFG().udp_id_keeping_timeout_msec )
+			if ( timeval_diff_ms( &udp_spec.hdr.tm , &CCH.tm ) > CFG().udp_id_valid_until_timeout_msec )
 			{
 				DEFRAGED_UDPS().no_dfrg_id_timeout++;
 				MEMSET_ZERO_O( &CCH );
@@ -388,7 +387,7 @@ _CALLBACK_FXN status defragment_pcap_data( void_p src_pb , void_p src_hdr , void
 
 		if ( !CCH.fragment_delay_msec )
 		{
-			CCH.fragment_delay_msec = CFG().udp_id_keeping_timeout_msec; // ceil( (IP + UDP + payload) / (MTU - IP_header) )
+			CCH.fragment_delay_msec = CFG().udp_id_valid_until_timeout_msec; // ceil( (IP + UDP + payload) / (MTU - IP_header) )
 		}
 
 		//udp_spec.frag_offset = frag_offset;
@@ -448,7 +447,7 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , size_t out
 	size_t hdr_sz = 0;
 
 	/*read header(dfrg_udp_metadata) from buffer*/
-	if ( ( d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , &tmp_hdr , sizeof( tmp_hdr ) , &hdr_sz , (long)CFG().time_out_sec , true ) ) != errOK )
+	if ( ( d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , &tmp_hdr , sizeof( tmp_hdr ) , &hdr_sz , (long)CFG().socket_def_timeout_sec , true ) ) != errOK )
 	{
 		if ( d_error != errTimeout )
 		{
@@ -558,7 +557,7 @@ status poped_defraged_packet( void_p src_pb , OUTcpy buffer out_buf , size_t out
 
 
 		if ( out_hdr ) MEMCPY( out_hdr , &tmp_hdr.hdr );
-		d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , out_buf , 0/*no exp*/ , out_len_B , (long)CFG().time_out_sec , false ); // most of the packet get here na dis normal
+		d_error = cbuf_pked_pop( &pb->comm.preq.raw_xudp_cache , out_buf , 0/*no exp*/ , out_len_B , (long)CFG().socket_def_timeout_sec , false ); // most of the packet get here na dis normal
 		if ( d_error )
 		{
 			if ( d_error != errTimeout )

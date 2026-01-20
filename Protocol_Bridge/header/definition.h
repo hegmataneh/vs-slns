@@ -14,7 +14,7 @@
 typedef enum
 {
 	LOW_PRIORITY_THREAD = 1,
-	NORMAL_PRIORITY_THREAD = 2,
+	NORMAL_PRIORITY_THREAD = 2, /*default 1 sec*/
 	HI_PRIORITY_THREAD = 3,
 	VLOW_PRIORITY_THREAD = 4,
 	VHI_PRIORITY_THREAD = 5
@@ -40,7 +40,7 @@ typedef enum
 
 #define HI_FREQUENT_LOG_INTERVAL ( _g->appcfg.g_cfg ? CFG().log_cooldown_sec : LOG_COOLDOWN_SEC )
 
-#define REFRESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? (uint)CFG().refresh_interval_sec : REFRESH_INTERVAL_SEC_DEFUALT )
+#define REFRESH_INTERVAL_SEC() ( _g->appcfg.g_cfg ? (uint)CFG().stat_refresh_interval_sec : REFRESH_INTERVAL_SEC_DEFUALT )
 
 #define GRACEFULLY_END_THREAD() ( _g->cmd.quit_first_level_thread_3 ) /*some times at the end with ctrl+c some component stuck so there is lossless and with loss version of close*/
 

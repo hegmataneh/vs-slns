@@ -311,20 +311,20 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I( load_prev_config );																			/**/\
 					CFG_ELEM_I( dump_current_config );																		/**/\
 					CFG_ELEM_I( dump_prev_config );																			/**/\
-					CFG_ELEM_I( time_out_sec );																				/**/\
+					CFG_ELEM_I( socket_def_timeout_sec );																				/**/\
 					CFG_ELEM_I( verbose_mode );																				/**/\
 					CFG_ELEM_I( log_cooldown_sec );																			/**/\
-					CFG_ELEM_I( refresh_interval_sec );																		/**/\
+					CFG_ELEM_I( stat_refresh_interval_sec );																		/**/\
 					CFG_ELEM_I( number_in_short_form );																		/**/\
 					CFG_ELEM_I( precision_of_double_in_short_form );														/**/\
 					CFG_ELEM_I64( low_priority_thread_cooldown_delay_nanosec );												/**/\
 					CFG_ELEM_I64( normal_priority_thread_cooldown_delay_nanosec );											/**/\
 					CFG_ELEM_I64( hi_priority_thread_cooldown_delay_nanosec );												/**/\
 					CFG_ELEM_I64( very_hi_priority_thread_cooldown_delay_nanosec );												/**/\
-					CFG_ELEM_I64( harbor_mem_segment_capacity );															/**/\
-					CFG_ELEM_I64( harbor_mem_segment_offsets_cnt_base );													/**/\
-					CFG_ELEM_I( idle_active_harbor_mem_segment_timeout_sec );												/**/\
-					CFG_ELEM_I64( harbor_mem_max_allowed_allocation );														/**/\
+					CFG_ELEM_I64( L2_segment_capacity );															/**/\
+					CFG_ELEM_I64( L2_segment_offsets_cnt_base );													/**/\
+					CFG_ELEM_I( L2_idle_active_segment_expiration_timeout_sec );												/**/\
+					CFG_ELEM_I64( L2_allowed_ram_allocation );														/**/\
 					CFG_ELEM_F( instantaneous_input_load_coefficient );														/**/\
 					CFG_ELEM_I( TTF_no_backpressure_threshold_sec );														/**/\
 					CFG_ELEM_I( TTF_gentle_backpressure_threshold_sec );													/**/\
@@ -335,21 +335,21 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 					CFG_ELEM_I( TTF_aggressive_backpressure_stride );														/**/\
 					CFG_ELEM_I( TTF_emergency_drop_backpressure_stride );													/**/\
 					CFG_ELEM_I( TTF_red_zone_stride );																		/**/\
-					CFG_ELEM_I( wait_at_cleanup_until_unsaved_packet_stored_sec );											/**/\
-					CFG_ELEM_I( raw_udp_cache_sz_byte );																	/**/\
+					CFG_ELEM_I( L2_wait_until_cleaning_up_sec );											/**/\
+					CFG_ELEM_I( L1_cache_sz_byte );																	/**/\
 					CFG_ELEM_I( network_handshake_pessimistic_timeout_sec );												/**/\
-					CFG_ELEM_I( tcp_connection_idle_timeout_sec );															/**/\
-					CFG_ELEM_I( harbor_mem_flood_detection_sample_count );													/**/\
-					CFG_ELEM_I( long_term_throughput_smoothing_samples );													/**/\
-					CFG_ELEM_I( in_memory_udp_hold_time_sec );																/**/\
-					CFG_ELEM_I( unused_memory_block_hold_time_sec );														/**/\
-					CFG_ELEM_I( instant_load_influence_window_time_sec );													/**/\
-					CFG_ELEM_I( udp_id_keeping_timeout_msec );																/**/\
-					CFG_ELEM_I( each_udp_part_reassembly_timeout_msec );													/**/\
+					CFG_ELEM_I( retry_on_idle_tcp_conn_after_timeout_sec );															/**/\
+					CFG_ELEM_I( L2_flood_evaluator_sample_need_count );													/**/\
+					CFG_ELEM_I( L2_long_term_evaluator_sample_need_count );													/**/\
+					CFG_ELEM_I( L2_old_udp_holdon_timeout_sec );																/**/\
+					CFG_ELEM_I( L2_unused_segment_holdon_time_sec );														/**/\
+					CFG_ELEM_I( udp_id_valid_until_timeout_msec );																/**/\
+					CFG_ELEM_I( ipv4_reassembly_timeout_msec );													/**/\
 					CFG_ELEM_I( infinite_loop_guard );																		/**/\
-					CFG_ELEM_I( harbor_mem_segment_check_idle_active_each_n_sec );											/**/\
-					CFG_ELEM_I( max_saved_file_size_threshold_MB );															/**/
-					
+					CFG_ELEM_I( L2_idle_active_iteration_sec );											/**/\
+					CFG_ELEM_I( max_saved_file_size_threshold_MB );															/**/\
+					CFG_ELEM_I( L1_2_L2_byte_copy_latency_nsec );															/**/
+
 
 					#undef CFG_ELEM_I
 					#undef CFG_ELEM_STR

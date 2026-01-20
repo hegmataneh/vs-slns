@@ -70,16 +70,31 @@ typedef struct /*ready_2_send_packet_v1*/
 
 #if defined Uses_packet_mngr_prerequisite || !defined __COMPILING
 
+typedef enum about_to_fill_pressure
+{
+	prss_no_pressure ,
+	prss_gentle_pressure ,
+	prss_aggressive_pressure ,
+	prss_emergency_pressure ,
+	prss_red_zone_pressure ,
+
+	prss_skip_section , /*donot use this directly to assign or right of operation*/
+	prss_skip_input_by_memory_fulled ,
+	prss_skip_input_by_hard_fulled
+} prss_e;
+
 typedef struct packet_mngr_prerequisite
 {
 	kv_table_t map_tcp_socket; // keep mapping between tcp & id
 	ci_sgmgr_t harbor_memory; // second huge buffer for storing all otput pkts. this buffer can extend to maximum ram size
 	pthread_t trd_tcp_sender; // get filled segment and send them
 
-	cbuf_metr last_n_peek_total_seg_count; // peek segment count every one second
-	cbuf_metr last_n_peek_filled_seg_count; // peek segment count every one second
+	//cbuf_metr last_n_peek_total_seg_count; // peek segment count every one second
+	//cbuf_metr last_n_peek_filled_seg_count; // peek segment count every one second
 	
 	size_t sampling_sent_packet_stride; // take step and prevent segment burst
+	size_t TTF_sampling_sent_packet_stride;
+	//size_t passable_sampling_rate_stride;
 
 	STAT_FLD timeval latest_huge_memory_time; // last successfull packet sent
 	STAT_FLD timeval latest_memmap_time; // last stored in memmap
@@ -89,26 +104,18 @@ typedef struct packet_mngr_prerequisite
 	struct /*they are about huge mem not memmap so does not calc out from file*/
 	{
 		cr_in_wnd_t ram_ctrl_loadOnInput; /*just one thread work with this. change this if multi output used*/ /*make out two because of thread safe*/
-		instBps_t ram_ctrl_instantaneousInputLoad; /*just input may have a peak*/
+		cr_in_wnd_t ram_ctrl_instantaneousInputLoad;
 
 		cr_in_wnd_t ram_ctrl_loadOnStorage;
 		cr_in_wnd_t ram_ctrl_loadOnOutBridge;
+		instBps_t ram_ctrl_instantaneousloadOnOutBridge;
+		
+		//cr_in_wnd_t ram_ctrl_instantaneousloadOnStorage;
+
+		prss_e sampling_threshold_stage;
 	};
 
 } pkt_mgr_t;
-
-typedef enum
-{
-	prss_no_pressure ,
-	prss_gentle_pressure ,
-	prss_aggressive_pressure ,
-	prss_emergency_pressure ,
-	prss_red_zone_pressure ,
-	
-	prss_skip_section , /*donot use this directly to assign or right of operation*/
-	prss_skip_input_by_memory_fulled ,
-	prss_skip_input_by_hard_fulled
-} prss_e;
 
 
 _CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz );

@@ -713,7 +713,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 							if
 							(
 								!pb->tcps[ itcp ].tcp_is_about_to_connect &&
-								timespec_diff_ms( &pb->tcps[ itcp ].last_action_ts , &tnow ) > CFG().tcp_connection_idle_timeout_sec * 1000
+								timespec_diff_ms( &pb->tcps[ itcp ].last_action_ts , &tnow ) > CFG().retry_on_idle_tcp_conn_after_timeout_sec * 1000
 							)
 							{
 								clock_gettime( CLOCK_REALTIME , &pb->tcps[ itcp ].last_action_ts );
