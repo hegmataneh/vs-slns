@@ -2017,6 +2017,7 @@ _THREAD_FXN void_p evacuate_long_time_sediment_segment_proc( pass_p src_g )
 _PRIVATE_FXN _CALLBACK_FXN bool release_halffill_segment_condition( const buffer buf , size_t sz )
 {
 	if ( _g->cmd.cleanup_state <= getting_new_udp_stoped ) return true;
+
 	xudp_hdr * pkt1 = ( xudp_hdr * )buf;
 	WARNING( pkt1->metadata.version == TCP_XPKT_V1 );
 
