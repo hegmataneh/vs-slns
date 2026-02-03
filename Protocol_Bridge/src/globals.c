@@ -391,7 +391,7 @@ _CALLBACK_FXN void udp_connected( pass_p src_AB , long src_AB_udp )
 	AB_udp * udp = ( AB_udp * )src_AB_udp;
 	
 	pb->stat.round_zero_set.udp_connection_count++;
-	pb->stat.round_zero_set.total_retry_udp_connection_count++;
+	pb->stat.round_zero_set.total_udp_succ_connection_count++;
 
 	//distributor_publish_long( &pudp->bcast_change_state , 1 , udp ); // transfer state per case
 
@@ -431,7 +431,7 @@ _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , long file_desc )
 	// first try to send by file desc if succ then pointer must be valid
 	dict_fst_put( &TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->hdls.pkt_mgr.map_tcp_socket , tcp->__tcp_cfg_pak->name , ( int )file_desc , ( void_p )tcp , NULL , NULL , NULL );
 	tcp->owner_pb->stat.round_zero_set.tcp_connection_count++;
-	tcp->owner_pb->stat.round_zero_set.total_retry_tcp_connection_count++;
+	tcp->owner_pb->stat.round_zero_set.total_tcp_succ_connection_count++;
 
 	if ( tcp->main_instance )
 	{
@@ -504,16 +504,18 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 
 	for ( int iudp = 0 ; iudp < pb->udps_count ; iudp++ )
 	{
+		pb->stat.round_zero_set.udp_conn_tried_count++;
+		
 		if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
 
 		if ( pb->udps[ iudp ].udp_connection_established )
 		{
-			IMMORTAL_LPCSTR errString = NULL;
-			_close_socket( &pb->udps[ iudp ].udp_sockfd , &errString );
-			if ( errString )
+			Brief_Err imortalErrStr = {0};
+			_close_socket( &pb->udps[ iudp ].udp_sockfd , &imortalErrStr );
+			if ( imortalErrStr[0] )
 			{
 			#ifdef ENABLE_LOGGING
-				log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+				log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
 			#endif
 			}
 			pb->udps[ iudp ].udp_connection_established = 0;
@@ -565,99 +567,105 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 	INIT_BREAKABLE_FXN();
 	AB * pb = tcp->owner_pb;
 	G * _g = tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g;
-	IMMORTAL_LPCSTR errString = NULL;
+	Brief_Err imortalErrStr = {0};
 
 	while ( 1 )
 	{
-		_close_socket( &tcp->tcp_sockfd , &errString );
-		if ( errString )
+		pb->stat.round_zero_set.tcp_conn_tried_count++;
+
+		tcps_close( &tcp->tcp_h , &imortalErrStr );
+		if ( imortalErrStr[0] )
 		{
 		#ifdef ENABLE_LOGGING
-			log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+			log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
 		#endif
 		}
 
 		// try to create TCP socket
-		NM_BREAK_IF( ( tcp->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errSocket , 0 , "create sock error" );
-
+		//NM_BREAK_IF( ( tcp->tcp_sockfd = socket( AF_INET , SOCK_STREAM , 0 ) ) == FXN_SOCKET_ERR , errSocket , 0 , "create sock error" );
 		//struct sockaddr_in tcp_addr;
 		//tcp_addr.sin_family = AF_INET;
 
 		int port = 0;
-		N_BREAK_IF( string_to_int( tcp->__tcp_cfg_pak->data.core.TCP_destination_ports , &port ) , errGeneral , 1 );
+		N_BREAK_IF( string_to_int( tcp->__tcp_cfg_pak->data.core.TCP_destination_ports , &port ) , errGeneral , 0 );
 		WARNING( port > 0 );
 
 		//tcp_addr.sin_port = htons( ( uint16_t )port );
 		//NM_BREAK_IF( inet_pton( AF_INET , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , &tcp_addr.sin_addr ) <= 0 , errSocket , 1 , "inet_pton sock error" );
-
 		//if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
-		errString = NULL;
-		uchar buf[MIN_SYSERR_BUF_SZ] = {0};
-		d_error = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT() , &tcp->tcp_sockfd , &errString , ( buffer * )&buf );
+
+		MEMSET_ZERO_O( &imortalErrStr );
+		d_error = tcps_connect_2_ssl_server( &tcp->tcp_h , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT() ,
+			tcp->__tcp_cfg_pak->data.conn_certificate_path , tcp->__tcp_cfg_pak->data.conn_key_path , tcp->__tcp_cfg_pak->data.ca_crt_path , &imortalErrStr );
+		
+		//uchar buf[MIN_SYSERR_BUF_SZ] = {0};
+		//d_error = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT() , &tcp->tcp_sockfd , &imortalErrStr , ( buffer * )&buf );
 		if ( d_error != errOK )
 		{
-			if ( errString )
+			if ( imortalErrStr[0] )
 			{
 			#ifdef ENABLE_LOGGING
-				COOLDOWN_LOGGING_EXP( log_write( LOG_ERROR , "%d %s %s" , __LINE__ , errString , buf ) );
+				COOLDOWN_LOGGING_EXP( log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] ));
 			#endif
 			}
-			if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
-			{
-				errString = NULL;
-				_close_socket( &tcp->tcp_sockfd , &errString );
-				if ( errString )
-				{
-				#ifdef ENABLE_LOGGING
-					log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
-				#endif
-				}
-				//mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
-				//continue;
-			}
+			//if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
+			//{
+			//	imortalErrStr = NULL;
+			//	_close_socket( &tcp->tcp_sockfd , &imortalErrStr );
+			//	if ( imortalErrStr )
+			//	{
+			//	#ifdef ENABLE_LOGGING
+			//		log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr );
+			//	#endif
+			//	}
+			//	//mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+			//	//continue;
+			//}
 			
 			N_BREAK_IF( 1 , errSocket , 1 );
 		}
 		else
 		{
-			fcntl( tcp->tcp_sockfd , F_SETFL , O_NONBLOCK ); // to prevent tcp stack handles lingering to closed peer connection
+			fcntl( tcp->tcp_h.tcp_fd , F_SETFL , O_NONBLOCK ); // to prevent tcp stack handles lingering to closed peer connection
 		#ifdef ENABLE_KEEPALIVE_CHAOTIC
-			errString = NULL;
-			enable_keepalive_chaotic( tcp->tcp_sockfd , &errString ); // to keep alive and try to probe peer in semi normal sitribution time and does not have line up in connction
-			if ( errString )
+			MEMSET_ZERO_O( &imortalErrStr );
+			//enable_keepalive_chaotic( tcp->tcp_sockfd , &imortalErrStr ); // to keep alive and try to probe peer in semi normal sitribution time and does not have line up in connction
+			tcps_enable_keepalive( &tcp->tcp_h , &imortalErrStr );
+
+			if ( imortalErrStr[0] )
 			{
 			#ifdef ENABLE_LOGGING
-				log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+				log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
 			#endif
 			}
 		#endif
 
 			int flag = 1;
-			setsockopt( tcp->tcp_sockfd , IPPROTO_TCP , TCP_NODELAY , &flag , sizeof( flag ) ); // try to be no nagle. no batching . because packet size ration to hdr size is very hi. so each packet sending is matter
+			setsockopt( tcp->tcp_h.tcp_fd , IPPROTO_TCP , TCP_NODELAY , &flag , sizeof( flag ) ); // try to be no nagle. no batching . because packet size ration to hdr size is very hi. so each packet sending is matter
 
-			tcp->tcp_connection_established = 1;
+			//tcp->tcp_connection_established = 1;
 			tcp->tcp_is_about_to_connect = 0;
 		#ifdef ENABLE_LOGGING
 			log_write( LOG_INFO , "%d tcp connected %s:%s" , __LINE__ , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , tcp->__tcp_cfg_pak->data.core.TCP_destination_ports );
 		#endif
-			distributor_publish_long( &_g->distributors.bcast_pb_tcp_connected , tcp->tcp_sockfd , ( pass_p )tcp );
+			distributor_publish_long( &_g->distributors.bcast_pb_tcp_connected , tcp->tcp_h.tcp_fd , ( pass_p )tcp );
 			return errOK;
 		}
 	}
 
-	BEGIN_RET
-	case 1:
-	{
-		errString = NULL;
-		_close_socket( &tcp->tcp_sockfd , &errString );
-		if ( errString )
-		{
-		#ifdef ENABLE_LOGGING
-			COOLDOWN_LOGGING_EXP( log_write( LOG_ERROR , "%d %s" , __LINE__ , errString ) );
-		#endif
-		}
-		//DIST_BRIDGE_FAILURE();
-	}
+	BEGIN_SMPL
+	//case 1:
+	//{
+	//	imortalErrStr = NULL;
+	//	_close_socket( &tcp->tcp_sockfd , &imortalErrStr );
+	//	if ( imortalErrStr )
+	//	{
+	//	#ifdef ENABLE_LOGGING
+	//		COOLDOWN_LOGGING_EXP( log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr ) );
+	//	#endif
+	//	}
+	//	//DIST_BRIDGE_FAILURE();
+	//}
 	M_V_END_RET
 	return errSocket;
 }
@@ -705,7 +713,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 				{
 					if ( pb->tcps[ itcp ].main_instance )
 					{
-						if ( pb->tcps[ itcp ].tcp_connection_established && !_g->cmd.block_sending_1 )
+						if ( pb->tcps[ itcp ].tcp_h.tcp_conn_established && !_g->cmd.block_sending_1 )
 						{
 							timespec tnow;
 							clock_gettime( CLOCK_REALTIME , &tnow );
@@ -717,30 +725,31 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 							)
 							{
 								clock_gettime( CLOCK_REALTIME , &pb->tcps[ itcp ].last_action_ts );
-								IMMORTAL_LPCSTR errString = NULL;
-								if ( is_socket_connected_peek( pb->tcps[ itcp ].tcp_sockfd , 0 , &errString ) <= 0 )
+								Brief_Err imortalErrStr = {0};
+								if ( peek_socket_connection( pb->tcps[ itcp ].tcp_h.tcp_fd , 0 , &imortalErrStr ) <= 0 )
 								{
-									if ( errString )
+									if ( imortalErrStr[0] )
 									{
 									#ifdef ENABLE_LOGGING
-										log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+										log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
 									#endif
 									}
 									pb->tcps[ itcp ].tcp_is_about_to_connect = 1;
-									pb->tcps[ itcp ].tcp_connection_established = 0;
+									tcps_close( &pb->tcps[ itcp ].tcp_h , NULL );
+									//pb->tcps[ itcp ].tcp_connection_established = 0;
 									itcp = 0;
 									continue;
 								}
-								if ( errString )
+								if ( imortalErrStr[0] )
 								{
 								#ifdef ENABLE_LOGGING
-									log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+									log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
 								#endif
 								}
 							}
 							continue;
 						}
-						if ( !pb->tcps[ itcp ].tcp_connection_established )
+						if ( !pb->tcps[ itcp ].tcp_h.tcp_conn_established )
 						{
 							connect_one_tcp( &pb->tcps[ itcp ] );
 						}
@@ -1416,7 +1425,7 @@ _CALLBACK_FXN PASSED_CSTR pb_TCP_conn_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%d(!%s)" , pb->stat.round_zero_set.tcp_connection_count , al_alive( &pb->stat.tcp_port_err_indicator , true ) );
+	sprintf( pcell->storage.tmpbuf , "%d(E%s)" , pb->stat.round_zero_set.tcp_connection_count , al_alive( &pb->stat.tcp_port_err_indicator , true ) );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1424,7 +1433,7 @@ _CALLBACK_FXN PASSED_CSTR pb_UDP_retry_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%d" , pb->stat.round_zero_set.total_retry_udp_connection_count );
+	sprintf( pcell->storage.tmpbuf , "%d(%d)" , pb->stat.round_zero_set.total_udp_succ_connection_count , pb->stat.round_zero_set.udp_conn_tried_count % 10 );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
 
@@ -1432,9 +1441,11 @@ _CALLBACK_FXN PASSED_CSTR pb_TCP_retry_2_str( pass_p src_pcell )
 {
 	nnc_cell_content * pcell = ( nnc_cell_content * )src_pcell;
 	AB * pb = ( AB * )pcell->storage.bt.pass_data;
-	sprintf( pcell->storage.tmpbuf , "%d" , pb->stat.round_zero_set.total_retry_tcp_connection_count );
+	sprintf( pcell->storage.tmpbuf , "%d(%d)" , pb->stat.round_zero_set.total_tcp_succ_connection_count , pb->stat.round_zero_set.tcp_conn_tried_count % 10 );
 	return ( PASSED_CSTR )pcell->storage.tmpbuf;
 }
+
+
 
 _CALLBACK_FXN PASSED_CSTR pb_UDP_get_count_2_str( pass_p src_pcell )
 {

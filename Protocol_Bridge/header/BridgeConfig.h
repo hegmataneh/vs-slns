@@ -4,6 +4,9 @@ typedef struct udp_conn_cfg_data
 {
 	CFG_ITM group;
 	CFG_ITM group_type;
+	CFG_ITM connection_type;
+	CFG_ITM connection_param;
+
 	struct
 	{
 		CFG_ITM UDP_origin_ip;
@@ -20,11 +23,15 @@ typedef struct tcp_conn_cfg_data
 {
 	CFG_ITM group;
 	CFG_ITM group_type;
+	CFG_ITM connection_type;
+	CFG_ITM connection_param;
+
 	struct
 	{
 		CFG_ITM TCP_destination_ip;
 		CFG_ITM TCP_destination_ports; // singular port or ports ranje
 		CFG_ITM TCP_destination_interface;
+
 	} core;
 	int enable;
 	int reset_connection;
@@ -32,6 +39,10 @@ typedef struct tcp_conn_cfg_data
 	int send_gap_nsec;
 	int send_throughput_window_sz;
 	int send_throughput_limit_Bps;
+
+	char conn_certificate_path[PATH_MAX];
+	char conn_key_path[PATH_MAX];
+	char ca_crt_path[PATH_MAX];
 
 } tcp_cfg_t;
 
@@ -58,6 +69,7 @@ typedef struct bridge_cfg_0
 
 		CFG_ITM out_type;
 		CFG_ITM thread_handler_act;
+
 	} id; // protocol_bridge_cfg_id . must be uniq for each bridge
 
 	struct bridge_maintained_parameter // options that stays in position
@@ -70,6 +82,7 @@ typedef struct bridge_cfg_0
 
 		int enable;
 		int hide;
+
 	} maintained;
 
 	struct bridge_temp_data
@@ -77,6 +90,7 @@ typedef struct bridge_cfg_0
 		void_p _pseudo_g; // just point to the main g . just because double source dependencies it define as void_p
 		int pcfg_changed; // in passive cfg and active cfg that in alive protocol_bridge, in both it means something changed
 		Boolean delayed_validation; // when it is True it means structure copying complete
+
 	} temp_data;
 
 } Bcfg0; // protocol_bridge_cfg
@@ -86,11 +100,13 @@ typedef struct bridge_cfg_0
 typedef struct bridge_cfg_n
 {
 	Bcfg0 m; // first member , n - 1
+
 } Bcfgn;
 
 typedef struct bridge_cfg // finalizer . protocol_bridge_cfg
 {
 	Bcfgn m; // be first member
+
 } brg_cfg_t;
 
 void copy_bridge_cfg( brg_cfg_t * dst , brg_cfg_t * src );

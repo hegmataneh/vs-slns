@@ -1148,18 +1148,20 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 				}
 			}
 		}
+				
+		Brief_Err imortalErrStr = {0};
+		//Detail_ErrBuf detailErrBuf = {0};
+		//err_sent = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &imortalErrStr , &detailErrBuf ); // send is too heavy
+		err_sent = tcps_write( &ptcp->tcp_h , data + pkt1->metadata.payload_offset , sz_t , NULL , &imortalErrStr );
 
-		IMMORTAL_LPCSTR errString = NULL;
-		uchar buf[MIN_SYSERR_BUF_SZ] = {0};
-		err_sent = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf ); // send is too heavy
-		//if ( errString != errOK )
+		//if ( imortalErrStr != errOK )
 		//{
 		//	//struct in_addr addr = {0};
 		//	//addr.s_addr = pkt1->metadata.udp_hdr.dstIP;  // must already be in network byte order
 		//	//char str[ INET_ADDRSTRLEN ] = {0};
 		//	//inet_ntop( AF_INET , &addr , str , INET_ADDRSTRLEN );
 		//#ifdef ENABLE_LOGGING
-		//	//log_write( LOG_ERROR , "%d %s %s %s %s" , __LINE__ , errString , buf , pkt1->TCP_name , str );
+		//	//log_write( LOG_ERROR , "%d %s %s %s %s" , __LINE__ , imortalErrStr , buf , pkt1->TCP_name , str );
 		//#endif
 		//}
 		
@@ -1183,7 +1185,8 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 					// post action
 					if ( iSTR_SAME( ptcp->__tcp_cfg_pak->data.post_action , "post enter" ) )
 					{
-						err_sent = tcp_send_all( fd , "\n" , 1 , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf ); // send is too heavy
+						//err_sent = tcp_send_all( fd , "\n" , 1 , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &imortalErrStr , &detailErrBuf ); // send is too heavy
+						err_sent = tcps_write( &ptcp->tcp_h , "\n" , 1 , NULL , &imortalErrStr );
 					}
 
 					// benchmarking send on tcp and used in output rate controlling
@@ -1215,11 +1218,12 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 					{
 						ptcp->this->tcp_is_about_to_connect = 1;
 						//ptcp->retry_to_connect_tcp = 1;
-						ptcp->this->tcp_connection_established = 0;
+						//ptcp->this->tcp_connection_established = 0;
+						tcps_close( &ptcp->this->tcp_h , NULL );
 					}
 				}
 
-				if ( !errString ) /*because before it logged*/
+				if ( !imortalErrStr[0] ) /*because before it logged*/
 				{
 				#ifdef ENABLE_LOGGING
 					log_write( LOG_ERROR , "%d err:%s" , __LINE__ , internalErrorStr( err_sent , true ) );
@@ -1243,7 +1247,7 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 					al_alive( &pb->stat.tcp_port_err_indicator , false );
 				}
 				_inner_status_error++;
-				if ( !errString ) /*because before it logged*/
+				if ( !imortalErrStr[0] ) /*because before it logged*/
 				{
 				#ifdef ENABLE_LOGGING
 					log_write( LOG_ERROR , "%d err:%s" , __LINE__ , internalErrorStr( err_sent , true ) );
@@ -1284,7 +1288,7 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 						{
 							ptcp = pb->tcps[ itcp ].this; // always use this instead of owner of this because responsiblity deligate to this. see bridge
 
-							if ( ptcp->tcp_connection_established )
+							if ( ptcp->tcp_h.tcp_conn_established )
 							{
 								if ( ptcp->__tcp_cfg_pak->data.send_gap_nsec > 0 ) // used when we need debounce in sending
 								{
@@ -1318,13 +1322,15 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 									}
 								}
 							
-								IMMORTAL_LPCSTR errString = NULL;
-								uchar buf[MIN_SYSERR_BUF_SZ] = {0};
-								err_sent = tcp_send_all( ptcp->tcp_sockfd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf ); // send is to heavy
-								if ( errString != errOK )
+								Brief_Err imortalErrStr = {0};
+								//Detail_ErrBuf detailErrBuf = {0};
+								//err_sent = tcp_send_all( ptcp->tcp_h.tcp_fd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &imortalErrStr , &detailErrBuf ); // send is to heavy
+								err_sent = tcps_write( &ptcp->tcp_h , data + pkt1->metadata.payload_offset , sz_t , NULL , &imortalErrStr );
+
+								if ( imortalErrStr[0] )
 								{
 								#ifdef ENABLE_LOGGING
-									log_write( LOG_ERROR , "%d %s %s %s" , __LINE__ , errString , buf , pkt1->TCP_name );
+									log_write( LOG_ERROR , "%d %s %s %s" , __LINE__ , imortalErrStr[0] , *ptcp->tcp_h.dts_buf , pkt1->TCP_name);
 								#endif
 								}
 								switch ( err_sent )
@@ -1345,7 +1351,7 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 										if ( try_resolve_route )
 										{
 											try_resolve_route = false;
-											dict_fst_put( &PACKET_MGR().map_tcp_socket , pkt1->TCP_name , ptcp->tcp_sockfd , ( void_p )ptcp , NULL , NULL , NULL );
+											dict_fst_put( &PACKET_MGR().map_tcp_socket , pkt1->TCP_name , ptcp->tcp_h.tcp_fd , ( void_p )ptcp , NULL , NULL , NULL );
 										}
 
 										switch ( pkt1->metadata.prev_state )
@@ -1366,7 +1372,8 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 
 										if ( iSTR_SAME( ptcp->__tcp_cfg_pak->data.post_action , "post enter" ) )
 										{
-											err_sent = tcp_send_all( ptcp->tcp_sockfd , "\n" , 1 , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf ); // send is too heavy
+											//err_sent = tcp_send_all( ptcp->tcp_h.tcp_fd , "\n" , 1 , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &imortalErrStr , &detailErrBuf ); // send is too heavy
+											err_sent = tcps_write( &ptcp->tcp_h , "\n" , 1 , NULL , &imortalErrStr );
 										}
 										break;
 									}
@@ -1377,9 +1384,10 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 										{
 											pb->tcps[ itcp ].tcp_is_about_to_connect = 1;
 											//pb->tcps[ itcp ].retry_to_connect_tcp = 1;
-											pb->tcps[ itcp ].tcp_connection_established = 0;
+											//pb->tcps[ itcp ].tcp_connection_established = 0;
+											tcps_close( &pb->tcps[ itcp ].tcp_h , NULL );
 										}
-										if ( !errString ) /*because before it logged*/
+										if ( !imortalErrStr[0] ) /*because before it logged*/
 										{
 										#ifdef ENABLE_LOGGING
 											log_write( LOG_ERROR , "%d err:%s" , __LINE__ , internalErrorStr( err_sent , true ) );
@@ -1392,7 +1400,7 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 										al_alive( &pb->stat.tcp_port_err_indicator , false );
 
 										_inner_status_error++;
-										if ( !errString ) /*because before it logged*/
+										if ( !imortalErrStr[0] ) /*because before it logged*/
 										{
 										#ifdef ENABLE_LOGGING
 											log_write( LOG_ERROR , "%d err:%s" , __LINE__ , internalErrorStr( err_sent , true ) );

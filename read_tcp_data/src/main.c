@@ -1,5 +1,6 @@
 ﻿#ifndef section_include
 
+#define Uses_tcp_h_t
 #define Uses_PATH_MAX
 #define Uses_LOG
 #define Uses_create_unique_file
@@ -15,10 +16,10 @@
 #define Uses_memory_funcs
 #define Uses_ERROR_SECTION
 #define Uses_json
-#define Uses_fd_set
+//#define Uses_fd_set
 #define Uses_thrd_sleep
-#define Uses_close
-#define Uses_socket
+//#define Uses_close
+//#define Uses_socket
 #define Uses_pthread_t
 #define Uses_rand
 #define Uses_errno
@@ -136,6 +137,9 @@ struct tcp_listener_cfg_id
 
 struct tcp_listener_maintained_parameter // stays in position
 {
+	char connection_type[ 64 ];
+	char connection_param[ 64 ];
+
 	int enable;
 };
 
@@ -192,10 +196,13 @@ struct tcp_listener
 	struct tcp_listener_cfg tlcfg;  // copy of applied cfg . active tcp_listener config . یک دسته کامل از ترد ها یک کانفیگ را اعمال می کند
 
 	//int tcp_server_listener_sockfd;
-	int tcp_client_connection_sockfd;
-	int tcp_connection_established; // tcp connection established
+	//int tcp_client_connection_sockfd;
+	SSL_h_t ssl_h;
+	tcp_h_t tcp_h;
 
-	int retry_to_connect_tcp;
+	//int tcp_connection_established; // tcp connection established
+
+	//int retry_to_connect_tcp;
 
 	struct tcp_listener_thread_holder * tl_trds; // tcp_listener threads . in protocol listener app must be one
 	int * tl_trds_masks;  // each int represent thread is valid
@@ -321,6 +328,7 @@ struct statistics
 	
 	int tcp_connection_count;
 	int total_retry_tcp_connection_count;
+	int tcp_conn_tried_count;
 
 	struct BenchmarkRound_zero_init_memory round_zero_set;
 };
@@ -361,42 +369,66 @@ int _connect_tcp( struct tcp_listener * src_tl )
 
 	struct App_Data * _g = ( struct App_Data * )src_tl->tlcfg.m.m.temp_data._g;
 
+	int num_conn = 0;
+	for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
+	{
+		if ( _g->listeners.tl_holders_masks[ i ] )
+		{
+			if ( _g->listeners.tl_holders[ i ].alc_tl->tcp_h.tcp_conn_established )
+			{
+				num_conn++;
+			}
+		}
+	}
+	if ( num_conn )
+	{
+		_g->stat.tcp_connection_count = num_conn;
+	}
+
 	while ( 1 )
 	{
+		_g->stat.tcp_conn_tried_count++;
+		
 		SYS_ALIVE_CHECK();
 		if ( src_tl->tl_trds->alc_thread->do_close_thread )
 		{
 			break;
 		}
 		
-		IMMORTAL_LPCSTR errString = NULL;
-		uchar buf[MIN_SYSERR_BUF_SZ] = {0};
-		d_error = create_server_socket_with_timeout( src_tl->tlcfg.m.m.id.TCP_listen_ip , src_tl->tlcfg.m.m.id.TCP_listen_port ,
-			DEFAULT_BAD_NETWORK_HANDSHAKE_TIMEOUT , &src_tl->tcp_client_connection_sockfd , &errString , ( buffer * )&buf );
+		Brief_Err imortalErrStr = {0};
+		d_error = tcps_accept_ssl_tcp_connection( &src_tl->tcp_h , src_tl->tlcfg.m.m.id.TCP_listen_ip , src_tl->tlcfg.m.m.id.TCP_listen_port ,
+			DEFAULT_BAD_NETWORK_HANDSHAKE_TIMEOUT , "server.crt" , "server.key" , "ca.crt"  , &imortalErrStr);
+
 		if ( d_error <= 0 )
 		{
 			_ERR_COUNTER[ -d_error ]++;
 		}
 		if ( d_error != errOK )
 		{
-			SET_STDERR( errString );
-			log_write( LOG_ERROR , "%d %s %s" , __LINE__ , errString , buf );
+			SET_STDERR( imortalErrStr[0]);
+			#ifdef ENABLE_LOGGING
+			log_write( LOG_ERROR , "%d %s %s" , __LINE__ , imortalErrStr[0] , src_tl->tcp_h.dts_buf ? *src_tl->tcp_h.dts_buf : "");
+			#endif
 			sleep(1);
 			continue;
 		}
 		else
 		{
+			#ifdef ENABLE_LOGGING
 			log_write( LOG_INFO , "connection stablished." );
+			#endif
 		}
 
-		errString = NULL;
-		enable_keepalive_chaotic( src_tl->tcp_client_connection_sockfd , &errString );
-		if ( errString )
+		MEMSET_ZERO_O( &imortalErrStr );
+		tcps_enable_keepalive( &src_tl->tcp_h , &imortalErrStr );
+		if ( imortalErrStr[0] )
 		{
-			log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+			#ifdef ENABLE_LOGGING
+			log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
+			#endif
 		}
 
-		src_tl->tcp_connection_established = 1;
+		//src_tl->tcp_connection_established = 1;
 
 		_g->stat.tcp_connection_count++;
 		_g->stat.total_retry_tcp_connection_count++;
@@ -425,14 +457,19 @@ void * thread_tcp_connection_proc( void * src_tl )
 		_ECHO( "try to connect outbound tcp connection" );
 	}
 
-	if ( tl->tcp_connection_established )
-	{
-		log_write( LOG_INFO , "restart connection" );
+	_g->stat.tcp_connection_count = 0;
 
+	if ( tl->tcp_h.tcp_conn_established )
+	{
+		#ifdef ENABLE_LOGGING
+		log_write( LOG_INFO , "restart connection" );
+		#endif
 		SYS_ALIVE_CHECK();
-		_close_socket( &tl->tcp_client_connection_sockfd , NULL );
+		tcps_close( &tl->tcp_h , NULL );
+
+		//_close_socket( &tl->tcp_client_connection_sockfd , NULL );
 		//_close_socket( &tl->tcp_server_listener_sockfd );
-		tl->tcp_connection_established = 0;
+		//tl->tcp_connection_established = 0;
 		if ( _g->stat.tcp_connection_count > 0 ) _g->stat.tcp_connection_count--;
 	}
 
@@ -490,7 +527,7 @@ void * tcp_listener_runner( void * src_tl )
 	}
 
 	char buffer[ BUFFER_SIZE ];
-	ssize_t bytes_received;
+	int bytes_received;
 	fd_set readfds; // Set of socket descriptors
 
 
@@ -517,7 +554,7 @@ void * tcp_listener_runner( void * src_tl )
 		}
 		reconnect_tcp = 0;
 
-		while ( 1 )
+		while ( 1 )  // loop while reconnect_tcp is 0
 		{
 			SYS_ALIVE_CHECK();
 			if ( pthread->do_close_thread )
@@ -530,21 +567,19 @@ void * tcp_listener_runner( void * src_tl )
 				config_changes = 1;
 				break;
 			}
-			if ( !tl->tcp_connection_established )
+			//if ( !tl->tcp_connection_established )
+			//if ( !tl->tcp_h.tcp_conn_established )
+			if ( !tcps_socket_is_accessible( &tl->tcp_h ) )
 			{
 				sleep( 1 );
 				continue;
 			}
-			if ( tl->retry_to_connect_tcp )
-			{
-				tl->retry_to_connect_tcp = 0;
-				reconnect_tcp = 1;
-				break;
-			}
-
-			// Clear the socket set
-			FD_ZERO( &readfds );
-			FD_SET( tl->tcp_client_connection_sockfd , &readfds );
+			//if ( tl->retry_to_connect_tcp )
+			//{
+			//	tl->retry_to_connect_tcp = 0;
+			//	reconnect_tcp = 1;
+			//	break;
+			//}
 
 			tnow = time( NULL );
 
@@ -583,141 +618,199 @@ void * tcp_listener_runner( void * src_tl )
 				_g->stat.round_zero_set.tcp_40_sec.calc_throughput_tcp_get_bytes = 0;
 			}
 
-			struct timeval timeout; //// Set timeout (e.g., 5 seconds)
-			timeout.tv_sec = 5;
-			timeout.tv_usec = 0;
-			SYS_ALIVE_CHECK();
-			int activity = select( tl->tcp_client_connection_sockfd + 1 , &readfds , NULL , NULL , &timeout );
-			SYS_ALIVE_CHECK();
-
-			if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
+			if ( tl->tcp_h.ssl_over_tcp )
 			{
-				int error = 0;
-				socklen_t errlen = sizeof( error );
-				getsockopt( tl->tcp_client_connection_sockfd , SOL_SOCKET , SO_ERROR , &error , &errlen );
-				if ( error != 0 )
+				bytes_received = 0;
+				status d_error = tcps_ssl_read( &tl->tcp_h , buffer , BUFFER_SIZE - 1 , &bytes_received , NULL );
+				switch ( d_error )
 				{
-					_VERBOSE_ECHO( "Socket error: %d\n" , error );
-				}
-
-				if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK()  )
-				{
-					socket_error_tolerance_count = 0;
-					for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
+					case errPeerClosed:
 					{
-						if ( _g->listeners.tl_holders_masks[ i ] )
+						reconnect_tcp = 1;
+						break;
+					}
+					case errOK:
+					{
+						if ( _g->stat.round_zero_set.t_begin.tv_sec == 0 && _g->stat.round_zero_set.t_begin.tv_usec == 0 )
 						{
-							if ( _g->listeners.tl_holders[ i ].alc_tl->tcp_connection_established ) // all the connected udp stoped or die so restart them
-							{
-								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
-								{
-									//if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_client_connection_sockfd ) )
-									{
-										_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
-									}
-									break;
-								}
-							}
+							gettimeofday( &_g->stat.round_zero_set.t_begin , NULL );
 						}
+
+						_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+						_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+
+						_g->stat.last_command[ 0 ] = 0;
+						_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
+						if ( !d_error && bytes_received > 0 )
+						{
+							gettimeofday( &_g->stat.round_zero_set.t_end , NULL );
+
+							_g->stat.round_zero_set.tcp.total_tcp_get_count++;
+							_g->stat.round_zero_set.tcp.total_tcp_get_byte += bytes_received;
+							_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_get_count++;
+							_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_get_bytes += bytes_received;
+							_g->stat.round_zero_set.tcp_10_sec.calc_throughput_tcp_get_count++;
+							_g->stat.round_zero_set.tcp_10_sec.calc_throughput_tcp_get_bytes += bytes_received;
+							_g->stat.round_zero_set.tcp_40_sec.calc_throughput_tcp_get_count++;
+							_g->stat.round_zero_set.tcp_40_sec.calc_throughput_tcp_get_bytes += bytes_received;
+						}
+
+						break;
+					}
+					case errTimeout:
+					{
+						int error = 0;
+						socklen_t errlen = sizeof( error );
+						getsockopt( tl->tcp_h.tcp_fd , SOL_SOCKET , SO_ERROR , &error , &errlen );
+						if ( error != 0 )
+						{
+							_VERBOSE_ECHO( "Socket error: %d\n" , error );
+						}
+					
+						if ( peerTcpClosed( tl->tcp_h.tcp_fd ) )
+						{
+							tcps_close( &tl->tcp_h , NULL );
+							reconnect_tcp = 1;
+						}
+
+						break;
 					}
 				}
-
-				continue;
-			}
-			if ( activity == 0 )
-			{
-				int error = 0;
-				socklen_t errlen = sizeof( error );
-				getsockopt( tl->tcp_client_connection_sockfd , SOL_SOCKET , SO_ERROR , &error , &errlen );
-				if ( error != 0 )
+				if ( reconnect_tcp )
 				{
-					_VERBOSE_ECHO( "Socket error: %d\n" , error );
-				}
-
-				if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-				{
-					socket_error_tolerance_count = 0;
-					for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
-					{
-						if ( _g->listeners.tl_holders_masks[ i ] )
-						{
-							if ( _g->listeners.tl_holders[ i ].alc_tl->tcp_connection_established ) // all the connected udp stoped or die so restart them
-							{
-								//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
-								{
-									if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_client_connection_sockfd )  )
-									{
-										_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
-									}
-									break;
-								}
-							}
-						}
-					}
-				}
-
-				continue;
-			}
-
-			_g->stat.round_zero_set.tcp.continuously_unsuccessful_select_on_open_port_count = 0;
-
-			if ( _g->stat.round_zero_set.t_begin.tv_sec == 0 && _g->stat.round_zero_set.t_begin.tv_usec == 0 )
-			{
-				gettimeofday( &_g->stat.round_zero_set.t_begin , NULL );
-			}
-
-			if ( FD_ISSET( tl->tcp_client_connection_sockfd , &readfds ) )
-			{
-				bytes_received = recv( tl->tcp_client_connection_sockfd , buffer , BUFFER_SIZE - 1 , 0 );
-				if ( bytes_received <= 0 )
-				{
-					_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
-					_g->stat.round_zero_set.total_unsuccessful_receive_error++;
-
-					if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
-					{
-						socket_error_tolerance_count = 0;
-						for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
-						{
-							if ( _g->listeners.tl_holders_masks[ i ] )
-							{
-								if ( _g->listeners.tl_holders[ i ].alc_tl->tcp_connection_established ) // all the connected udp stoped or die so restart them
-								{
-									//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
-									{
-										if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_client_connection_sockfd ) )
-										{
-											_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
-										}
-										break;
-									}
-								}
-							}
-						}
-						continue;
-					}
-				}
-				
-				_g->stat.last_command[ 0 ] = 0;
-				_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
-				if ( bytes_received > 0 )
-				{
-					gettimeofday(&_g->stat.round_zero_set.t_end, NULL);
-
-					_g->stat.round_zero_set.tcp.total_tcp_get_count++;
-					_g->stat.round_zero_set.tcp.total_tcp_get_byte += bytes_received;
-					_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_get_count++;
-					_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_get_bytes += bytes_received;
-					_g->stat.round_zero_set.tcp_10_sec.calc_throughput_tcp_get_count++;
-					_g->stat.round_zero_set.tcp_10_sec.calc_throughput_tcp_get_bytes += bytes_received;
-					_g->stat.round_zero_set.tcp_40_sec.calc_throughput_tcp_get_count++;
-					_g->stat.round_zero_set.tcp_40_sec.calc_throughput_tcp_get_bytes += bytes_received;
+					break;
 				}
 			}
+			//else /*old version and use recv and tcp socket*/
+			//{
+			//	// Clear the socket set
+			//	FD_ZERO( &readfds );
+			//	//FD_SET( tl->tcp_client_connection_sockfd , &readfds );
+			//	FD_SET( tl->tcp_h.tcp_fd , &readfds );
+			//	struct timeval timeout; //// Set timeout (e.g., 5 seconds)
+			//	timeout.tv_sec = 5;
+			//	timeout.tv_usec = 0;
+			//	SYS_ALIVE_CHECK();
+			//	int activity = select( tl->tcp_h.tcp_fd + 1 , &readfds , NULL , NULL , &timeout );
+			//	SYS_ALIVE_CHECK();
+			//	if ( ( activity < 0 ) /* && ( errno != EINTR )*/ )
+			//	{
+			//		int error = 0;
+			//		socklen_t errlen = sizeof( error );
+			//		getsockopt( tl->tcp_h.tcp_fd , SOL_SOCKET , SO_ERROR , &error , &errlen );
+			//		if ( error != 0 )
+			//		{
+			//			_VERBOSE_ECHO( "Socket error: %d\n" , error );
+			//		}
+			//		if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK()  )
+			//		{
+			//			socket_error_tolerance_count = 0;
+			//			for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
+			//			{
+			//				if ( _g->listeners.tl_holders_masks[ i ] )
+			//				{
+			//					if ( _g->listeners.tl_holders[ i ].alc_tl->tcp_h.tcp_conn_established ) // all the connected udp stoped or die so restart them
+			//					{
+			//						//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+			//						{
+			//							//if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_client_connection_sockfd ) )
+			//							{
+			//								_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
+			//							}
+			//							break;
+			//						}
+			//					}
+			//				}
+			//			}
+			//		}
+			//		continue;
+			//	}
+			//	if ( activity == 0 )
+			//	{
+			//		int error = 0;
+			//		socklen_t errlen = sizeof( error );
+			//		getsockopt( tl->tcp_h.tcp_fd , SOL_SOCKET , SO_ERROR , &error , &errlen );
+			//		if ( error != 0 )
+			//		{
+			//			_VERBOSE_ECHO( "Socket error: %d\n" , error );
+			//		}
+			//		if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+			//		{
+			//			socket_error_tolerance_count = 0;
+			//			for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
+			//			{
+			//				if ( _g->listeners.tl_holders_masks[ i ] )
+			//				{
+			//					if ( _g->listeners.tl_holders[ i ].alc_tl->tcp_h.tcp_conn_established ) // all the connected udp stoped or die so restart them
+			//					{
+			//						//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+			//						{
+			//							if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_h.tcp_fd )  )
+			//							{
+			//								_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
+			//							}
+			//							break;
+			//						}
+			//					}
+			//				}
+			//			}
+			//		}
+			//		continue;
+			//	}
+			//	_g->stat.round_zero_set.tcp.continuously_unsuccessful_select_on_open_port_count = 0;
+			//	if ( _g->stat.round_zero_set.t_begin.tv_sec == 0 && _g->stat.round_zero_set.t_begin.tv_usec == 0 )
+			//	{
+			//		gettimeofday( &_g->stat.round_zero_set.t_begin , NULL );
+			//	}
+			//	if ( FD_ISSET( tl->tcp_h.tcp_fd , &readfds ) )
+			//	{
+			//		status d_error =0;//= tcps_read( &tl->tcp_h , buffer , BUFFER_SIZE - 1 , &bytes_received , NULL );
+			//		if ( d_error )
+			//		{
+			//			_g->stat.round_zero_set.continuously_unsuccessful_receive_error++;
+			//			_g->stat.round_zero_set.total_unsuccessful_receive_error++;
+			//			if ( ++socket_error_tolerance_count > RETRY_UNEXPECTED_WAIT_FOR_SOCK() )
+			//			{
+			//				socket_error_tolerance_count = 0;
+			//				for ( int i = 0 ; i < _g->listeners.tl_holders_masks_count ; i++ )
+			//				{
+			//					if ( _g->listeners.tl_holders_masks[ i ] )
+			//					{
+			//						if ( _g->listeners.tl_holders[ i ].alc_tl->tcp_h.tcp_conn_established ) // all the connected udp stoped or die so restart them
+			//						{
+			//							//if ( FD_ISSET( _g->bridges.pb_holders[ i ].alc_pb->udp_sockfd , &readfds ) )
+			//							{
+			//								if ( peerTcpClosed( _g->listeners.tl_holders[ i ].alc_tl->tcp_h.tcp_fd ) )
+			//								{
+			//									_g->listeners.tl_holders[ i ].alc_tl->retry_to_connect_tcp = 1;
+			//								}
+			//								break;
+			//							}
+			//						}
+			//					}
+			//				}
+			//				continue;
+			//			}
+			//		}
+			//	
+			//		_g->stat.last_command[ 0 ] = 0;
+			//		_g->stat.round_zero_set.continuously_unsuccessful_receive_error = 0;
+			//		if ( !d_error && bytes_received > 0 )
+			//		{
+			//			gettimeofday(&_g->stat.round_zero_set.t_end, NULL);
+			//			_g->stat.round_zero_set.tcp.total_tcp_get_count++;
+			//			_g->stat.round_zero_set.tcp.total_tcp_get_byte += bytes_received;
+			//			_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_get_count++;
+			//			_g->stat.round_zero_set.tcp_1_sec.calc_throughput_tcp_get_bytes += bytes_received;
+			//			_g->stat.round_zero_set.tcp_10_sec.calc_throughput_tcp_get_count++;
+			//			_g->stat.round_zero_set.tcp_10_sec.calc_throughput_tcp_get_bytes += bytes_received;
+			//			_g->stat.round_zero_set.tcp_40_sec.calc_throughput_tcp_get_count++;
+			//			_g->stat.round_zero_set.tcp_40_sec.calc_throughput_tcp_get_bytes += bytes_received;
+			//		}
+			//	}
+			//}
 
-		} // loop while ( 1 )
-
-		//DAC( buffer );
+		} // loop
 
 	} while ( config_changes || reconnect_tcp );
 
@@ -983,6 +1076,9 @@ void add_new_tcp_listener( struct App_Data * _g , struct tcp_listener_cfg * new_
 	_g->listeners.tl_holders_masks[ new_tlcfg_placement_index ] = 1;
 	memcpy( &_g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl->tlcfg , new_tlcfg , sizeof( struct tcp_listener_cfg ) );
 
+	M_BREAK_STAT( tcps_init_ssl_tcp( &_g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl->tcp_h , &_g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl->ssl_h ) , 0 );
+	tcps_init_msg_ext_buf( &_g->listeners.tl_holders[ new_tlcfg_placement_index ].alc_tl->tcp_h , ( ExternalErrBuf * )&_g->stat.last_command , sizeof( _g->stat.last_command ) );
+
 	apply_tcp_listener_new_cfg_changes( _g , new_tlcfg , new_tlcfg );
 
 	BEGIN_RET
@@ -1190,6 +1286,12 @@ void * config_loader( void * app_data )
 							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
 							((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->maintained.name = (int)el_##name.value.as_number.value.as_long;
 
+#define CFG_ELEM_STR_maintained( name ) \
+							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
+							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
+							typed( json_element ) el_##name = result_unwrap( json_element )( &re_##name );\
+							strcpy(((struct tcp_listener_cfg_0 *)(ptcp_listeners + i))->maintained.name , el_##name.value.as_string );
+
 #define CFG_ELEM_I_momentary( name ) \
 							result( json_element ) re_##name = json_object_find( el_output_tcp_listener.value.as_object , #name );\
 							M_BREAK_IF( catch_error( &re_##name , #name , 1 ) , errGeneral , 0 );\
@@ -1209,6 +1311,9 @@ void * config_loader( void * app_data )
 						CFG_ID_ELEM_STR( TCP_listen_interface );
 
 						CFG_ELEM_I_maintained( enable );
+						CFG_ELEM_STR_maintained( connection_type );
+						CFG_ELEM_STR_maintained( connection_param );
+
 						CFG_ELEM_I_momentary( reset_connections );
 
 
@@ -1217,6 +1322,7 @@ void * config_loader( void * app_data )
 #undef CFG_ELEM_I
 #undef CFG_ID_ELEM_STR
 #undef CFG_ELEM_STR
+#undef CFG_ELEM_STR_maintained
 					}
 
 					json_free( &el_tcp_listeners );
@@ -1656,7 +1762,7 @@ void draw_table( struct App_Data * _g )
 
 	mvwprintw( MAIN_WIN , y , start_x , "|" );
 	print_cell( MAIN_WIN , y , start_x + 1 , cell_w , "TCP conn" );
-	snprintf( buf , sizeof( buf ) , "%d Σ%d" , MAIN_STAT().tcp_connection_count , MAIN_STAT().total_retry_tcp_connection_count );
+	snprintf( buf , sizeof( buf ) , "%d Σ%d-%d" , MAIN_STAT().tcp_connection_count , MAIN_STAT().total_retry_tcp_connection_count , MAIN_STAT().tcp_conn_tried_count % 10 );
 	mvwprintw( MAIN_WIN , y , start_x + cell_w + 1 , "|" );
 	print_cell( MAIN_WIN , y , start_x + cell_w + 2 , cell_w , buf );
 	mvwprintw( MAIN_WIN , y++ , start_x + 2 * cell_w + 2 , "|" );
@@ -1945,7 +2051,7 @@ void init( struct App_Data * _g )
 
 _CALLBACK_FXN void bad_interrupt( int sig )
 {
-	( void )sig;
+	//( void )sig;
 	printf( "sig %d" , sig );
 }
 
@@ -1956,14 +2062,20 @@ int main()
 	struct App_Data * _g = &g;
 	__g = _g;
 
+	prevent_duplicate_program_execution();
+
 	init( _g );
 
+	#ifdef ENABLE_LOGGING
 	char meta_path[ PATH_MAX ] = { 0 };
 	time_t tnow = time( NULL );
 	snprintf( meta_path , sizeof( meta_path ) , "./log%ld.txt" , tnow );
 	log_init( meta_path , true );
+	#endif
 
-	signal( SIGPIPE , bad_interrupt );
+	signal(SIGPIPE, SIG_IGN);
+
+	//signal( SIGPIPE , bad_interrupt );
 	signal( SIGBUS , bad_interrupt );
 	signal( SIGSEGV , bad_interrupt );
 	signal( SIGFPE , bad_interrupt );
@@ -1989,7 +2101,9 @@ int main()
 
 	M_BREAK_IF( pthread_join( trd_tcp_listener_manager , NULL ) != PTHREAD_JOIN_OK , errGeneral , 0 );
 
+	#ifdef ENABLE_LOGGING
 	log_close();
+	#endif
 
 	return 0;
 	BEGIN_RET

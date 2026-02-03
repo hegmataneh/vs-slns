@@ -26,25 +26,17 @@
 		"retry_unexpected_wait_for_sock": 5,
 		"number_in_short_form": 0
 	},
-	"valid_key_values":
-	{
-		"verbose_mode": "-",
-		"hi_frequent_log_interval_sec": "-",
-		"stat_referesh_interval_sec": "-",
-		"parallelism_count": "-",
-		"iteration_delay_milisec": "-",
-		"packet_payload_size": "-",
-		"TCP_listen_ip": "INADDR_ANY"
-	},
 	"TCP_listeners":
 	{
 		"listener1":
 		{
-		  "TCP_listen_ip": "INADDR_ANY",
-		  "TCP_listen_port": 5000,
-		  "TCP_listen_interface": "-",
-		  "enable": 1,
-		  "reset_connections": 0
+			"connection_type": "ssl_over_tcp",
+			"connection_param": "-",
+			"TCP_listen_ip": "INADDR_ANY",
+			"TCP_listen_port": 5000,
+			"TCP_listen_interface": "-",
+			"enable": 1,
+			"reset_connections": 0
 		}
 	}
 }

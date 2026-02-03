@@ -71,11 +71,17 @@ struct BenchmarkRound_zero_init_memory // can be memset to zero all byte
 
 	int udp_connection_count;
 	int tcp_connection_count;
-	int total_retry_udp_connection_count;
-	int total_retry_tcp_connection_count;
+	
+	int total_udp_succ_connection_count;
+	int total_tcp_succ_connection_count;
+
+	int udp_conn_tried_count;
+	int tcp_conn_tried_count;
 
 	int udp_get_data_alive_indicator;
 	int tcp_send_data_alive_indicator;
+
+	Detail_ErrBuf pb_errBuf;
 };
 
 typedef struct s_bridge_stat

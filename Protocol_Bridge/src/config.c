@@ -437,6 +437,9 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 
 							IN_CFG_ELEM_STR( el_inp , group );
 							IN_CFG_ELEM_STR( el_inp , group_type );
+							IN_CFG_ELEM_STR( el_inp , connection_type );
+							IN_CFG_ELEM_STR( el_inp , connection_param );
+
 							IN_CORE_CFG_ELEM_STR( el_inp , UDP_origin_ip );
 							IN_CORE_CFG_ELEM_STR( el_inp , UDP_destination_ip );
 							
@@ -469,25 +472,28 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 								typed( json_element ) el_out = result_unwrap( json_element )( &re_out );
 
 								#define IN_CFG_ELEM_STR( elem , namee )																		/**/\
-								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-								MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>outputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_outputs_name ) );	/**/\
-								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
-								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.namee , el_##namee.value.as_string );		/**/
+									result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
+									MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>outputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_outputs_name ) );	/**/\
+									typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
+									strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.namee , el_##namee.value.as_string );		/**/
 
 								#define IN_CFG_CORE_ELEM_STR( elem , namee )																		/**/\
-								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
-								MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>outputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_outputs_name ) );	/**/\
-								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
-								strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.core.namee , el_##namee.value.as_string );		/**/
+									result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );						/**/\
+									MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>outputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_outputs_name ) );	/**/\
+									typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );								/**/\
+									strcpy( ( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.core.namee , el_##namee.value.as_string );		/**/
 
 								#define IN_CFG_ELEM_I( elem , namee )																				/**/\
-								result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
-								MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>outputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_outputs_name ) );	/**/\
-								typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
-								( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
+									result( json_element ) re_##namee = json_object_find( elem.value.as_object , #namee );								/**/\
+									MM_BREAK_IF( catch_error( &re_##namee , #namee , 1 ) , errNotFound , 0 , _MK_MSG( tmp_arr , "Protocol_Bridges>%s>outputs>%s>" #namee " not found" , output_Protocol_Bridge_name , output_outputs_name ) );	/**/\
+									typed( json_element ) el_##namee = result_unwrap( json_element )( &re_##namee );										/**/\
+									( ((Bcfg0 *)(pProtocol_Bridges + iactual_section ))->maintained.out + iout )->data.namee = (int)el_##namee.value.as_number.value.as_long;	/**/
 
 								IN_CFG_ELEM_STR( el_out , group );
 								IN_CFG_ELEM_STR( el_out , group_type );
+								IN_CFG_ELEM_STR( el_out , connection_type );
+								IN_CFG_ELEM_STR( el_out , connection_param );
+
 								IN_CFG_CORE_ELEM_STR( el_out , TCP_destination_ip );
 								IN_CFG_CORE_ELEM_STR( el_out , TCP_destination_interface );
 
@@ -500,6 +506,9 @@ _THREAD_FXN void_p config_loader( pass_p src_g )
 								IN_CFG_ELEM_I( el_out , send_throughput_limit_Bps );
 								IN_CFG_ELEM_I( el_out , send_gap_nsec );
 
+								IN_CFG_ELEM_STR( el_out , conn_certificate_path );
+								IN_CFG_ELEM_STR( el_out , conn_key_path );
+								IN_CFG_ELEM_STR( el_out , ca_crt_path );
 
 								#undef IN_CFG_ELEM_STR
 								#undef IN_CFG_ELEM_I

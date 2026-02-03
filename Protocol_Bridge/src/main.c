@@ -78,6 +78,8 @@ int main()
 {
 	INIT_BREAKABLE_FXN();
 
+	prevent_duplicate_program_execution();
+
 	#ifndef decently_shutdown 
 	sigset_t set; // just in main fxn it is working and before everything
 	pthread_t th_signal;

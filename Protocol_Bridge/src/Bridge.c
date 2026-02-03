@@ -77,14 +77,14 @@ _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v )
 					{
 						if ( pb->tcps[ tcpidx ].main_instance )
 						{
-							if ( pb->tcps[ tcpidx ].tcp_connection_established )
+							if ( pb->tcps[ tcpidx ].tcp_h.tcp_conn_established )
 							{
-								IMMORTAL_LPCSTR errString = NULL;
-								_close_socket( &pb->tcps[ tcpidx ].tcp_sockfd , &errString );
-								if ( errString )
+								Brief_Err imortalErrStr = {0};
+								tcps_close( &pb->tcps[ tcpidx ].tcp_h , &imortalErrStr );
+								if ( imortalErrStr[0] )
 								{
 								#ifdef ENABLE_LOGGING
-									log_write( LOG_ERROR , "%d %s" , __LINE__ , errString );
+									log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
 								#endif
 								}
 							}
@@ -646,9 +646,12 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 					// i am original one
 					pb->tcps[ itcp_piv ].this = &pb->tcps[ itcp_piv ];
 					pb->tcps[ itcp_piv ].main_instance = true;
-					pb->tcps[ itcp_piv ].tcp_sockfd = invalid_fd;
 					pb->tcps[ itcp_piv ].owner_pb = pb;
 					pb->tcps[ itcp_piv ].__tcp_cfg_pak = &pb->cpy_cfg.m.m.maintained.out[ itcp_piv ];
+
+					M_BREAK_STAT( tcps_init_ssl_tcp( &pb->tcps[ itcp_piv ].tcp_h , &pb->tcps[ itcp_piv ].ssl_h ) , 0 );
+					tcps_init_msg_dts_buf( &pb->tcps[ itcp_piv ].tcp_h , &pb->stat.round_zero_set.pb_errBuf );
+
 					M_BREAK_STAT( distributor_init( &pb->tcps[ itcp_piv ].bcast_change_state , 1 ) , 0 );
 					M_BREAK_STAT( cr_in_wnd_init( &pb->tcps[ itcp_piv ].brdg_rate_ctrl_loadOnOutBridge , ( size_t )pb->tcps[ itcp_piv ].__tcp_cfg_pak->data.send_throughput_window_sz ) , 0 );
 					al_init( &pb->stat.tcp_port_err_indicator );

@@ -68,10 +68,12 @@
 				{
 					"group": "-",
 					"group_type": "-",
-					"UDP_origin_ip": "192.168.1.2",
-					"UDP_destination_ip": "192.168.1.1",
+					"connection_type": "udp",
+					"connection_param": "-",
+					"UDP_origin_ip": "172.17.0.59",
+					"UDP_destination_ip": "172.17.0.60",
 					"UDP_origin_ports": "-",
-					"UDP_origin_interface": "ens160",
+					"UDP_origin_interface": "enp0s3",
 					"enable": 1,
 					"reset_connection": 0
 				}
@@ -82,15 +84,20 @@
 				{
 					"group": "1",
 					"group_type": "one_out",
-					"TCP_destination_ip": "192.168.6.2",
-					"TCP_destination_ports": "7000",
+					"connection_type": "ssl_over_tcp",
+					"connection_param": "-",
+					"TCP_destination_ip": "192.168.56.61",
+					"TCP_destination_ports": "5000",
 					"TCP_destination_interface": "-",
 					"enable": 1,
-					"reset_connection": 0,
+					"reset_connection": 0,			
 					"post_action": "post enter",
 					"send_throughput_window_sz": 10,
-					"send_throughput_limit_Bps": 1200000,
-					"send_gap_nsec": 800
+					"send_throughput_limit_Bps": 0,
+					"send_gap_nsec": 0,
+					"conn_certificate_path": "client.crt",
+					"conn_key_path": "client.key",
+					"ca_crt_path": "ca.crt"
 				}
 			},
 			"enable": 1,

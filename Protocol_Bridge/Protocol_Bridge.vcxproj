@@ -172,7 +172,7 @@
       </Command>
     </RemotePreBuildEvent>
     <Link>
-      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core;tinfo;backtrace</LibraryDependencies>
+      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core;tinfo;backtrace;ssl;crypto</LibraryDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -182,7 +182,7 @@
       <AdditionalOptions>-D__COMPILING %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core</LibraryDependencies>
+      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core;ssl;crypto</LibraryDependencies>
       <AdditionalOptions>-pthread %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <RemotePostBuildEvent>

@@ -84,6 +84,7 @@
 #endif
 
 #ifdef Uses_Bridge
+	#define Uses_tcp_h_t
 	#define Uses_alive_t
 	#define Uses_timespec
 	#define Uses_ABstat
@@ -102,6 +103,7 @@
 #endif
 
 #ifdef Uses_BridgeConfig
+	#define Uses_PATH_MAX
 	#define Uses_bool
 	#define Uses_CFG_ITM
 	#define __INC_BridgeConfig

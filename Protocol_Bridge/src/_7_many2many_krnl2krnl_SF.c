@@ -365,9 +365,9 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 							pkt->metadata.payload_sz = (size_t)bytes_received;
 
 							#ifdef SEND_DIRECTLY_ARRIVE_UDP
-								IMMORTAL_LPCSTR errString = NULL;
+								Brief_Err imortalErrStr = NULL;
 								uchar buf[ MIN_SYSERR_BUF_SZ ] = { 0 };
-								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , bufferr + pkt->metadata.payload_offset , pkt->metadata.payload_sz , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &errString , ( buffer * )&buf );
+								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , bufferr + pkt->metadata.payload_offset , pkt->metadata.payload_sz , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &imortalErrStr , ( buffer * )&buf );
 							#else
 								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , bufferr , (size_t)( bytes_received + pkt->metadata.payload_offset ) , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 									continue;

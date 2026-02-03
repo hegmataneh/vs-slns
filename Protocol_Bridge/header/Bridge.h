@@ -124,8 +124,12 @@ typedef struct AB_tcp_connection
 				bool main_instance; // maininstance of tcp conn
 				long pad1;
 			};
-			sockfd tcp_sockfd;
-			int tcp_connection_established; // tcp connection established
+			
+			//sockfd tcp_sockfd;
+			//int tcp_connection_established; // tcp connection established
+
+			SSL_h_t ssl_h;
+			tcp_h_t tcp_h;
 	
 			union
 			{
