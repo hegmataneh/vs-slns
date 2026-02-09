@@ -40,10 +40,16 @@ typedef struct global_distributor
 #endif
 	distributor_t bcast_app_lvl_failure; //app_lvl_failure_dist;
 	distributor_t bcast_pb_lvl_failure; //pb_lvl_failure_dist;
+	
 	distributor_t bcast_pb_udp_connected; //pb_udp_connected_dist; // dispatch tcp connection state to increase counter
 	distributor_t bcast_pb_udp_disconnected; //pb_udp_disconnected_dist;
+	
 	distributor_t bcast_pb_tcp_connected; //pb_tcp_connected_dist; // dispatch tcp connection state to increase counter
 	distributor_t bcast_pb_tcp_disconnected; //pb_tcp_disconnected_dist;
+
+	distributor_t bcast_pb_outcomm_connected; // some output is not tcp . they are for example curl connection . they do not pass to bcast_pb_tcp_connected
+	distributor_t bcast_pb_outcomm_disconnected;
+
 	SHARED_MEM distributor_t bcast_quit; // quit_interrupt_dist; // quit interrupt dispatch to all pcap loop
 
 #ifdef HAS_STATISTICSS
@@ -151,10 +157,15 @@ void mng_basic_thread_sleep_nsec( G * _g , int64 sleep_sec );
 _CALLBACK_FXN void quit_interrupt( int sig );
 _CALLBACK_FXN void app_err_dist( pass_p src_g , LPCSTR msg );
 _CALLBACK_FXN void pb_err_dist( pass_p src_pb , LPCSTR msg );
+
 _CALLBACK_FXN void udp_connected( pass_p src_pb , long v );
 _CALLBACK_FXN void udp_disconnected( pass_p src_pb , long v );
+
 _CALLBACK_FXN void tcp_connected( pass_p src_AB_tcp , long fd );
 _CALLBACK_FXN void tcp_disconnected( pass_p src_pb , long v );
+
+_CALLBACK_FXN void outcomm_connected( pass_p src_AB_tcp , long fd );
+_CALLBACK_FXN void outcomm_disconnected( pass_p src_pb , long v );
 
 _CALLBACK_FXN void thread_goes_out_of_scope( void *ptr );
 

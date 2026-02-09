@@ -21,10 +21,10 @@ _CALLBACK_FXN _PRIVATE_FXN status fast_ring_2_huge_ring_global( pass_p data , bu
 	G * _g = ( G * )tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
 	xudp_hdr * pkt = ( xudp_hdr * )buf;
-	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
+	strcpy( pkt->metadata.TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
 
 	// there in multiple tcp so each packet should have its own hash and uniq id
-	dict_forcibly_get_hash_id_bykey( &PACKET_MGR().map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id );
+	dict_forcibly_get_hash_id_bykey( &PACKET_MGR().map_tcp_socket , pkt->metadata.TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id );
 
 	return fast_ring_2_huge_ring( data , buf , sz );
 }
@@ -132,13 +132,13 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 	G * _g = ( G * )pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
-	char buffer[ BUFFER_SIZE + 128 /*tcp version + grp name[64]*/ ]; // Define a buffer to store received data
-	MEMSET_ZERO_O( buffer );
-	size_t sz;
+	char bufferr[ BUFFER_SIZE + 128 /*tcp version + grp name[64]*/ ]; // Define a buffer to store received data
+	MEMSET_ZERO_O( bufferr );
+	size_t main_pyld_sz;
 
 	init_many_tcp( pb , shrtcut );
 	
-	xudp_hdr * pkt = ( xudp_hdr * )buffer; // plain cup for packet
+	xudp_hdr * pkt = ( xudp_hdr * )bufferr; // plain cup for packet
 	pkt->metadata.version = TCP_XPKT_V1;
 	//pkt->state = ring2ram;
 	
@@ -146,9 +146,10 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 	//pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
 	//pkt->metadata.retried = false;
 
-	pkt->metadata.TCP_name_size = ( uint8_t )sizeof( pb->tcps[ 0 ].__tcp_cfg_pak->name );
-	pkt->metadata.payload_offset = ( uint8_t )sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + ( uint8_t )sizeof( EOS )/*to read hdr name faster*/;
-	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );
+	pkt->metadata.main_load_offset = ( uint8_t )sizeof( pkt->metadata ) + ( uint8_t )sizeof( pkt->appened_load );
+	pkt->metadata.main_with_prefix_offset = ( uint8_t )sizeof( pkt->metadata );
+
+	memset( pkt->appened_load.timestamp_field , ' ' , sizeof( pkt->appened_load.timestamp_field )/*become part of json*/);
 
 	int output_tcp_socket_error_tolerance_count = 0; // restart socket after many error accur
 
@@ -186,22 +187,13 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 	#ifdef ENABLE_COMMUNICATION
 
 		// from ring pcap to stack general
-		//while ( cbuf_pked_pop( shrtcut->raw_xudp_cache , buffer + pkt->flags.payload_offset /*hdr + pkt*/ , &sz , 60/*timeout*/ ) == errOK )
-		while( poped_defraged_packet( pb , buffer + pkt->metadata.payload_offset /*hdr + pkt*/ , sizeof( buffer ) - pkt->metadata.payload_offset , &sz , &pkt->metadata.udp_hdr ) == errOK )
+		while( poped_defraged_packet( pb , bufferr + pkt->metadata.main_load_offset /*hdr + pkt*/ , sizeof( bufferr ) - pkt->metadata.main_load_offset , &main_pyld_sz , &pkt->metadata.udp_hdr ) == errOK )
 		{
 			#ifdef ENABLE_USE_DBG_TAG
 				_sem_in_fast_cache = cbuf_pked_unreliable_sem_count( &pb->comm.preq.raw_xudp_cache );
 			#endif
 
-//#ifdef ENABLE_LOGGING
-//
-//				char buffff1[ 10000 ];
-//				dump_buffer_ascii( buffer + pkt->metadata.payload_offset , sz , buffff1 , sizeof( buffff1 ) );
-//				log_write( LOG_ERROR , "%s\n\n\n" , buffff1 );
-//#endif
-
-
-			pkt->metadata.payload_sz = sz;
+			pkt->metadata.payload_sz = main_pyld_sz + sizeof( pkt->appened_load );
 			//pkt->metadata.udp_hdr.log_double_checked = false;
 			//pkt->metadata.udp_hdr.logged_2_mem = false;
 			//clock_gettime( CLOCK_MONOTONIC_COARSE , &pkt->flags.rec_t );
@@ -213,10 +205,46 @@ _REGULAR_FXN void_p many_tcp_out_thread_proc( AB * pb , shrt_pth_t * shrtcut )
 
 		#ifdef ENALBE_PASS_DEFRAGED_PACKET_INTO_L2
 
-			if ( distributor_publish_buffer_size( shrtcut->bcast_xudp_pkt , buffer , sz + pkt->metadata.payload_offset , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
+			{
+				memset( pkt->metadata.TCP_name , '\0' , sizeof( pkt->metadata.TCP_name )/*metadata part and null terminated part*/);
+				//memset( pkt->appened_load.timestamp_field , ' ' , sizeof( pkt->appened_load.timestamp_field )/*become part of json*/);
+				struct tm tm_utc;
+				/* Convert seconds to UTC broken-down time */
+				gmtime_r( &pkt->metadata.udp_hdr.tm.tv_sec , &tm_utc );
+				/* Convert microseconds to milliseconds */
+				int millis = pkt->metadata.udp_hdr.tm.tv_usec / 1000;
+				/* Format full ISO-8601 timestamp */
+				snprintf( pkt->appened_load.timestamp_field , sizeof( pkt->appened_load.timestamp_field ) ,
+					"{ \"@timestamp\": \"%04d-%02d-%02dT%02d:%02d:%02d.%03dZ\", " ,
+					tm_utc.tm_year + 1900 ,
+					tm_utc.tm_mon + 1 ,
+					tm_utc.tm_mday ,
+					tm_utc.tm_hour ,
+					tm_utc.tm_min ,
+					tm_utc.tm_sec ,
+					millis );
+				
+				char * p;
+				while ( ( p = memchr( pkt->appened_load.timestamp_field , '\0' , sizeof( pkt->appened_load.timestamp_field ) ) ) )
+				{
+					*p = ' ';
+				}
+				
+				p = strchr( bufferr + pkt->metadata.main_load_offset , '{' );  // find first '{'
+				if ( p )
+				{
+					*p = ' '; // replace it with space
+				}
+				else
+				{
+					//ASSERT( 0 );
+				}
+			}
+
+			if ( distributor_publish_buffer_size( shrtcut->bcast_xudp_pkt , bufferr , main_pyld_sz + pkt->metadata.main_load_offset /**/ , SUBSCRIBER_PROVIDED) != errOK ) // 14040622 . do replicate or roundrobin
 				continue;
 
-			//fast_ring_2_huge_ring( tcp , buffer , sz + pkt->metadata.payload_offset );
+			//fast_ring_2_huge_ring( tcp , buffer , sz + pkt->metadata.main_with_prefix_offset );
 
 			pb->stat.round_zero_set.continuously_unsuccessful_send_error = 0;
 			

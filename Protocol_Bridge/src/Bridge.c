@@ -649,7 +649,18 @@ _PRIVATE_FXN void init_ActiveBridge( G * _g , AB * pb )
 					pb->tcps[ itcp_piv ].owner_pb = pb;
 					pb->tcps[ itcp_piv ].__tcp_cfg_pak = &pb->cpy_cfg.m.m.maintained.out[ itcp_piv ];
 
-					M_BREAK_STAT( tcps_init_ssl_tcp( &pb->tcps[ itcp_piv ].tcp_h , &pb->tcps[ itcp_piv ].ssl_h ) , 0 );
+					if ( iSTR_SAME( pb->tcps[ itcp_piv ].__tcp_cfg_pak->data.connection_type , "curl" ) )
+					{
+						M_BREAK_STAT( tcps_init_curl( &pb->tcps[ itcp_piv ].tcp_h , &pb->tcps[ itcp_piv ].curl_h ) , 0 );
+					}
+					else if ( iSTR_SAME( pb->tcps[ itcp_piv ].__tcp_cfg_pak->data.connection_type , "ssl_over_tcp" ) )
+					{
+						M_BREAK_STAT( tcps_init_ssl_tcp( &pb->tcps[ itcp_piv ].tcp_h , &pb->tcps[ itcp_piv ].ssl_h ) , 0 );
+					}
+					else
+					{
+						M_BREAK_STAT( tcps_init_tcp( &pb->tcps[ itcp_piv ].tcp_h ) , 0 );
+					}
 					tcps_init_msg_dts_buf( &pb->tcps[ itcp_piv ].tcp_h , &pb->stat.round_zero_set.pb_errBuf );
 
 					M_BREAK_STAT( distributor_init( &pb->tcps[ itcp_piv ].bcast_change_state , 1 ) , 0 );

@@ -73,10 +73,15 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 #endif
 	sub_destroy( &_g->distributors.bcast_app_lvl_failure );
 	sub_destroy( &_g->distributors.bcast_pb_lvl_failure );
+	
 	sub_destroy( &_g->distributors.bcast_pb_udp_connected );
 	sub_destroy( &_g->distributors.bcast_pb_udp_disconnected );
+	
 	sub_destroy( &_g->distributors.bcast_pb_tcp_connected );
 	sub_destroy( &_g->distributors.bcast_pb_tcp_disconnected );
+
+	sub_destroy( &_g->distributors.bcast_pb_outcomm_connected );
+	sub_destroy( &_g->distributors.bcast_pb_outcomm_disconnected );
 
 #ifdef HAS_STATISTICSS
 	sub_destroy( &_g->distributors.init_static_table );
@@ -90,7 +95,6 @@ _PRIVATE_FXN _CALLBACK_FXN void cleanup_globals( pass_p src_g , long v )
 
 _PRIVATE_FXN _CALLBACK_FXN void cleanup_threads( pass_p src_g , long v )
 {
-
 	G * _g = ( G * )src_g;
 	size_t sz = array_get_count( &_g->hdls.registered_thread );
 	pthread_t * ppthread_t = NULL;
@@ -202,6 +206,7 @@ _CALLBACK_FXN void thread_registration( pass_p src_p , long src_pthread_t , long
 			for ( ; !_g->distributors.bafter_post_cfg_called /* && break_cuit < 1000*/ ; mng_basic_thread_sleep(_g , HI_PRIORITY_THREAD) /* , break_cuit++*/ );
 			break;
 		}
+		default:;
 	}
 
 #ifdef HAS_STATISTICSS
@@ -326,13 +331,24 @@ _CALLBACK_FXN _PRIVATE_FXN void state_pre_config_init_helper( void_p src_g ) /*c
 
 	M_BREAK_STAT( distributor_init_withLock( &_g->distributors.bcast_pb_udp_connected , 1 ) , 0 );
 	M_BREAK_STAT( distributor_init_withLock( &_g->distributors.bcast_pb_udp_disconnected , 1 ) , 0 );
+	
 	M_BREAK_STAT( distributor_init_withLock( &_g->distributors.bcast_pb_tcp_connected , 1 ) , 0 );
 	M_BREAK_STAT( distributor_init_withLock( &_g->distributors.bcast_pb_tcp_disconnected , 1 ) , 0 );
 
+	M_BREAK_STAT( distributor_init_withLock( &_g->distributors.bcast_pb_outcomm_connected , 1 ) , 0 );
+	M_BREAK_STAT( distributor_init_withLock( &_g->distributors.bcast_pb_outcomm_disconnected , 1 ) , 0 );
+	
+
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pb_udp_connected , SUB_LONG , SUB_FXN( udp_connected ) , NULL ) , 0 );
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pb_udp_disconnected , SUB_LONG , SUB_FXN( udp_disconnected ) , NULL ) , 0 );
+	
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pb_tcp_connected , SUB_LONG , SUB_FXN( tcp_connected ) , NULL ) , 0 );
 	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pb_tcp_disconnected , SUB_LONG , SUB_FXN( tcp_disconnected ) , NULL ) , 0 );
+
+	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pb_outcomm_connected , SUB_LONG , SUB_FXN( outcomm_connected ) , NULL ) , 0 );
+	M_BREAK_STAT( distributor_subscribe( &_g->distributors.bcast_pb_outcomm_disconnected , SUB_LONG , SUB_FXN( outcomm_disconnected ) , NULL ) , 0 );
+
+
 
 	M_BREAK_STAT( mms_array_init( &_g->bridges.ABs , sizeof( AB ) , 1 , 1 , 0 ) , 0 );
 
@@ -471,6 +487,56 @@ _CALLBACK_FXN void tcp_disconnected( pass_p src_AB_tcp , long v )
 #endif
 }
 
+
+_CALLBACK_FXN void outcomm_connected( pass_p src_AB_tcp , long NNPP )
+{
+	AB_tcp * tcp = ( AB_tcp * )src_AB_tcp;
+	AB * pb = tcp->owner_pb;
+
+	// first try to send by file desc if succ then pointer must be valid
+	dict_fst_put( &TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->hdls.pkt_mgr.map_tcp_socket , tcp->__tcp_cfg_pak->name , ( int )NP , ( void_p )tcp , NULL , NULL , NULL );
+	tcp->owner_pb->stat.round_zero_set.tcp_connection_count++;
+	tcp->owner_pb->stat.round_zero_set.total_tcp_succ_connection_count++;
+
+	if ( tcp->main_instance )
+	{
+		distributor_publish_long( &tcp->this->bcast_change_state , 1 , src_AB_tcp ); // transfer state per case
+	}
+
+	if ( tcp->main_instance )
+	{
+		TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count++;
+		TO_G( tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_retry_tcp_connection_count++;
+	}
+
+#ifdef HAS_STATISTICSS
+	if ( tcp->main_instance )
+	{
+		nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_conn_cell );
+		nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_retry_conn_cell );
+	}
+	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
+	nnc_cell_triggered( pb->stat.pb_TCP_retry_conn_cell );
+#endif
+}
+_CALLBACK_FXN void outcomm_disconnected( pass_p src_AB_tcp , long v )
+{
+	AB_tcp * tcp = ( AB_tcp * )src_AB_tcp;
+	AB * pb = tcp->owner_pb;
+
+	if ( pb->stat.round_zero_set.tcp_connection_count > 0 ) pb->stat.round_zero_set.tcp_connection_count--;
+
+	distributor_publish_long( &tcp->this->bcast_change_state , 0 , src_AB_tcp ); // transfer state per case
+
+	if ( TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count > 0 ) TO_G( pb->cpy_cfg.m.m.temp_data._pseudo_g )->stat.aggregate_stat.total_tcp_connection_count--;
+
+#ifdef HAS_STATISTICSS
+	nnc_cell_triggered( _g->stat.nc_s_req.ov_TCP_conn_cell );
+	nnc_cell_triggered( pb->stat.pb_TCP_conn_cell );
+#endif
+}
+
+
 /// <summary>
 /// this function stablish every udp that need to be stablished
 /// this callback call multitimes
@@ -595,61 +661,79 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		//if ( connect( tcp->tcp_sockfd , ( struct sockaddr * )&tcp_addr , sizeof( tcp_addr ) ) == -1 )
 
 		MEMSET_ZERO_O( &imortalErrStr );
-		d_error = tcps_connect_2_ssl_server( &tcp->tcp_h , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT() ,
-			tcp->__tcp_cfg_pak->data.conn_certificate_path , tcp->__tcp_cfg_pak->data.conn_key_path , tcp->__tcp_cfg_pak->data.ca_crt_path , &imortalErrStr );
-		
-		//uchar buf[MIN_SYSERR_BUF_SZ] = {0};
-		//d_error = connect_with_timeout( tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT() , &tcp->tcp_sockfd , &imortalErrStr , ( buffer * )&buf );
-		if ( d_error != errOK )
+
+		switch ( tcp->tcp_h.type )
 		{
-			if ( imortalErrStr[0] )
+			case tcph_ssl:
+			case tcph_tcp:
 			{
-			#ifdef ENABLE_LOGGING
-				COOLDOWN_LOGGING_EXP( log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] ));
-			#endif
-			}
-			//if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
-			//{
-			//	imortalErrStr = NULL;
-			//	_close_socket( &tcp->tcp_sockfd , &imortalErrStr );
-			//	if ( imortalErrStr )
-			//	{
-			//	#ifdef ENABLE_LOGGING
-			//		log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr );
-			//	#endif
-			//	}
-			//	//mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
-			//	//continue;
-			//}
-			
-			N_BREAK_IF( 1 , errSocket , 1 );
-		}
-		else
-		{
-			fcntl( tcp->tcp_h.tcp_fd , F_SETFL , O_NONBLOCK ); // to prevent tcp stack handles lingering to closed peer connection
-		#ifdef ENABLE_KEEPALIVE_CHAOTIC
-			MEMSET_ZERO_O( &imortalErrStr );
-			//enable_keepalive_chaotic( tcp->tcp_sockfd , &imortalErrStr ); // to keep alive and try to probe peer in semi normal sitribution time and does not have line up in connction
-			tcps_enable_keepalive( &tcp->tcp_h , &imortalErrStr );
+				d_error = tcps_connect_2_ssl_server( &tcp->tcp_h , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT() ,
+					tcp->__tcp_cfg_pak->data.conn_certificate_path , tcp->__tcp_cfg_pak->data.conn_key_path , tcp->__tcp_cfg_pak->data.ca_crt_path , &imortalErrStr );
 
-			if ( imortalErrStr[0] )
+				if ( d_error != errOK )
+				{
+					if ( imortalErrStr[ 0 ] )
+					{
+#ifdef ENABLE_LOGGING
+						COOLDOWN_LOGGING_EXP( log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[ 0 ] ) );
+#endif
+					}
+					//if ( errno == ECONNREFUSED || errno == ETIMEDOUT )
+					//{
+					//	imortalErrStr = NULL;
+					//	_close_socket( &tcp->tcp_sockfd , &imortalErrStr );
+					//	if ( imortalErrStr )
+					//	{
+					//	#ifdef ENABLE_LOGGING
+					//		log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr );
+					//	#endif
+					//	}
+					//	//mng_basic_thread_sleep( _g , NORMAL_PRIORITY_THREAD );
+					//	//continue;
+					//}
+
+					N_BREAK_IF( 1 , errSocket , 1 );
+				}
+				else
+				{
+					fcntl( tcp->tcp_h.tcp_fd , F_SETFL , O_NONBLOCK ); // to prevent tcp stack handles lingering to closed peer connection
+#ifdef ENABLE_KEEPALIVE_CHAOTIC
+					MEMSET_ZERO_O( &imortalErrStr );
+					//enable_keepalive_chaotic( tcp->tcp_sockfd , &imortalErrStr ); // to keep alive and try to probe peer in semi normal sitribution time and does not have line up in connction
+					tcps_enable_keepalive( &tcp->tcp_h , &imortalErrStr );
+
+					if ( imortalErrStr[ 0 ] )
+					{
+#ifdef ENABLE_LOGGING
+						log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[ 0 ] );
+#endif
+					}
+#endif
+
+					int flag = 1;
+					setsockopt( tcp->tcp_h.tcp_fd , IPPROTO_TCP , TCP_NODELAY , &flag , sizeof( flag ) ); // try to be no nagle. no batching . because packet size ration to hdr size is very hi. so each packet sending is matter
+
+					//tcp->tcp_connection_established = 1;
+					tcp->tcp_is_about_to_connect = 0;
+#ifdef ENABLE_LOGGING
+					log_write( LOG_INFO , "%d tcp connected %s:%s" , __LINE__ , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , tcp->__tcp_cfg_pak->data.core.TCP_destination_ports );
+#endif
+					distributor_publish_long( &_g->distributors.bcast_pb_tcp_connected , tcp->tcp_h.tcp_fd , ( pass_p )tcp );
+					return errOK;
+				}
+
+				break;
+			}
+			case tcph_curl:
 			{
-			#ifdef ENABLE_LOGGING
-				log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
-			#endif
+				d_error = tcps_connect_curl( &tcp->tcp_h , &imortalErrStr );
+				if ( !d_error )
+				{
+					distributor_publish_long( &_g->distributors.bcast_pb_outcomm_connected , NP , ( pass_p )tcp );
+				}
+				return d_error;
 			}
-		#endif
-
-			int flag = 1;
-			setsockopt( tcp->tcp_h.tcp_fd , IPPROTO_TCP , TCP_NODELAY , &flag , sizeof( flag ) ); // try to be no nagle. no batching . because packet size ration to hdr size is very hi. so each packet sending is matter
-
-			//tcp->tcp_connection_established = 1;
-			tcp->tcp_is_about_to_connect = 0;
-		#ifdef ENABLE_LOGGING
-			log_write( LOG_INFO , "%d tcp connected %s:%s" , __LINE__ , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , tcp->__tcp_cfg_pak->data.core.TCP_destination_ports );
-		#endif
-			distributor_publish_long( &_g->distributors.bcast_pb_tcp_connected , tcp->tcp_h.tcp_fd , ( pass_p )tcp );
-			return errOK;
+			default:;
 		}
 	}
 
@@ -713,41 +797,46 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 				{
 					if ( pb->tcps[ itcp ].main_instance )
 					{
-						if ( pb->tcps[ itcp ].tcp_h.tcp_conn_established && !_g->cmd.block_sending_1 )
+						//if ( pb->tcps[ itcp ].tcp_h.type == tcph_curl ) continue;
+						
+						if ( pb->tcps[ itcp ].tcp_h.type == tcph_tcp || pb->tcps[ itcp ].tcp_h.type == tcph_ssl )
 						{
-							timespec tnow;
-							clock_gettime( CLOCK_REALTIME , &tnow );
-
-							if
-							(
-								!pb->tcps[ itcp ].tcp_is_about_to_connect &&
-								timespec_diff_ms( &pb->tcps[ itcp ].last_action_ts , &tnow ) > CFG().retry_on_idle_tcp_conn_after_timeout_sec * 1000
-							)
+							if ( pb->tcps[ itcp ].tcp_h.tcp_conn_established && !_g->cmd.block_sending_1 )
 							{
-								clock_gettime( CLOCK_REALTIME , &pb->tcps[ itcp ].last_action_ts );
-								Brief_Err imortalErrStr = {0};
-								if ( peek_socket_connection( pb->tcps[ itcp ].tcp_h.tcp_fd , 0 , &imortalErrStr ) <= 0 )
+								timespec tnow;
+								clock_gettime( CLOCK_REALTIME , &tnow );
+
+								if
+								(
+									!pb->tcps[ itcp ].tcp_is_about_to_connect &&
+									timespec_diff_ms( &pb->tcps[ itcp ].last_action_ts , &tnow ) > CFG().retry_on_idle_tcp_conn_after_timeout_sec * 1000
+								)
 								{
+									clock_gettime( CLOCK_REALTIME , &pb->tcps[ itcp ].last_action_ts );
+									Brief_Err imortalErrStr = {0};
+									if ( peek_socket_connection( pb->tcps[ itcp ].tcp_h.tcp_fd , 0 , &imortalErrStr ) <= 0 )
+									{
+										if ( imortalErrStr[0] )
+										{
+										#ifdef ENABLE_LOGGING
+											log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
+										#endif
+										}
+										pb->tcps[ itcp ].tcp_is_about_to_connect = 1;
+										tcps_close( &pb->tcps[ itcp ].tcp_h , NULL );
+										//pb->tcps[ itcp ].tcp_connection_established = 0;
+										itcp = 0;
+										continue;
+									}
 									if ( imortalErrStr[0] )
 									{
 									#ifdef ENABLE_LOGGING
 										log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
 									#endif
 									}
-									pb->tcps[ itcp ].tcp_is_about_to_connect = 1;
-									tcps_close( &pb->tcps[ itcp ].tcp_h , NULL );
-									//pb->tcps[ itcp ].tcp_connection_established = 0;
-									itcp = 0;
-									continue;
 								}
-								if ( imortalErrStr[0] )
-								{
-								#ifdef ENABLE_LOGGING
-									log_write( LOG_ERROR , "%d %s" , __LINE__ , imortalErrStr[0] );
-								#endif
-								}
+								continue;
 							}
-							continue;
 						}
 						if ( !pb->tcps[ itcp ].tcp_h.tcp_conn_established )
 						{

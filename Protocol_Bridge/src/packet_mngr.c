@@ -992,7 +992,7 @@ _CALLBACK_FXN void init_packetmgr_statistics( pass_p src_g )
 _CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz )
 {
 	INIT_BREAKABLE_FXN();
-
+	
 	AB_tcp * tcp = ( AB_tcp * )data;
 	AB * pb = tcp->owner_pb;
 	G * _g = ( G * )tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g;
@@ -1148,11 +1148,9 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 				}
 			}
 		}
-				
+
 		Brief_Err imortalErrStr = {0};
-		//Detail_ErrBuf detailErrBuf = {0};
-		//err_sent = tcp_send_all( fd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &imortalErrStr , &detailErrBuf ); // send is too heavy
-		err_sent = tcps_write( &ptcp->tcp_h , data + pkt1->metadata.payload_offset , sz_t , NULL , &imortalErrStr );
+		err_sent = tcps_write( &ptcp->tcp_h , data + pkt1->metadata.main_with_prefix_offset , sz_t , NULL , &imortalErrStr );
 
 		//if ( imortalErrStr != errOK )
 		//{
@@ -1161,7 +1159,7 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 		//	//char str[ INET_ADDRSTRLEN ] = {0};
 		//	//inet_ntop( AF_INET , &addr , str , INET_ADDRSTRLEN );
 		//#ifdef ENABLE_LOGGING
-		//	//log_write( LOG_ERROR , "%d %s %s %s %s" , __LINE__ , imortalErrStr , buf , pkt1->TCP_name , str );
+		//	//log_write( LOG_ERROR , "%d %s %s %s %s" , __LINE__ , imortalErrStr , buf , pkt1->pre_load.TCP_name , str );
 		//#endif
 		//}
 		
@@ -1284,7 +1282,7 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 				{
 					for ( int itcp = 0 ; itcp < pb->tcps_count ; itcp++ )
 					{
-						if ( STR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->name , pkt1->TCP_name ) )
+						if ( STR_SAME( pb->tcps[ itcp ].__tcp_cfg_pak->name , pkt1->metadata.TCP_name ) )
 						{
 							ptcp = pb->tcps[ itcp ].this; // always use this instead of owner of this because responsiblity deligate to this. see bridge
 
@@ -1324,13 +1322,13 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 							
 								Brief_Err imortalErrStr = {0};
 								//Detail_ErrBuf detailErrBuf = {0};
-								//err_sent = tcp_send_all( ptcp->tcp_h.tcp_fd , data + pkt1->metadata.payload_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &imortalErrStr , &detailErrBuf ); // send is to heavy
-								err_sent = tcps_write( &ptcp->tcp_h , data + pkt1->metadata.payload_offset , sz_t , NULL , &imortalErrStr );
+								//err_sent = tcp_send_all( ptcp->tcp_h.tcp_fd , data + pkt1->metadata.main_with_prefix_offset , sz_t , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &imortalErrStr , &detailErrBuf ); // send is to heavy
+								err_sent = tcps_write( &ptcp->tcp_h , data + pkt1->metadata.main_with_prefix_offset , sz_t , NULL , &imortalErrStr );
 
 								if ( imortalErrStr[0] )
 								{
 								#ifdef ENABLE_LOGGING
-									log_write( LOG_ERROR , "%d %s %s %s" , __LINE__ , imortalErrStr[0] , *ptcp->tcp_h.dts_buf , pkt1->TCP_name);
+									log_write( LOG_ERROR , "%d %s %s %s" , __LINE__ , imortalErrStr[0] , *ptcp->tcp_h.dts_buf , pkt1->metadata.TCP_name );
 								#endif
 								}
 								switch ( err_sent )
@@ -1351,7 +1349,7 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 										if ( try_resolve_route )
 										{
 											try_resolve_route = false;
-											dict_fst_put( &PACKET_MGR().map_tcp_socket , pkt1->TCP_name , ptcp->tcp_h.tcp_fd , ( void_p )ptcp , NULL , NULL , NULL );
+											dict_fst_put( &PACKET_MGR().map_tcp_socket , pkt1->metadata.TCP_name , ptcp->tcp_h.tcp_fd , ( void_p )ptcp , NULL , NULL , NULL );
 										}
 
 										switch ( pkt1->metadata.prev_state )
@@ -1543,7 +1541,7 @@ _PRIVATE_FXN _CALLBACK_FXN status store_segment_item( buffer data , size_t len ,
 	G * _g = ( G * )src_g;
 	status d_error = errCanceled;
 	xudp_hdr * pkt1 = ( xudp_hdr * )data;
-	size_t sz_t = pkt1->metadata.payload_sz;
+	//size_t sz_t = pkt1->metadata.payload_sz;
 
 	switch ( pkt1->metadata.state ) //if ( pkt1->metadata.sent || /*pkt1->metadata.is_faulti ||*/ pkt1->metadata.filed ) { return errOK; }
 	{
@@ -1784,7 +1782,7 @@ _PRIVATE_FXN _CALLBACK_FXN status remap_storage_data( pass_p src_g , buffer buf 
 	//pkt1->metadata.is_remapped = true; // first it should set to mapped but if failed then remove this flag
 	pkt1->metadata.prev_state = pkt1->metadata.state;
 	pkt1->metadata.state = ps_replicated_one_on_priv_file;
-	d_error = distributor_publish_buffer_size_data( &_g->hdls.prst_csh.bcast_reroute_nopeer_pkt , buf , sz , ( long )pkt1->TCP_name , src_g ); // in this point packet replicated
+	d_error = distributor_publish_buffer_size_data( &_g->hdls.prst_csh.bcast_reroute_nopeer_pkt , buf , sz , ( long )pkt1->metadata.TCP_name , src_g ); // in this point packet replicated
 
 	if ( d_error == errOK )
 	{

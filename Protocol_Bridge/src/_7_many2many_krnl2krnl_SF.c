@@ -21,10 +21,10 @@ _CALLBACK_FXN _PRIVATE_FXN status fast_ring_2_huge_ring_7_( pass_p data , buffer
 	G * _g = ( G * )tcp->owner_pb->cpy_cfg.m.m.temp_data._pseudo_g;
 
 	xudp_hdr * pkt = ( xudp_hdr * )buf;
-	strcpy( pkt->TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
+	strcpy( pkt->metadata.TCP_name , tcp->__tcp_cfg_pak->name ); // actually write on buffer
 
 	// there in multiple tcp so each packet should have its own hash and uniq id
-	dict_forcibly_get_hash_id_bykey( &PACKET_MGR().map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id );
+	dict_forcibly_get_hash_id_bykey( &PACKET_MGR().map_tcp_socket , pkt->metadata.TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id );
 
 	return fast_ring_2_huge_ring( data , buf , sz );
 }
@@ -174,9 +174,8 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 	//pkt->metadata.retry = false; // since sending latest packet is prioritized so just try send them once unless rare condition 
 	//pkt->metadata.retried = false;
 
-	pkt->metadata.TCP_name_size = ( uint8_t )sizeof( pb->tcps[ 0 ].__tcp_cfg_pak->name );
-	pkt->metadata.payload_offset = ( uint8_t )sizeof( pkt->metadata ) + pkt->metadata.TCP_name_size + ( uint8_t )sizeof( EOS )/*to read hdr name faster*/;
-	//int local_tcp_header_data_length = sizeof( pkt->flags ) + pkt->flags.TCP_name_size + sizeof( EOS );
+	pkt->metadata.main_load_offset = ( uint8_t )sizeof( pkt->metadata ) + ( uint8_t )sizeof( pkt->appened_load );
+	pkt->metadata.main_with_prefix_offset = ( uint8_t )sizeof( pkt->metadata );
 
 	// TODO . add M_BREAK_STAT( dict_forcibly_get_hash_id_bykey( &PACKET_MGR().map_tcp_socket , pkt->TCP_name , INVALID_FD , NULL , &pkt->metadata.tcp_name_key_hash , &pkt->metadata.tcp_name_uniq_id ) , 0 );
 
@@ -326,7 +325,7 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 						while ( 1 ) // drain it
 						{
 							if ( pthis_thread_alive_time ) *pthis_thread_alive_time = time( NULL );
-							bytes_received = recvfrom( pb->udps[ iudp ].udp_sockfd , bufferr + pkt->metadata.payload_offset /*hdr + pkt*/ , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
+							bytes_received = recvfrom( pb->udps[ iudp ].udp_sockfd , bufferr + pkt->metadata.main_load_offset /*hdr + pkt*/ , BUFFER_SIZE , MSG_DONTWAIT , ( struct sockaddr * )&client_addr , &client_len ); // good for udp data recieve
 
 							if ( bytes_received < 0 )
 							{
@@ -362,14 +361,53 @@ _THREAD_FXN void_p proc_many2many_krnl_udp_store( void_p src_pb )
 							#endif
 							//buffer[ bytes_received ] = '\0'; // Null-terminate the received data
 
-							pkt->metadata.payload_sz = (size_t)bytes_received;
+							pkt->metadata.payload_sz = (size_t)bytes_received + sizeof( pkt->appened_load.timestamp_field );
+
+
+							{
+								memset( pkt->metadata.TCP_name , '\0' , sizeof( pkt->metadata.TCP_name )/*metadata part and null terminated part*/ );
+								//memset( pkt->appened_load.timestamp_field , ' ' , sizeof( pkt->appened_load.timestamp_field )/*become part of json*/);
+								struct tm tm_utc;
+								/* Convert seconds to UTC broken-down time */
+								gmtime_r( &pkt->metadata.udp_hdr.tm.tv_sec , &tm_utc );
+								/* Convert microseconds to milliseconds */
+								int millis = pkt->metadata.udp_hdr.tm.tv_usec / 1000;
+								/* Format full ISO-8601 timestamp */
+								snprintf( pkt->appened_load.timestamp_field , sizeof( pkt->appened_load.timestamp_field ) ,
+									"{ \"@timestamp\": \"%04d-%02d-%02dT%02d:%02d:%02d.%03dZ\", " ,
+									tm_utc.tm_year + 1900 ,
+									tm_utc.tm_mon + 1 ,
+									tm_utc.tm_mday ,
+									tm_utc.tm_hour ,
+									tm_utc.tm_min ,
+									tm_utc.tm_sec ,
+									millis );
+
+								char * p;
+								while ( ( p = memchr( pkt->appened_load.timestamp_field , '\0' , sizeof( pkt->appened_load.timestamp_field ) ) ) )
+								{
+									*p = ' ';
+								}
+
+								p = strchr( bufferr + pkt->metadata.main_load_offset , '{' );  // find first '{'
+								if ( p )
+								{
+									*p = ' ';                // replace it with space
+								}
+								else
+								{
+									//ASSERT( 0 );
+								}
+							}
+
+
 
 							#ifdef SEND_DIRECTLY_ARRIVE_UDP
 								Brief_Err imortalErrStr = NULL;
 								uchar buf[ MIN_SYSERR_BUF_SZ ] = { 0 };
-								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , bufferr + pkt->metadata.payload_offset , pkt->metadata.payload_sz , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &imortalErrStr , ( buffer * )&buf );
+								tcp_send_all( pb->tcps[ iudp ].tcp_sockfd , bufferr + pkt->metadata.main_load_offset , pkt->metadata.payload_sz , 0 , SEND_TIMEOUT_ms , ACK_TIMEOUT_ms , RETRY_MECHANISM , &imortalErrStr , ( buffer * )&buf );
 							#else
-								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , bufferr , (size_t)( bytes_received + pkt->metadata.payload_offset ) , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
+								if ( distributor_publish_buffer_size( &pb->comm.preq.bcast_xudp_pkt , bufferr , (size_t)( bytes_received + pkt->metadata.main_load_offset ) , SUBSCRIBER_PROVIDED ) != errOK ) // 14040622 . do replicate or roundrobin
 									continue;
 							#endif
 

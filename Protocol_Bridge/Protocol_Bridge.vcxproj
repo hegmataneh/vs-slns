@@ -172,7 +172,9 @@
       </Command>
     </RemotePreBuildEvent>
     <Link>
-      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core;tinfo;backtrace;ssl;crypto</LibraryDependencies>
+      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core;tinfo;backtrace;ssl;crypto;curl</LibraryDependencies>
+      <SharedLibrarySearchPath>%(SharedLibrarySearchPath)</SharedLibrarySearchPath>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -182,8 +184,9 @@
       <AdditionalOptions>-D__COMPILING %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
-      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core;ssl;crypto</LibraryDependencies>
-      <AdditionalOptions>-pthread %(AdditionalOptions)</AdditionalOptions>
+      <LibraryDependencies>ncurses;pcap;pthread;notcurses;notcurses-core;ssl;crypto;curl</LibraryDependencies>
+      <AdditionalOptions>-pthread  %(AdditionalOptions)</AdditionalOptions>
+      <SharedLibrarySearchPath>%(SharedLibrarySearchPath)</SharedLibrarySearchPath>
     </Link>
     <RemotePostBuildEvent>
       <Command>sudo setcap cap_net_raw,cap_net_admin=eip $(RemoteTargetPath)

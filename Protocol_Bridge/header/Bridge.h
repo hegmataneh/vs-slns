@@ -129,6 +129,7 @@ typedef struct AB_tcp_connection
 			//int tcp_connection_established; // tcp connection established
 
 			SSL_h_t ssl_h;
+			Curl_h_t curl_h;
 			tcp_h_t tcp_h;
 	
 			union

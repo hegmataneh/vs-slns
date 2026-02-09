@@ -4,7 +4,7 @@
 
 typedef struct udp_packet_header
 {
-	struct timeval tm;
+	struct timeval tm; /*first pcap_pkthdr time*/
 	union
 	{
 		uint16_t udp_pkt_id;
@@ -41,8 +41,8 @@ typedef struct /*ready_2_send_packet_v1*/
 			struct
 			{
 				uint8_t version;
-				uint8_t TCP_name_size;
-				uint8_t payload_offset; // offset to pkt payload . max 256 metadata sz
+				uint8_t main_load_offset; // offset to pkt payload . max 256 metadata sz
+				uint8_t main_with_prefix_offset;
 				uint8 cool_down_attempt; // it is very wiered that two attempt to send is near each other
 			};
 			PAD(8);
@@ -54,13 +54,23 @@ typedef struct /*ready_2_send_packet_v1*/
 		uint64 tcp_name_key_hash;
 		uint64 tcp_name_uniq_id;
 
+		CFG_ITM TCP_name; // variable length name
+
 	} metadata;
 
-	union /*64 byte long*/
+	
+	
+	// .. add here what ever you want
+
+
+
+	struct
 	{
-		CHAR TCP_name[ 1 ]; // variable length name
-		//DATAB pkt[1]; // after TCP_name data come
-	};
+		// most be last before payload or json
+		CHAR timestamp_field[48]; /*set to space then filled with json { then with "@timestamp": "2026-02-08T18:20:18.152789Z",*/
+	} appened_load;
+
+	// then payload come here actually
 
 } xudp_hdr; //rdy_pkt1;
 
