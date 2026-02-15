@@ -128,7 +128,7 @@ typedef struct AB_tcp_connection
 			//sockfd tcp_sockfd;
 			//int tcp_connection_established; // tcp connection established
 
-			SSL_h_t ssl_h;
+			//SSL_h_t ssl_h;
 			Curl_h_t curl_h;
 			tcp_h_t tcp_h;
 	
@@ -173,6 +173,8 @@ typedef struct ActiveBridge // protocol_bridge . each bridge define one or many 
 
 	time_t * pthread_alive_time; /*use in pcap loop*/
 	
+	issues_h issues;
+
 } AB;
 
 typedef struct AB_holders
@@ -185,7 +187,9 @@ typedef struct AB_holders
 		pthread_t trd_tcp_connection;
 		pthread_mutex_t mtx; /*prevent multi creation*/
 		bool bcreated; // thread is created
+
 	} tcps_trd;
+
 } ABhs;
 
 
@@ -208,3 +212,16 @@ void mk_shrt_path( _IN AB * pb , _RET_VAL_P shrt_pth_t * shrtcut );
 _CALLBACK_FXN void try_stoping_sending_from_bridge( pass_p src_g , long v );
 
 _CALLBACK_FXN void init_bridges_statistics( pass_p src_g );
+
+#define AB_BREAK_MSG_TYPE 111
+
+#define ONE_LINE_ERR_COPY( var ) do { if ( var ) issue_add( &pb->issues , var ); } while( 0 )
+
+#define CHECK_ALL_VARS( Br_Err )	ONE_LINE_ERR_COPY( Br_Err[0] ); \
+									ONE_LINE_ERR_COPY( Br_Err[1] ); \
+									ONE_LINE_ERR_COPY( Br_Err[2] ); \
+									ONE_LINE_ERR_COPY( Br_Err[3] ); \
+									ONE_LINE_ERR_COPY( Br_Err[4] );
+
+_CALLBACK_FXN PASSED_CSTR auto_refresh_thread_error_lists_cell( pass_p src_pcell );
+

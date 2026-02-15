@@ -71,8 +71,8 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 #endif
 #endif
 
-	//WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
-	//char * dev = pb->cpy_cfg.m.m.maintained.in->data.UDP_origin_interface;
+	//WARNING( pb->cpy_cfg.m.m.cas_maintained.in_count == 1 );
+	//char * dev = pb->cpy_cfg.m.m.cas_maintained.in->data.UDP_origin_interface;
 	char errbuf[ PCAP_ERRBUF_SIZE ] = { 0 };
 	struct bpf_program fp;
 	bpf_u_int32 net = 0 , mask = 0;
@@ -95,7 +95,7 @@ _THREAD_FXN void_p proc_pcap_udp_counter( pass_p src_pb )
 	int busy_poll_time = 50;  // microseconds per syscall spin budget
 	M_BREAK_IF( setsockopt( fd , SOL_SOCKET , SO_BUSY_POLL , &busy_poll_time , sizeof( busy_poll_time ) ) < 0 , errSocket , 2 );
 
-	//const char * filter = pb->cpy_cfg.m.m.maintained.in->data.UDP_origin_ports;
+	//const char * filter = pb->cpy_cfg.m.m.cas_maintained.in->data.UDP_origin_ports;
 
 	// Compile and apply filter
 	MM_FMT_BREAK_IF( pcap_compile( pb->comm.acts.p_pcap_udp_counter->pcp_handle , &fp , port_filter[ 0 ] , 1 , mask ) == -1 , errDevice , 2 , "Couldn't parse filter %s\n" , pcap_geterr( pb->comm.acts.p_pcap_udp_counter->pcp_handle ) );

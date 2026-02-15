@@ -84,6 +84,7 @@
 #endif
 
 #ifdef Uses_Bridge
+	#define Uses_issues_h
 	#define Uses_Curl_h_t
 	#define Uses_tcp_h_t
 	#define Uses_alive_t

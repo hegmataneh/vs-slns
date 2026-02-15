@@ -95,13 +95,18 @@
 					"send_throughput_window_sz": 10,
 					"send_throughput_limit_Bps": 0,
 					"send_gap_nsec": 0,
-					"conn_certificate_path": "client.crt",
-					"conn_key_path": "client.key",
-					"ca_crt_path": "ca.crt"
+					"elastic_username": "logtoel",
+					"elastic_pass": "razhmanlogtoel",
+					"elastic_http_agt_CAuth_path": "http_ca.crt",
+					"elastic_doc_index_name": "binesh_sensors_fqdn_stats",
+					"elastic_insertion_protocol": "https",
+					"elastic_insertion_cmd": "_doc"
 				}
 			},
 			"enable": 1,
-			"hide": 0
+			"hide": 0,
+			"issue_list_timeout_sec": 10,
+			"issue_list_count": 20
 		}
 	}
 }

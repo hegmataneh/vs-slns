@@ -1030,12 +1030,14 @@ _CALLBACK_FXN status fast_ring_2_huge_ring( pass_p data , buffer buf , size_t sz
 		_inner_status_error++;
 	}
 
+#define USE_AB_ERR_DUMPER AB_BREAK_MSG_TYPE
 	BEGIN_RET
 	default:
 	{
 		if ( d_error ) DIST_APP_FAILURE();
 	}
 	M_END_RET
+#undef USE_AB_ERR_DUMPER
 }
 
 // 1 . try to send packet under tcp to destination
@@ -1258,6 +1260,8 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 		// if send couldnt happened then we should move forward benchmarking point
 		if ( err_sent != errOK && ptcp )
 		{
+			CHECK_ALL_VARS( imortalErrStr );
+
 			cr_in_wnd_add_packet( &ptcp->brdg_rate_ctrl_loadOnOutBridge , 0 ); // need this
 			////cr_in_wnd_add_packet( &PACKET_MGR().ram_ctrl_loadOnOutBridge , 0 ); // no need for this . just need upper line
 		}
@@ -1410,6 +1414,7 @@ _PRIVATE_FXN _CALLBACK_FXN status send_segment_itm( buffer data , size_t len , p
 
 								if ( err_sent != errOK && ptcp )
 								{
+									CHECK_ALL_VARS( imortalErrStr );
 									cr_in_wnd_add_packet( &ptcp->brdg_rate_ctrl_loadOnOutBridge , 0 );
 									////cr_in_wnd_add_packet( &PACKET_MGR().ram_ctrl_loadOnOutBridge , 0 );
 								}

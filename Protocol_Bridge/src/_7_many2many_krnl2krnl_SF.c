@@ -40,7 +40,7 @@ _PRIVATE_FXN void init_many_tcp( AB * pb , shrt_pth_t * shrtcut )
 		dict_init( &dc_enum_grp_type );
 		for ( int iout = 0 ; iout < *shrtcut->out_count ; iout++ )
 		{
-			dict_put( &dc_enum_grp_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group_type , pb->cpy_cfg.m.m.maintained.out[ iout ].data.group_type );
+			dict_put( &dc_enum_grp_type , pb->cpy_cfg.m.m.cas_maintained.out[ iout ].data.group_type , pb->cpy_cfg.m.m.cas_maintained.out[ iout ].data.group_type );
 		}
 		//size_t key_count = dict_count( &dc_enum_grp_type );
 		//WARNING( key_count > 1 );

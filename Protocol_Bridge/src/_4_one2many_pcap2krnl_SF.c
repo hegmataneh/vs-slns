@@ -64,7 +64,7 @@ _THREAD_FXN void_p proc_one2many_pcap2krnl_SF_udp_pcap( pass_p src_pb )
 #endif
 #endif
 
-	WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
+	WARNING( pb->cpy_cfg.m.m.cas_maintained.in_count == 1 );
 
 	// TODO . implement muti input
 

@@ -40,9 +40,12 @@ typedef struct tcp_conn_cfg_data
 	int send_throughput_window_sz;
 	int send_throughput_limit_Bps;
 
-	char conn_certificate_path[PATH_MAX];
-	char conn_key_path[PATH_MAX];
-	char ca_crt_path[PATH_MAX];
+	char elastic_username[DEFAULT_SFS_BUF_SZ];
+	char elastic_pass[DEFAULT_SFS_BUF_SZ];
+	char elastic_http_agt_CAuth_path[PATH_MAX];
+	char elastic_doc_index_name[DEFAULT_MFS_BUF_SZ];
+	char elastic_insertion_protocol[DEFAULT_BT_BUF_SZ];
+	char elastic_insertion_cmd[DEFAULT_SFS_BUF_SZ];
 
 } tcp_cfg_t;
 
@@ -72,18 +75,23 @@ typedef struct bridge_cfg_0
 
 	} id; // protocol_bridge_cfg_id . must be uniq for each bridge
 
-	struct bridge_maintained_parameter // options that stays in position
+	struct bridge_cascade_maintable_parameter // options that stays in position
 	{
-		udp_cfg_pak_t *in;
+		udp_cfg_pak_t * in;
 		size_t in_count;
 
-		tcp_cfg_pak_t *out;
+		tcp_cfg_pak_t * out;
 		size_t out_count;
+	} cas_maintained;
 
+	struct bridge_solid_maintained_parameter // options that stays in position
+	{
 		int enable;
 		int hide;
+		int issue_list_timeout_sec;
+		int issue_list_count;
 
-	} maintained;
+	} sol_maintained;
 
 	struct bridge_temp_data
 	{

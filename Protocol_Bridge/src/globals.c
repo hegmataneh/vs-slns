@@ -42,6 +42,18 @@ _GLOBAL_VAR _STRONG_ATTR void M_showMsg( LPCSTR msg )
 #endif
 }
 
+_GLOBAL_VAR _STRONG_ATTR void M_showMsg2( LPCSTR msg , void_p v , int typ )
+{
+	if ( typ == AB_BREAK_MSG_TYPE )
+	{
+		if ( v )
+		{
+			AB * pb = ( AB * )v;
+			issue_add( &pb->issues , msg );
+		}
+	}
+}
+
 _GLOBAL_VAR void _Breaked()
 {
 #ifdef Uses_MemLEAK
@@ -536,6 +548,9 @@ _CALLBACK_FXN void outcomm_disconnected( pass_p src_AB_tcp , long v )
 #endif
 }
 
+#endif
+
+#ifndef connection_section
 
 /// <summary>
 /// this function stablish every udp that need to be stablished
@@ -622,9 +637,12 @@ _THREAD_FXN void_p connect_udps_proc( pass_p src_pb )
 		//_g->bridges.under_listen_udp_sockets_group_changed++; // if any udp socket change then fdset must be reinitialized
 	}
 
+
+#define USE_AB_ERR_DUMPER AB_BREAK_MSG_TYPE
 	BEGIN_RET
 	case 1:	DIST_BRIDGE_FAILURE();
 	M_V_END_RET
+#undef USE_AB_ERR_DUMPER
 	return NULL; // Threads can return a value, but this example returns NULL
 }
 
@@ -640,6 +658,7 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 		pb->stat.round_zero_set.tcp_conn_tried_count++;
 
 		tcps_close( &tcp->tcp_h , &imortalErrStr );
+		CHECK_ALL_VARS( imortalErrStr );
 		if ( imortalErrStr[0] )
 		{
 		#ifdef ENABLE_LOGGING
@@ -664,14 +683,14 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 
 		switch ( tcp->tcp_h.type )
 		{
-			case tcph_ssl:
+			//case tcph_ssl:
 			case tcph_tcp:
 			{
-				d_error = tcps_connect_2_ssl_server( &tcp->tcp_h , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT() ,
-					tcp->__tcp_cfg_pak->data.conn_certificate_path , tcp->__tcp_cfg_pak->data.conn_key_path , tcp->__tcp_cfg_pak->data.ca_crt_path , &imortalErrStr );
+				d_error = tcps_connect_2_server( &tcp->tcp_h , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port , BAD_NETWORK_HANDSHAKE_TIMEOUT() , &imortalErrStr );
 
 				if ( d_error != errOK )
 				{
+					CHECK_ALL_VARS( imortalErrStr );
 					if ( imortalErrStr[ 0 ] )
 					{
 #ifdef ENABLE_LOGGING
@@ -701,7 +720,7 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 					MEMSET_ZERO_O( &imortalErrStr );
 					//enable_keepalive_chaotic( tcp->tcp_sockfd , &imortalErrStr ); // to keep alive and try to probe peer in semi normal sitribution time and does not have line up in connction
 					tcps_enable_keepalive( &tcp->tcp_h , &imortalErrStr );
-
+					CHECK_ALL_VARS( imortalErrStr );
 					if ( imortalErrStr[ 0 ] )
 					{
 #ifdef ENABLE_LOGGING
@@ -726,10 +745,17 @@ _PRIVATE_FXN status connect_one_tcp( AB_tcp * tcp )
 			}
 			case tcph_curl:
 			{
-				d_error = tcps_connect_curl( &tcp->tcp_h , &imortalErrStr );
+				d_error = tcps_connect_curl( &tcp->tcp_h , tcp->__tcp_cfg_pak->data.elastic_username , tcp->__tcp_cfg_pak->data.elastic_pass , 
+					tcp->__tcp_cfg_pak->data.elastic_http_agt_CAuth_path , tcp->__tcp_cfg_pak->data.core.TCP_destination_ip , port ,
+					tcp->__tcp_cfg_pak->data.elastic_doc_index_name , tcp->__tcp_cfg_pak->data.elastic_insertion_protocol , tcp->__tcp_cfg_pak->data.elastic_insertion_cmd ,
+					&imortalErrStr );
 				if ( !d_error )
 				{
 					distributor_publish_long( &_g->distributors.bcast_pb_outcomm_connected , NP , ( pass_p )tcp );
+				}
+				else
+				{
+					CHECK_ALL_VARS( imortalErrStr );
 				}
 				return d_error;
 			}
@@ -799,7 +825,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 					{
 						//if ( pb->tcps[ itcp ].tcp_h.type == tcph_curl ) continue;
 						
-						if ( pb->tcps[ itcp ].tcp_h.type == tcph_tcp || pb->tcps[ itcp ].tcp_h.type == tcph_ssl )
+						if ( pb->tcps[ itcp ].tcp_h.type == tcph_tcp /* || pb->tcps[itcp].tcp_h.type == tcph_ssl*/ )
 						{
 							if ( pb->tcps[ itcp ].tcp_h.tcp_conn_established && !_g->cmd.block_sending_1 )
 							{
@@ -868,7 +894,7 @@ _THREAD_FXN void_p thread_tcp_connection_proc( pass_p src_g )
 		if ( d_error ) DIST_APP_FAILURE();
 	}
 	M_V_END_RET
-		return NULL; // Threads can return a value, but this example returns NULL
+	return NULL; // Threads can return a value, but this example returns NULL
 }
 
 #endif

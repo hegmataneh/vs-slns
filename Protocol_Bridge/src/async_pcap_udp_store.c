@@ -77,6 +77,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_pth_t * shrtcut
 	pcap_close( *shrtcut->pcp_handle );
 #endif
 	
+#define USE_AB_ERR_DUMPER AB_BREAK_MSG_TYPE
 	BEGIN_RET
 	case 4:
 	{
@@ -97,6 +98,7 @@ _REGULAR_FXN status stablish_pcap_udp_connection( AB * pb , shrt_pth_t * shrtcut
 		DIST_BRIDGE_FAILURE();
 	}
 	M_V_END_RET
+#undef USE_AB_ERR_DUMPER
 
 	*shrtcut->pcp_handle = NULL; // closed successfully
 	pb->comm.preq.receive_stoped = true;

@@ -52,7 +52,7 @@ _THREAD_FXN void_p proc_many2many_pcap_krnl_SF( pass_p src_pb )
 #endif
 #endif
 
-	//WARNING( pb->cpy_cfg.m.m.maintained.in_count == 1 );
+	//WARNING( pb->cpy_cfg.m.m.cas_maintained.in_count == 1 );
 
 	
 
